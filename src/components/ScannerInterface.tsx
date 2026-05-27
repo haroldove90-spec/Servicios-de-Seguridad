@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Html5QrcodeScanner } from 'html5-qrcode';
+import { Html5Qrcode } from 'html5-qrcode';
 import { Camera, CheckCircle, XCircle, AlertTriangle, RefreshCw, Smartphone, Key, Users, HelpCircle } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { dbService } from '../services/dbService';
@@ -34,7 +34,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
   } | null>(null);
   const [validationType, setValidationType] = useState<LogType>(LogType.CHECK_IN);
   const [quickUsers, setQuickUsers] = useState<AuthorizedUser[]>([]);
-  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+  const scannerRef = useRef<Html5Qrcode | null>(null);
 
   // Advanced Security Modules States
   const [onsitePeople, setOnsitePeople] = useState<{ userId: string; name: string; document: string; time: string }[]>([]);
@@ -160,40 +160,94 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
     };
   }, [panicActive, validationType, currentGuard]);
 
-  // Handle actual QR scanning
+  // Handle actual QR scanning with auto-starting camera stream
   useEffect(() => {
+    let isMounted = true;
+    let html5QrCode: Html5Qrcode | null = null;
+
     if (useCamera) {
-      // Set up the html5-qrcode scanner
-      const scanner = new Html5QrcodeScanner(
-        'qr-live-scanner-box',
-        { 
-          fps: 10, 
-          qrbox: { width: 250, height: 250 },
-          aspectRatio: 1.0,
-        },
-        false
-      );
+      try {
+        // Initialize HTML5 QR Code directly on the target element
+        html5QrCode = new Html5Qrcode('qr-live-scanner-box');
+        scannerRef.current = html5QrCode;
 
-      scanner.render(
-        (decodedText) => {
-          handleVerifyToken(decodedText);
-          // Turn off camera on success to avoid double scanner triggering
+        // Try to start immediately on the rear-facing camera ('environment')
+        html5QrCode.start(
+          { facingMode: 'environment' },
+          { 
+            fps: 10, 
+            qrbox: { width: 250, height: 250 },
+            aspectRatio: 1.0,
+          },
+          (decodedText) => {
+            if (isMounted) {
+              handleVerifyToken(decodedText);
+              // Turn off camera on success
+              setUseCamera(false);
+              if (html5QrCode && html5QrCode.isScanning) {
+                html5QrCode.stop().catch(err => console.warn('Error stopping scanner:', err));
+              }
+            }
+          },
+          () => {
+            // Frame analysis failure, keep checking silently
+          }
+        ).catch(err => {
+          console.warn('Unable to launch rear camera (environment). Attempting front camera...', err);
+          
+          if (isMounted && html5QrCode) {
+            // Fallback directly to the front-facing camera ('user')
+            html5QrCode.start(
+              { facingMode: 'user' },
+              { 
+                fps: 10, 
+                qrbox: { width: 250, height: 250 },
+                aspectRatio: 1.0,
+              },
+              (decodedText) => {
+                if (isMounted) {
+                  handleVerifyToken(decodedText);
+                  setUseCamera(false);
+                  if (html5QrCode && html5QrCode.isScanning) {
+                    html5QrCode.stop().catch(e => console.warn('Error stopping fallback scanner:', e));
+                  }
+                }
+              },
+              () => {
+                // Frame analysis failure, keep checking silently
+              }
+            ).catch(innerErr => {
+              console.error('All camera initialization options failed:', innerErr);
+              if (isMounted) {
+                setPermissionError(
+                  'No se pudo conectar con ninguna de las cámaras. Puedes estar viendo este error por restricciones de iframe o si denegaste el acceso. Intenta abrir en "Nueva pestaña" o habilitar permisos de tu navegador.'
+                );
+                setUseCamera(false);
+              }
+            });
+          }
+        });
+      } catch (setupError) {
+        console.error('Failed to configure direct Html5Qrcode:', setupError);
+        if (isMounted) {
+          setPermissionError('No se pudo inicializar el recurso del escáner.');
           setUseCamera(false);
-          scanner.clear().catch(err => console.warn('Scanner cleanup error', err));
-        },
-        (error) => {
-          // Silent scan failed frames
         }
-      );
-
-      scannerRef.current = scanner;
-
-      return () => {
-        if (scannerRef.current) {
-          scannerRef.current.clear().catch(err => console.warn('Scanner clear error', err));
-        }
-      };
+      }
     }
+
+    return () => {
+      isMounted = false;
+      if (html5QrCode) {
+        try {
+          if (html5QrCode.isScanning) {
+            html5QrCode.stop().catch(err => console.warn('Scanner unmount stop error:', err));
+          }
+        } catch (cleanupError) {
+          console.warn('Error during scanner cleanup:', cleanupError);
+        }
+      }
+    };
   }, [useCamera, validationType]);
 
   const handleVerifyToken = async (token: string) => {
