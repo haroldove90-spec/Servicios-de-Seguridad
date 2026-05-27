@@ -1,0 +1,73 @@
+{
+  "entities": {
+    "AuthorizedUser": {
+      "title": "AuthorizedUser",
+      "description": "A visitor or employee authorized to enter the premises using a scanned QR code.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique key or Firestore auto-ID" },
+        "name": { "type": "string", "description": "Full name of the authorized person" },
+        "documentId": { "type": "string", "description": "ID card, Passport, or register number" },
+        "email": { "type": "string", "description": "Email address" },
+        "phone": { "type": "string", "description": "Phone number" },
+        "status": { "type": "string", "enum": ["active", "suspended", "expired"] },
+        "qrcodeToken": { "type": "string", "description": "Unique cryptographically-random access token inside QR" },
+        "oneTime": { "type": "boolean", "description": "If access is only allowed exactly once" },
+        "used": { "type": "boolean", "description": "Marked true once a single-use QR is scanned for check-in" },
+        "validFrom": { "type": "string", "format": "date-time", "description": "Opening ISO timestamp of valid access" },
+        "validUntil": { "type": "string", "format": "date-time", "description": "Expiration ISO timestamp of valid access" },
+        "days": { "type": "array", "description": "Active weekdays, e.g., [1,2,3,4,5] (Mon-Fri) or [] for all" },
+        "startTime": { "type": "string", "description": "Daily allowed entry start time, e.g., '08:00'" },
+        "endTime": { "type": "string", "description": "Daily allowed entry end time, e.g., '18:00'" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string", "description": "UID of the admin who created this entry" }
+      },
+      "required": ["name", "documentId", "status", "qrcodeToken", "oneTime", "used", "validFrom", "validUntil"]
+    },
+    "AccessLog": {
+      "title": "AccessLog",
+      "description": "Audit trail log generated automatically whenever a QR code is scanned by a security guard.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string", "description": "ID of the scanned AuthorizedUser" },
+        "userName": { "type": "string", "description": "Cached name of the authorized user" },
+        "documentId": { "type": "string", "description": "Cached document ID" },
+        "timestamp": { "type": "string", "format": "date-time", "description": "Logged date and time" },
+        "type": { "type": "string", "enum": ["check-in", "check-out"] },
+        "status": { "type": "string", "enum": ["success", "revoked_user", "outside_schedule", "already_used", "expired_token"] },
+        "guardId": { "type": "string", "description": "UID of the guard who scanned" },
+        "guardName": { "type": "string", "description": "Name of the guard who scanned" }
+      },
+      "required": ["userId", "userName", "timestamp", "type", "status", "guardId", "guardName"]
+    },
+    "SystemRole": {
+      "title": "SystemRole",
+      "description": "User configuration mapping their auth UID to their administrative or security level.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "guard"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "name", "role", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/authorized_users/{userId}": {
+      "schema": "AuthorizedUser",
+      "description": "Premises access clearance list"
+    },
+    "/access_logs/{logId}": {
+      "schema": "AccessLog",
+      "description": "Historic scanning audit logs"
+    },
+    "/system_roles/{uid}": {
+      "schema": "SystemRole",
+      "description": "User authorization database for administrators and guard personnel"
+    }
+  }
+}

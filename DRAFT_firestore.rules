@@ -1,0 +1,115 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 3. Global Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/system_roles/$(request.auth.uid)) && 
+             get(/databases/$(database)/documents/system_roles/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isGuard() {
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/system_roles/$(request.auth.uid)) && 
+             (get(/databases/$(database)/documents/system_roles/$(request.auth.uid)).data.role == 'guard' || 
+              get(/databases/$(database)/documents/system_roles/$(request.auth.uid)).data.role == 'admin');
+    }
+
+    // Validation Blueprint for AuthorizedUser
+    function isValidAuthorizedUser(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() <= 200 &&
+             data.documentId is string && data.documentId.size() > 0 && data.documentId.size() <= 50 &&
+             data.status in ['active', 'suspended', 'expired'] &&
+             data.qrcodeToken is string && data.qrcodeToken.size() > 0 && data.qrcodeToken.size() <= 256 &&
+             data.oneTime is bool &&
+             data.used is bool &&
+             data.validFrom is string && data.validFrom.size() <= 50 &&
+             data.validUntil is string && data.validUntil.size() <= 50;
+    }
+
+    // Validation Blueprint for AccessLog
+    function isValidAccessLog(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.userName is string && data.userName.size() <= 200 &&
+             data.timestamp is string && data.timestamp.size() <= 50 &&
+             data.type in ['check-in', 'check-out'] &&
+             data.status in ['success', 'revoked_user', 'outside_schedule', 'already_used', 'expired_token'] &&
+             data.guardId is string && data.guardId.size() <= 128 &&
+             data.guardName is string && data.guardName.size() <= 200;
+    }
+
+    // Validation Blueprint for SystemRole
+    function isValidSystemRole(data) {
+      return data.email is string && data.email.size() <= 150 &&
+             data.name is string && data.name.size() <= 200 &&
+             data.role in ['admin', 'guard'];
+    }
+
+    // 2. Collection Rules with Master Gates
+
+    // Collection: system_roles
+    match /system_roles/{uid} {
+      allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      // On creation, a system role can be self-assigned to guard/admin OR created by an admin
+      allow create: if isSignedIn() && (
+        (request.auth.uid == uid && isValidSystemRole(incoming())) || isAdmin()
+      );
+      // Only admins can modify existing roles or delete them
+      allow update: if isAdmin() && isValidSystemRole(incoming());
+      allow delete: if isAdmin() && request.auth.uid != uid;
+    }
+
+    // Collection: authorized_users
+    match /authorized_users/{userId} {
+      // Guards and admins can list or read individual visitor credentials
+      allow read: if isGuard();
+      
+      // Only administrators can create new visitors
+      allow create: if isAdmin() && isValidId(userId) && isValidAuthorizedUser(incoming());
+      
+      // Update rules split into Actions
+      allow update: if isGuard() && isValidId(userId) && (
+        // Action A: Administrator performing regular visitor detail adjustment
+        (isAdmin() && isValidAuthorizedUser(incoming())) ||
+        // Action B: Guard marking a single-use QR as 'used' during check-in verification
+        (incoming().diff(existing()).affectedKeys().hasOnly(['used', 'updatedAt']) && incoming().used == true)
+      );
+
+      // Only administrators can delete credentials
+      allow delete: if isAdmin() && isValidId(userId);
+    }
+
+    // Collection: access_logs
+    match /access_logs/{logId} {
+      // Custom read: Only security guards or administrators can access entry analytics
+      allow read: if isGuard();
+      
+      // Append-only logs: Security guards can record log events
+      allow create: if isGuard() && isValidId(logId) && isValidAccessLog(incoming());
+      
+      // Strict block for changes inside log archives
+      allow update, delete: if false;
+    }
+  }
+}
