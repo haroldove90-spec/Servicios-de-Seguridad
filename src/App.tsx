@@ -336,9 +336,10 @@ export default function App() {
   const isAuditor = userRole?.role === SystemUserRole.AUDITOR;
   const isGuard = userRole?.role === SystemUserRole.GUARD;
 
-  const canScan = isAdmin || isSupervisor || isGuard;
+  // Strict role separation for custom dashboards
+  const canScan = isGuard;
   const canCrud = isAdmin || isSupervisor;
-  const canReports = isAdmin || isSupervisor || isGuard || isAuditor;
+  const canReports = isAdmin || isSupervisor || isAuditor;
   const canManageRoles = isAdmin;
 
   // Gracefully redirect the user if they simulation-switch roles and lose tab privilege
