@@ -56,6 +56,33 @@ export default function App() {
   
   // Navigation tabs
   const [activeTab, setActiveTab] = useState<'scan' | 'crud' | 'reports' | 'roles'>('scan');
+  const [hasSelectedRole, setHasSelectedRole] = useState<boolean>(false);
+
+  // Helper to choose active dashboard role and set appropriate tab
+  const handleRoleSelection = (role: SystemUserRole, nameSimulated: string, defaultTab: 'scan' | 'crud' | 'reports' | 'roles') => {
+    setDemoRole(role);
+    setDemoName(nameSimulated);
+    
+    if (IS_FIREBASE_DUMMY) {
+      setUserRole({
+        uid: 'admin-demo-uid',
+        name: nameSimulated,
+        email: 'softwareai569@gmail.com',
+        role: role,
+        createdAt: new Date().toISOString()
+      });
+    } else if (user) {
+      setUserRole({
+        uid: user.uid,
+        name: user.displayName || nameSimulated,
+        email: user.email || 'user@example.com',
+        role: role,
+        createdAt: new Date().toISOString()
+      });
+    }
+    setActiveTab(defaultTab);
+    setHasSelectedRole(true);
+  };
 
   // Load audit trail logs
   const reloadAccessLogs = () => {
@@ -484,35 +511,83 @@ export default function App() {
             </div>
             
             {/* Quick switcher during sandboxed testing */}
-            <div id="live-role-sim-sandbox" className="flex items-center gap-1.5 self-start sm:self-center bg-indigo-950/60 p-0.5 rounded-lg border border-indigo-500/30 shadow-inner">
-              <span className="text-[10px] uppercase font-bold text-indigo-200 px-2">Simular Rol:</span>
+            <div id="live-role-sim-sandbox" className="flex items-center gap-1.5 self-start sm:self-center bg-[#070b13]/90 p-1 rounded-lg border border-slate-800 shadow-inner flex-wrap">
+              <span className="text-[10px] uppercase font-mono font-bold text-slate-400 px-2">Demo:</span>
               <button
                 id="select-sim-role-admin"
                 onClick={() => {
                   setDemoRole(SystemUserRole.ADMIN);
-                  setDemoName('Software AI Admin');
+                  setDemoName('Director Admin (Simulado)');
+                  setHasSelectedRole(true);
+                  setActiveTab('crud');
                 }}
-                className={`px-2 py-1 text-[10px] font-bold rounded-md transition ${
-                  demoRole === SystemUserRole.ADMIN 
-                    ? 'bg-white text-gray-950' 
-                    : 'text-indigo-200 hover:text-white'
+                className={`px-2 py-1 text-[10px] font-bold rounded-md transition cursor-pointer ${
+                  hasSelectedRole && demoRole === SystemUserRole.ADMIN 
+                    ? 'bg-indigo-600 text-white' 
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
                 }`}
               >
-                Director Admin
+                🛠️ Admin
+              </button>
+              <button
+                id="select-sim-role-supervisor"
+                onClick={() => {
+                  setDemoRole(SystemUserRole.SUPERVISOR);
+                  setDemoName('Supervisor de Turno (Simulado)');
+                  setHasSelectedRole(true);
+                  setActiveTab('crud');
+                }}
+                className={`px-2 py-1 text-[10px] font-bold rounded-md transition cursor-pointer ${
+                  hasSelectedRole && demoRole === SystemUserRole.SUPERVISOR 
+                    ? 'bg-emerald-600 text-white' 
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                }`}
+              >
+                ⚡ Supervisor
               </button>
               <button
                 id="select-sim-role-guard"
                 onClick={() => {
                   setDemoRole(SystemUserRole.GUARD);
-                  setDemoName('Guardia Pérez');
+                  setDemoName('Guardia Pérez (Simulado)');
+                  setHasSelectedRole(true);
+                  setActiveTab('scan');
                 }}
-                className={`px-2 py-1 text-[10px] font-bold rounded-md transition ${
-                  demoRole === SystemUserRole.GUARD 
-                    ? 'bg-white text-gray-950' 
-                    : 'text-indigo-200 hover:text-white'
+                className={`px-2 py-1 text-[10px] font-bold rounded-md transition cursor-pointer ${
+                  hasSelectedRole && demoRole === SystemUserRole.GUARD 
+                    ? 'bg-sky-600 text-white' 
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
                 }`}
               >
-                Guardia de Control
+                👮 Guardia
+              </button>
+              <button
+                id="select-sim-role-auditor"
+                onClick={() => {
+                  setDemoRole(SystemUserRole.AUDITOR);
+                  setDemoName('Auditor de Calidad (Simulado)');
+                  setHasSelectedRole(true);
+                  setActiveTab('reports');
+                }}
+                className={`px-2 py-1 text-[10px] font-bold rounded-md transition cursor-pointer ${
+                  hasSelectedRole && demoRole === SystemUserRole.AUDITOR 
+                    ? 'bg-amber-600 text-white' 
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                }`}
+              >
+                🔍 Auditor
+              </button>
+              <div className="h-4 w-px bg-slate-800 mx-1"></div>
+              <button
+                id="select-sim-back-home"
+                onClick={() => setHasSelectedRole(false)}
+                className={`px-2.5 py-1 text-[10px] font-extrabold rounded-md transition cursor-pointer ${
+                  !hasSelectedRole 
+                    ? 'bg-white text-slate-900 border border-transparent' 
+                    : 'text-indigo-400 hover:text-white hover:bg-slate-850'
+                }`}
+              >
+                🏠 Selector Home
               </button>
             </div>
           </div>
@@ -543,50 +618,221 @@ export default function App() {
           </div>
         )}
 
+        {/* Main Welcome Gateway Role Selector (Home screen) */}
+        {(IS_FIREBASE_DUMMY || user) && !hasSelectedRole && (
+          <div id="premises-role-selector-home" className="max-w-5xl mx-auto px-4 mt-8 sm:mt-16 mb-24 animate-fade-in text-center font-sans">
+            
+            {/* Header / Subdued upper banner */}
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-indigo-300 text-[11px] font-bold uppercase tracking-widest mb-6">
+              <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>TERMINAL DE SEGURIDAD PREMISE CONTROL</span>
+            </div>
+
+            <h1 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight leading-none mb-4 animate-fade-in">
+              Portal de Control de Acceso QR
+            </h1>
+            <p className="text-sm sm:text-base text-slate-400 max-w-2xl mx-auto leading-relaxed mb-12 animate-fade-in">
+              Bienvenido al sistema inteligente de gestión de pases y verificación de ingresos. Selecciona el módulo especializado de un rol para acceder a su panel de control independiente.
+            </p>
+
+            {/* Roles Grid Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+              
+              {/* CARD 1: ADMIN */}
+              <div 
+                id="role-gateway-card-admin"
+                onClick={() => handleRoleSelection(SystemUserRole.ADMIN, 'Director Admin (Simulado)', 'crud')}
+                className="group relative bg-[#0f172a]/95 hover:bg-slate-900 border border-slate-800 hover:border-indigo-500/50 rounded-3xl p-6 shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden"
+              >
+                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 blur-3xl rounded-full group-hover:bg-indigo-500/10 transition"></div>
+                
+                <div>
+                  <div className="w-12 h-12 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 transition shrink-0">
+                    <Shield className="w-6 h-6 animate-pulse" />
+                  </div>
+                  <h3 className="text-lg font-extrabold text-white group-hover:text-indigo-400 transition">
+                    Director Administrador
+                  </h3>
+                  <p className="text-xs text-slate-400 leading-relaxed mt-2.5">
+                    Módulo de administración principal. Permite dar de alta, de baja o actualizar visitantes autorizados (CRUD), gestionar y revocar credenciales, crear pases temporales de un solo uso, administrar roles de sistema y auditar la bitácora de eventos.
+                  </p>
+                </div>
+
+                <div className="mt-6 pt-5 border-t border-slate-800/80 flex items-center justify-between font-sans">
+                  <span className="text-[10px] font-bold text-indigo-400 tracking-wider uppercase group-hover:translate-x-1 transition-all">Acceder al Panel Admin →</span>
+                  <span className="text-[9px] bg-indigo-500/15 text-indigo-300 font-mono px-2 py-0.5 rounded-full uppercase">Control Total</span>
+                </div>
+              </div>
+
+              {/* CARD 2: SUPERVISOR */}
+              <div 
+                id="role-gateway-card-supervisor"
+                onClick={() => handleRoleSelection(SystemUserRole.SUPERVISOR, 'Supervisor de Turno (Simulado)', 'crud')}
+                className="group relative bg-[#0f172a]/95 hover:bg-slate-900 border border-slate-800 hover:border-emerald-500/50 rounded-3xl p-6 shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden"
+              >
+                <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 blur-3xl rounded-full group-hover:bg-emerald-500/10 transition"></div>
+                
+                <div>
+                  <div className="w-12 h-12 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 transition shrink-0">
+                    <Users className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-lg font-extrabold text-white group-hover:text-emerald-400 transition">
+                    Supervisor de Turno
+                  </h3>
+                  <p className="text-xs text-slate-400 leading-relaxed mt-2.5">
+                    Módulo de asistencia y monitoreo de credenciales de portería. Permite registrar o inspeccionar pases de visitantes activos, actualizar registros, monitorear el flujo de accesos reales y gestionar incidencias técnicas.
+                  </p>
+                </div>
+
+                <div className="mt-6 pt-5 border-t border-slate-800/80 flex items-center justify-between font-sans">
+                  <span className="text-[10px] font-bold text-emerald-400 tracking-wider uppercase group-hover:translate-x-1 transition-all">Acceder como Supervisor →</span>
+                  <span className="text-[9px] bg-emerald-500/15 text-emerald-300 font-mono px-2 py-0.5 rounded-full uppercase">Gestión &amp; Monitoreo</span>
+                </div>
+              </div>
+
+              {/* CARD 3: GUARD */}
+              <div 
+                id="role-gateway-card-guard"
+                onClick={() => handleRoleSelection(SystemUserRole.GUARD, 'Guardia Pérez (Simulado)', 'scan')}
+                className="group relative bg-[#0f172a]/95 hover:bg-slate-900 border border-slate-800 hover:border-sky-500/50 rounded-3xl p-6 shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden"
+              >
+                <div className="absolute top-0 right-0 w-32 h-32 bg-sky-500/5 blur-3xl rounded-full group-hover:bg-sky-500/10 transition"></div>
+                
+                <div>
+                  <div className="w-12 h-12 bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 transition shrink-0">
+                    <ScanLine className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-lg font-extrabold text-white group-hover:text-sky-400 transition">
+                    Guardia de Caseta (Portería)
+                  </h3>
+                  <p className="text-xs text-slate-400 leading-relaxed mt-2.5">
+                    Terminal directo del lector QR. Activa la cámara para realizar el escaneo instantáneo y validación horaria de pases. Emite alertas audibles/visuales ante pases vencidos o suspendidos para autorizar el ingreso seguro de vehículos y personas.
+                  </p>
+                </div>
+
+                <div className="mt-6 pt-5 border-t border-slate-800/80 flex items-center justify-between font-sans">
+                  <span className="text-[10px] font-bold text-sky-400 tracking-wider uppercase group-hover:translate-x-1 transition-all">Ingresar a Caseta →</span>
+                  <span className="text-[9px] bg-sky-500/15 text-sky-300 font-mono px-2 py-0.5 rounded-full uppercase">Terminal Escáner</span>
+                </div>
+              </div>
+
+              {/* CARD 4: AUDITOR */}
+              <div 
+                id="role-gateway-card-auditor"
+                onClick={() => handleRoleSelection(SystemUserRole.AUDITOR, 'Auditor de Calidad (Simulado)', 'reports')}
+                className="group relative bg-[#0f172a]/95 hover:bg-slate-900 border border-slate-800 hover:border-amber-500/50 rounded-3xl p-6 shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden"
+              >
+                <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 blur-3xl rounded-full group-hover:bg-amber-500/10 transition"></div>
+                
+                <div>
+                  <div className="w-12 h-12 bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 transition shrink-0">
+                    <FileBarChart2 className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-lg font-extrabold text-white group-hover:text-amber-400 transition">
+                    Auditor de Cumplimiento
+                  </h3>
+                  <p className="text-xs text-slate-400 leading-relaxed mt-2.5">
+                    Módulo de reportería histórica y cumplimiento operacional. Proporciona visualización y filtros del historial completo de accesos registrados por todos los guardias, exportación de registros a CSV y PDF, y métricas.
+                  </p>
+                </div>
+
+                <div className="mt-6 pt-5 border-t border-slate-800/80 flex items-center justify-between font-sans">
+                  <span className="text-[10px] font-bold text-amber-400 tracking-wider uppercase group-hover:translate-x-1 transition-all">Ingresar a Auditoría →</span>
+                  <span className="text-[9px] bg-amber-500/15 text-amber-300 font-mono px-2 py-0.5 rounded-full uppercase">Visor Histórico</span>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Quick Helper Info */}
+            <div className="mt-16 p-6 bg-[#0f172a]/60 rounded-2xl border border-slate-800 max-w-2xl mx-auto text-left flex items-start gap-4 font-sans">
+              <Sparkles className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
+              <div>
+                <h4 className="text-xs font-extrabold text-white uppercase tracking-wider">¿Cómo funciona la simulación?</h4>
+                <p className="text-xs text-slate-400 leading-relaxed mt-1">
+                  Esta pantalla representa la separación de dashboards según el perfil de seguridad del usuario. Al presionar una opción, la plataforma adoptará temporalmente dicho perfil de privilegios y adaptará los menús correspondientes. Puedes presionar <strong>"Cambiar de Rol"</strong> dentro de la plataforma para volver a esta pantalla principal en cualquier momento.
+                </p>
+              </div>
+            </div>
+
+            {/* Signout of platform option (for real Firebase accounts) */}
+            {!IS_FIREBASE_DUMMY && user && (
+              <button
+                id="home-selector-signout-google"
+                onClick={handleSignOut}
+                className="mt-8 inline-flex items-center gap-2 text-xs text-slate-500 hover:text-white transition duration-200 cursor-pointer"
+              >
+                <LogOut className="w-4 h-4" /> Desconectarte de la cuenta Google ({user.email})
+              </button>
+            )}
+
+          </div>
+        )}
+
         {/* Primary Operational workspace */}
-        {(IS_FIREBASE_DUMMY || user) && (
-          <div id="dashboard-workspace-cabinet" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        {(IS_FIREBASE_DUMMY || user) && hasSelectedRole && (
+          <div id="dashboard-workspace-cabinet" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-fade-in">
             
             {/* Header section */}
             <div id="premises-dashboard-header" className="flex flex-col md:flex-row md:items-center md:justify-between bg-slate-900/50 p-5 rounded-2xl border border-slate-800 gap-4">
               <div>
                 <div className="flex items-center gap-2 text-[11px] font-bold text-indigo-400 uppercase tracking-widest">
                   <ShieldCheck className="w-4 h-4 shrink-0 text-emerald-400" />
-                  <span>Seguridad &amp; Premises Access Control</span>
+                  <span>PREMISES ACCESS CONTROL  —  DASHBOARD {userRole?.role === SystemUserRole.ADMIN 
+                    ? 'ADMINISTRATOR' 
+                    : userRole?.role === SystemUserRole.SUPERVISOR 
+                    ? 'SUPERVISOR' 
+                    : userRole?.role === SystemUserRole.AUDITOR 
+                    ? 'AUDITOR CUMPLIMIENTO' 
+                    : 'GUARDIA DE SEGURIDAD'}</span>
                 </div>
                 <h1 className="text-2xl font-extrabold text-white tracking-tight mt-1">Control de Acceso QR</h1>
               </div>
 
-              {/* Connected Account status card */}
-              <div id="authentication-status-badge" className="flex items-center gap-3 bg-[#0f172a] border border-[#1e293b] p-2.5 rounded-2xl shadow-md self-start">
-                <div className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-bold text-xs">
-                  {userRole?.name.slice(0, 2).toUpperCase()}
+              {/* Connected Account status card & Exit/Switch Controls */}
+              <div className="flex flex-wrap items-center gap-3">
+                <div id="authentication-status-badge" className="flex items-center gap-3 bg-[#0f172a] border border-[#1e293b] p-2.5 rounded-2xl shadow-md self-start">
+                  <div className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-bold text-xs">
+                    {userRole?.name.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="text-left">
+                    <p className="text-xs font-bold text-slate-200 leading-none">{userRole?.name}</p>
+                    <p className="text-[10px] text-slate-400 leading-none mt-1.5 uppercase font-semibold">
+                      Rol: {userRole?.role === SystemUserRole.ADMIN 
+                        ? 'Director Admin 🛡️' 
+                        : userRole?.role === SystemUserRole.SUPERVISOR 
+                        ? 'Supervisor Turno ⚡' 
+                        : userRole?.role === SystemUserRole.AUDITOR 
+                        ? 'Auditor Cumplimiento 🔍' 
+                        : 'Guardia de Acceso 👮'}
+                    </p>
+                  </div>
+                  
+                  {/* Signout button */}
+                  {!IS_FIREBASE_DUMMY && user && (
+                    <button
+                      id="auth-signout-trigger-btn"
+                      onClick={handleSignOut}
+                      className="ml-2 p-1.5 bg-slate-850 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-705 rounded-lg transition cursor-pointer text-xs"
+                      title="Cerrar de Sesión"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
-                <div className="text-left">
-                  <p className="text-xs font-bold text-slate-200 leading-none">{userRole?.name}</p>
-                  <p className="text-[10px] text-slate-400 leading-none mt-1.5 uppercase font-semibold">
-                    Rol: {userRole?.role === SystemUserRole.ADMIN 
-                      ? 'Director Admin 🛡️' 
-                      : userRole?.role === SystemUserRole.SUPERVISOR 
-                      ? 'Supervisor Turno ⚡' 
-                      : userRole?.role === SystemUserRole.AUDITOR 
-                      ? 'Auditor Cumplimiento 🔍' 
-                      : 'Guardia de Acceso 👮'}
-                  </p>
-                </div>
-                
-                {/* Signout button */}
-                {!IS_FIREBASE_DUMMY && user && (
-                  <button
-                    id="auth-signout-trigger-btn"
-                    onClick={handleSignOut}
-                    className="ml-2 p-1.5 bg-slate-800 text-slate-400 hover:text-white border border-slate-700 rounded-lg transition"
-                    title="Cerrar Sesión"
-                  >
-                    <LogOut className="w-3.5 h-3.5" />
-                  </button>
-                )}
+
+                {/* Switch / Change Role dashboard exit trigger requested by user */}
+                <button
+                  id="btn-logout-role-to-home"
+                  onClick={() => setHasSelectedRole(false)}
+                  className="flex items-center gap-1.5 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 hover:text-rose-100 border border-rose-500/25 px-4 py-2.5 rounded-2xl text-xs font-bold transition duration-200 cursor-pointer shadow-lg shadow-black/30"
+                  title="Salir de esta vista y volver al portal de roles"
+                >
+                  <LogOut className="w-4 h-4 text-rose-450" />
+                  <span>Cerrar Módulo / Salir</span>
+                </button>
               </div>
+
             </div>
 
             {/* COLLAPSIBLE DEMO PLAYGROUND & CLIENT WALKTHROUGH BOX */}
