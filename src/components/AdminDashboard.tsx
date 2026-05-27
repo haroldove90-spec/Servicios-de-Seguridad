@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import QRCode from 'qrcode';
 import { 
   Plus, Search, Edit2, Trash2, QrCode, Download, Copy, Check, X, Calendar, 
@@ -315,7 +316,7 @@ export default function AdminDashboard({ onUsersUpdated }: AdminDashboardProps) 
       </div>
 
       {/* FORM MODAL PANEL (SLIDE / DIALOG OVERLAY) */}
-      {isFormOpen && (
+      {isFormOpen && createPortal(
         <div id="overlay-visitor-crud" className="fixed inset-0 bg-[#020617]/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
           <div id="visitor-form-modal-body" className="bg-[#0f172a] rounded-2xl border border-[#1e293b] shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
             <div className="p-5 border-b border-[#1e293b] flex items-center justify-between">
@@ -534,11 +535,12 @@ export default function AdminDashboard({ onUsersUpdated }: AdminDashboardProps) 
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* QR MODAL PREVIEW OVERLAY */}
-      {selectedQRUser && (
+      {selectedQRUser && createPortal(
         <div id="overlay-qr-display" className="fixed inset-0 bg-[#020617]/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
           <div id="qr-display-body" className="bg-[#0f172a] rounded-2xl border border-[#1e293b] shadow-2xl max-w-sm w-full p-6 text-center text-xs text-slate-200">
             <div className="flex justify-between items-center pb-3 border-b border-[#1e293b] mb-6">
@@ -616,7 +618,8 @@ export default function AdminDashboard({ onUsersUpdated }: AdminDashboardProps) 
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

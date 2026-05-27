@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Shield, ShieldCheck, UserPlus, Trash2, Check, X, ShieldAlert, Key, 
   Search, Eye, HelpCircle, Users, Settings, Smartphone, Clipboard, FileText, AlertTriangle 
@@ -391,7 +392,7 @@ export default function RolesManager({
       </div>
 
       {/* FORM REGISTRATION OVERLAY DIALOG */}
-      {isFormOpen && (
+      {isFormOpen && createPortal(
         <div id="overlay-operator-crud" className="fixed inset-0 bg-[#020617]/75 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
           <div id="operator-form-modal-body" className="bg-[#0f172a] rounded-2xl border border-[#1e293b] shadow-2xl max-w-md w-full overflow-hidden">
             <div className="p-5 border-b border-[#1e293b] flex items-center justify-between bg-slate-900/50">
@@ -476,7 +477,8 @@ export default function RolesManager({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>
