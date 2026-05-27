@@ -94,6 +94,21 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
     reloadOnsitePeople();
   }, [scanResult]);
 
+  // Handle custom simulated scan event trigger for demo flows
+  useEffect(() => {
+    const handleSimulatedScan = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      if (customEvent.detail) {
+        setScanResult(null);
+        handleVerifyToken(customEvent.detail);
+      }
+    };
+    window.addEventListener('simulate-qr-scan', handleSimulatedScan);
+    return () => {
+      window.removeEventListener('simulate-qr-scan', handleSimulatedScan);
+    };
+  }, [panicActive, validationType, currentGuard]);
+
   // Handle actual QR scanning
   useEffect(() => {
     if (useCamera) {

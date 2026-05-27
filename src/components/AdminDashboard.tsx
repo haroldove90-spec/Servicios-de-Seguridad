@@ -607,8 +607,8 @@ export default function AdminDashboard({ onUsersUpdated }: AdminDashboardProps) 
               <button
                 id="btn-share-pass-placeholder"
                 onClick={() => {
-                  navigator.clipboard.writeText(`${window.location.origin}/access/${selectedQRUser.qrcodeToken}`);
-                  alert('¡Enlace de pase público copiado al portapapeles!');
+                  navigator.clipboard.writeText(`${window.location.origin}/?pass=${selectedQRUser.qrcodeToken}`);
+                  alert('¡Enlace de pase público copiado al portapapeles! Ábrelo en tu teléfono móvil para realizar la prueba de cámara o en una pestaña nueva para simular.');
                 }}
                 className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl text-xs transition cursor-pointer"
               >
