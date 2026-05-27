@@ -42,6 +42,57 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
   const [votedFeatures, setVotedFeatures] = useState<string[]>([]);
   const [checklistFeedback, setChecklistFeedback] = useState<string>('');
 
+  // Camera & Mobile permissions manager hook
+  const [cameraPermission, setCameraPermission] = useState<'prompt' | 'granted' | 'denied' | 'checking'>('checking');
+  const [permissionError, setPermissionError] = useState<string | null>(null);
+
+  const checkCameraPermission = async () => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setCameraPermission('denied');
+      setPermissionError('Este navegador o entorno iframe no ofrece acceso directo de cámara. Para realizar pruebas reales con cámara, abre la aplicación usando el botón de "Abrir en nueva pestaña" en la esquina superior.');
+      return;
+    }
+    
+    try {
+      if (navigator.permissions && navigator.permissions.query) {
+        const result = await navigator.permissions.query({ name: 'camera' as any });
+        setCameraPermission(result.state as 'prompt' | 'granted' | 'denied');
+        result.onchange = () => {
+          setCameraPermission(result.state as 'prompt' | 'granted' | 'denied');
+        };
+      } else {
+        setCameraPermission('prompt');
+      }
+    } catch {
+      // If permissions.query fails or is not supported/restricted in iframe, default to prompt
+      setCameraPermission('prompt');
+    }
+  };
+
+  useEffect(() => {
+    checkCameraPermission();
+  }, []);
+
+  const requestCameraPermission = async () => {
+    setPermissionError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      // Release tracks immediately
+      stream.getTracks().forEach(track => track.stop());
+      setCameraPermission('granted');
+      return true;
+    } catch (err: any) {
+      console.warn('Error requesting camera permission:', err);
+      setCameraPermission('denied');
+      setPermissionError(
+        err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError'
+          ? 'Se denegó el acceso a la cámara. Por favor presiona el candado en la barra del navegador para restablecer los permisos de cámara de este sitio.'
+          : `Error de cámara: ${err.message || err}`
+      );
+      return false;
+    }
+  };
+
   // Pull onsite visitors
   const reloadOnsitePeople = async () => {
     try {
@@ -446,22 +497,77 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
               </button>
             </div>
           ) : (
-            <div id="camera-idle-view" className="flex flex-col items-center justify-center border-2 border-dashed border-slate-800 rounded-xl p-10 bg-slate-950 text-center min-h-[300px]">
-              <div className="w-14 h-14 bg-slate-900 rounded-full flex items-center justify-center border border-slate-850 shadow-xs mb-3 text-slate-400 relative overflow-hidden">
+            <div id="camera-idle-view" className="flex flex-col items-center justify-center border-2 border-dashed border-slate-800 rounded-xl p-6 sm:p-10 bg-slate-950 text-center min-h-[300px] space-y-5">
+              <div className="w-14 h-14 bg-slate-900 rounded-full flex items-center justify-center border border-slate-850 shadow-xs text-slate-400 relative overflow-hidden mx-auto">
                 <div className="scan-overlay opacity-30"></div>
                 <Camera className="w-6 h-6 text-indigo-400" />
               </div>
-              <h3 className="text-sm font-medium text-slate-200">Escáner Óptico de Cámara</h3>
-              <p className="text-xs text-slate-400 max-w-sm mt-1 mb-5">
-                Utiliza tu cámara frontal o trasera para leer los códigos QR en tiempo real para autorizar registros de entrada o salida.
-              </p>
+              
+              <div>
+                <h3 className="text-sm font-medium text-slate-200">Escáner Óptico de Cámara</h3>
+                <p className="text-xs text-slate-400 max-w-sm mt-1 mx-auto leading-relaxed">
+                  Utiliza tu cámara frontal o trasera para leer los códigos QR en tiempo real para autorizar registros de entrada o salida.
+                </p>
+              </div>
+
+              {/* Real-time Permission Checker Status Panel */}
+              <div className="w-full max-w-sm bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 text-center space-y-3 font-sans">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Permiso de Dispositivo:</span>
+                  {cameraPermission === 'checking' ? (
+                    <span className="text-[10px] font-bold text-blue-400 flex items-center gap-1">
+                      <RefreshCw className="w-3 h-3 animate-spin" /> Verificando...
+                    </span>
+                  ) : cameraPermission === 'granted' ? (
+                    <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                      ✓ Autorizado
+                    </span>
+                  ) : cameraPermission === 'denied' ? (
+                    <span className="text-[10px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                      ✗ Bloqueado
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                      ⚡ Pendientes
+                    </span>
+                  )}
+                </div>
+
+                {permissionError && (
+                  <p className="text-[11px] text-slate-350 leading-relaxed text-left bg-slate-950/80 p-2.5 rounded-xl border border-rose-500/10 font-mono text-amber-300">
+                    {permissionError}
+                  </p>
+                )}
+
+                {cameraPermission !== 'granted' && (
+                  <button
+                    id="btn-request-explicit-camera-perms"
+                    onClick={async () => {
+                      const granted = await requestCameraPermission();
+                      if (granted) {
+                        setScanResult(null);
+                        setUseCamera(true);
+                      }
+                    }}
+                    className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-205 text-xs font-bold rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <Smartphone className="w-3.5 h-3.5 text-indigo-400" /> Solicitar Permiso de Cámara
+                  </button>
+                )}
+              </div>
+
+              {/* Main scan Trigger Button */}
               <button
                 id="btn-trigger-camera-opt"
-                onClick={() => {
+                onClick={async () => {
                   setScanResult(null);
+                  if (cameraPermission !== 'granted') {
+                    const ok = await requestCameraPermission();
+                    if (!ok) return; // Wait for explicit authorization
+                  }
                   setUseCamera(true);
                 }}
-                className="inline-flex items-center gap-2 justify-center px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-xl transition shadow-sm cursor-pointer"
+                className="inline-flex items-center gap-2 justify-center px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-xl transition shadow-sm cursor-pointer w-full max-w-sm"
               >
                 <Smartphone className="w-4 h-4" /> Activar Cámara de Escaneo
               </button>
