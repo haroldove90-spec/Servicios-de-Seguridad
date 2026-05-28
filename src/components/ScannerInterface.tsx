@@ -551,10 +551,10 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
               </button>
             </div>
           ) : (
-            <div id="camera-idle-view" className="flex flex-col items-center justify-center border-2 border-dashed border-slate-800 rounded-xl p-6 sm:p-10 bg-slate-950 text-center min-h-[300px] space-y-5">
-              <div className="w-14 h-14 bg-slate-900 rounded-full flex items-center justify-center border border-slate-850 shadow-xs text-slate-400 relative overflow-hidden mx-auto">
+            <div id="camera-idle-view" className="flex flex-col items-center justify-center border-2 border-dashed border-zinc-800 rounded-xl p-6 sm:p-10 bg-slate-950 text-center min-h-[300px] space-y-5">
+              <div className="w-14 h-14 bg-zinc-900 rounded-full flex items-center justify-center border border-zinc-850 shadow-xs text-slate-400 relative overflow-hidden mx-auto">
                 <div className="scan-overlay opacity-30"></div>
-                <Camera className="w-6 h-6 text-indigo-400" />
+                <Camera className="w-6 h-6 text-red-500" />
               </div>
               
               <div>
@@ -603,9 +603,9 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
                         setUseCamera(true);
                       }
                     }}
-                    className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-205 text-xs font-bold rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5"
+                    className="w-full py-2 bg-zinc-800 hover:bg-zinc-700 text-slate-200 text-xs font-bold rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5"
                   >
-                    <Smartphone className="w-3.5 h-3.5 text-indigo-400" /> Solicitar Permiso de Cámara
+                    <Smartphone className="w-3.5 h-3.5 text-red-500" /> Solicitar Permiso de Cámara
                   </button>
                 )}
               </div>
@@ -621,7 +621,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
                   }
                   setUseCamera(true);
                 }}
-                className="inline-flex items-center gap-2 justify-center px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-xl transition shadow-sm cursor-pointer w-full max-w-sm"
+                className="inline-flex items-center gap-2 justify-center px-5 py-2.5 bg-red-600 hover:bg-red-500 text-white text-sm font-semibold rounded-xl transition shadow-sm cursor-pointer w-full max-w-sm"
               >
                 <Smartphone className="w-4 h-4" /> Activar Cámara de Escaneo
               </button>
@@ -630,11 +630,11 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
         </div>
 
         {/* Sandbox Simulation Frame for instant testing */}
-        <div id="simulation-sandbox-tray" className="mt-8 border-t border-[#1e293b] pt-6">
+        <div id="simulation-sandbox-tray" className="mt-8 border-t border-zinc-900 pt-6">
           <div className="flex items-center gap-2 mb-3">
             <span className="flex h-2 w-2 relative">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
             </span>
             <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Pruebas Manuales y Simulación de QR</label>
           </div>
@@ -717,8 +717,8 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
 
               {scanResult.user && (
                 <div id="verdict-visitor-profile-card" className="w-full bg-slate-950 border border-slate-850 rounded-xl p-4 mt-6 text-left text-xs space-y-2.5">
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider pb-1.5 border-b border-slate-850 flex items-center gap-1">
-                    <Users className="w-3.5 h-3.5 text-indigo-400" /> Perfil del Visitante
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider pb-1.5 border-b border-zinc-850 flex items-center gap-1">
+                    <Users className="w-3.5 h-3.5 text-red-500" /> Perfil del Visitante
                   </p>
                   <div className="grid grid-cols-2 gap-y-2 gap-x-4 pt-1">
                     <div>
@@ -727,7 +727,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
                     </div>
                     <div>
                       <p className="text-slate-500 font-medium">Documento de Identidad</p>
-                      <p className="font-semibold text-indigo-300 font-mono">{scanResult.user.documentId}</p>
+                      <p className="font-semibold text-red-400 font-mono">{scanResult.user.documentId}</p>
                     </div>
                     <div>
                       <p className="text-slate-500 font-medium">Tipo de Acceso</p>
@@ -741,13 +741,13 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
                     </div>
                   </div>
 
-                  <div className="border-t border-dashed border-slate-850 pt-2.5 mt-2.5 grid grid-cols-1 gap-y-1">
+                  <div className="border-t border-dashed border-zinc-850 pt-2.5 mt-2.5 grid grid-cols-1 gap-y-1">
                     <p className="text-slate-400 font-medium leading-relaxed">
                       Este pase es válido del: <span className="font-semibold text-slate-205">{new Date(scanResult.user.validFrom).toLocaleDateString()}</span> al <span className="font-semibold text-slate-205">{new Date(scanResult.user.validUntil).toLocaleDateString()}</span>.
                     </p>
                     {scanResult.user.startTime && (
                       <p className="text-slate-450 font-medium">
-                        Horario Diario: <span className="font-semibold text-indigo-400">{scanResult.user.startTime} - {scanResult.user.endTime}</span>
+                        Horario Diario: <span className="font-semibold text-red-500">{scanResult.user.startTime} - {scanResult.user.endTime}</span>
                       </p>
                     )}
                   </div>
@@ -757,24 +757,24 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
               <button
                 id="btn-scan-verdict-clear"
                 onClick={() => setScanResult(null)}
-                className="mt-8 inline-flex items-center gap-2 justify-center px-4 py-2 bg-slate-800 hover:bg-slate-705 text-slate-200 text-xs font-semibold rounded-xl transition border border-slate-700"
+                className="mt-8 inline-flex items-center gap-2 justify-center px-4 py-2 bg-zinc-800 hover:bg-zinc-750 text-slate-200 text-xs font-semibold rounded-xl transition border border-zinc-700"
               >
                 <RefreshCw className="w-3.5 h-3.5" /> Escanear Nuevo Código
               </button>
             </div>
           ) : (
             <div id="verdict-idle-guide" className="text-center py-10">
-              <div className="w-16 h-16 bg-slate-950 rounded-full flex items-center justify-center border border-slate-850 shadow-sm mx-auto mb-4 text-slate-400 relative overflow-hidden">
+              <div className="w-16 h-16 bg-slate-950 rounded-full flex items-center justify-center border border-zinc-850 shadow-sm mx-auto mb-4 text-slate-400 relative overflow-hidden">
                 <div className="scan-overlay opacity-20"></div>
-                <Smartphone className="w-7 h-7 text-indigo-500 animate-pulse" />
+                <Smartphone className="w-7 h-7 text-red-500 animate-pulse" />
               </div>
               <h3 className="text-base font-semibold text-slate-200">Esperando Lectura de Código</h3>
               <p className="text-xs text-slate-400 max-w-xs mx-auto mt-2 leading-relaxed">
                 Escanea un QR o introduce datos en el panel simulador de la izquierda para desplegar el dictamen automático de entrada/salida y revisar credenciales.
               </p>
-              <div id="active-guard-context-card" className="mt-8 inline-block bg-[#020617] border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-300 text-left">
-                <p className="font-semibold text-indigo-400">Operador Activo:</p>
-                <p className="text-slate-300 mt-0.5">{currentGuard?.name} • <span className="font-mono text-indigo-300">{currentGuard?.uid}</span></p>
+              <div id="active-guard-context-card" className="mt-8 inline-block bg-black border border-zinc-800 rounded-xl px-4 py-2.5 text-xs text-slate-300 text-left">
+                <p className="font-semibold text-red-500">Residente Autenticado:</p>
+                <p className="text-slate-300 mt-0.5">{currentGuard?.name} • <span className="font-mono text-red-400">{currentGuard?.uid}</span></p>
               </div>
             </div>
           )}
@@ -828,7 +828,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
       <div id="bento-occupancy-card" className="md:col-span-4 bg-[#0f172a] border border-[#1e293b] rounded-2xl p-5 flex flex-col justify-between min-h-[220px]">
         <div className="space-y-3 w-full">
           <div className="flex items-center justify-between">
-            <span className="px-2 py-1 text-[9px] font-bold text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 rounded-md uppercase tracking-widest">Control de Tránsito</span>
+            <span className="px-2 py-1 text-[9px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 rounded-md uppercase tracking-widest">Control de Tránsito</span>
             <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-400">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
               <span>En Sitio: {onsitePeople.length}</span>
@@ -850,7 +850,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
                 <button
                   id={`onsite-checkout-${p.userId}`}
                   onClick={() => handleForceCheckout(p.userId, p.name, p.document)}
-                  className="px-2 py-1 bg-slate-900 border border-slate-800 hover:border-indigo-500 hover:bg-indigo-950/20 text-slate-400 hover:text-indigo-400 rounded-lg text-[9px] font-bold transition shrink-0 cursor-pointer"
+                  className="px-2 py-1 bg-slate-900 border border-slate-800 hover:border-red-500 hover:bg-red-950/20 text-slate-400 hover:text-red-400 rounded-lg text-[9px] font-bold transition shrink-0 cursor-pointer"
                 >
                   Salida
                 </button>
@@ -887,7 +887,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
 
           <div id="checklist-items-stack" className="space-y-2 max-h-[110px] overflow-y-auto pr-1">
             <div className="flex items-start gap-1.5 text-[10px]">
-              <input type="checkbox" checked readOnly className="mt-0.5 pointer-events-none accent-indigo-500 shrink-0" />
+              <input type="checkbox" checked readOnly className="mt-0.5 pointer-events-none accent-red-500 shrink-0" />
               <div className="leading-tight">
                 <p className="font-bold text-emerald-400">✓ Roles y Permisos RBAC Activados</p>
                 <p className="text-[9px] text-slate-500">Módulos restringidos para Admin/Guardia/Supervisores</p>
@@ -895,7 +895,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
             </div>
 
             <div className="flex items-start gap-1.5 text-[10px]">
-              <input type="checkbox" checked readOnly className="mt-0.5 pointer-events-none accent-indigo-500 shrink-0" />
+              <input type="checkbox" checked readOnly className="mt-0.5 pointer-events-none accent-red-500 shrink-0" />
               <div className="leading-tight">
                 <p className="font-bold text-emerald-400">✓ Restricciones Horario y Fechas</p>
                 <p className="text-[9px] text-slate-500">Doble bloqueo horario diario e intramatutino</p>

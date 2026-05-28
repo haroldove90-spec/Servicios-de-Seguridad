@@ -204,7 +204,7 @@ export default function AdminDashboard({ onUsersUpdated }: AdminDashboardProps) 
         <button
           id="btn-register-new-visitor"
           onClick={handleOpenCreateForm}
-          className="inline-flex items-center gap-2 justify-center px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl transition shadow-xs cursor-pointer"
+          className="inline-flex items-center gap-2 justify-center px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-semibold text-xs rounded-xl transition shadow-xs cursor-pointer"
         >
           <UserPlus className="w-4 h-4" /> Registrar Autorizado
         </button>
@@ -216,7 +216,7 @@ export default function AdminDashboard({ onUsersUpdated }: AdminDashboardProps) 
           <div 
             key={user.id} 
             id={`visitor-card-${user.id}`}
-            className="bg-[#0f172a] rounded-2xl border border-[#1e293b] p-5 shadow-2xl relative flex flex-col justify-between hover:border-slate-700 transition-all animate-fade-in-up"
+            className="bg-[#2A2A2E] rounded-2xl border border-[#3e3e42] p-5 shadow-2xl relative flex flex-col justify-between hover:border-slate-650 transition-all animate-fade-in-up"
           >
             <div>
               {/* Badge row */}
@@ -234,7 +234,7 @@ export default function AdminDashboard({ onUsersUpdated }: AdminDashboardProps) 
                 <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border uppercase ${
                   user.oneTime 
                     ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' 
-                    : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
+                    : 'bg-red-500/15 text-red-400 border-red-500/25'
                 }`}>
                   {user.oneTime ? 'Pase Único' : 'Frecuente'}
                 </span>
@@ -242,7 +242,7 @@ export default function AdminDashboard({ onUsersUpdated }: AdminDashboardProps) 
 
               {/* Identity Row */}
               <h3 className="font-bold text-slate-100 text-sm tracking-tight">{user.name}</h3>
-              <p className="text-[10px] text-slate-400 font-mono mt-0.5">C.I. / R.U.T. : <span className="font-semibold text-indigo-300 font-bold">{user.documentId}</span></p>
+              <p className="text-[10px] text-slate-400 font-mono mt-0.5">C.I. / R.U.T. : <span className="font-semibold text-red-400">{user.documentId}</span></p>
 
               {/* Parameters Summary */}
               <div className="mt-4 border-t border-slate-800 pt-3 space-y-2 text-[11px] text-slate-450">
@@ -276,7 +276,7 @@ export default function AdminDashboard({ onUsersUpdated }: AdminDashboardProps) 
               <button
                 id={`btn-show-qr-${user.id}`}
                 onClick={() => setSelectedQRUser(user)}
-                className="inline-flex items-center gap-1.5 text-[11px] font-bold text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-550/20 px-2.5 py-1.5 rounded-lg transition"
+                className="inline-flex items-center gap-1.5 text-[11px] font-bold text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-650/20 px-2.5 py-1.5 rounded-lg transition"
               >
                 <QrCode className="w-3.5 h-3.5" /> Mostrar QR
               </button>
@@ -317,11 +317,11 @@ export default function AdminDashboard({ onUsersUpdated }: AdminDashboardProps) 
 
       {/* FORM MODAL PANEL (SLIDE / DIALOG OVERLAY) */}
       {isFormOpen && createPortal(
-        <div id="overlay-visitor-crud" className="fixed inset-0 bg-[#020617]/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div id="visitor-form-modal-body" className="bg-[#0f172a] rounded-2xl border border-[#1e293b] shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-5 border-b border-[#1e293b] flex items-center justify-between">
+        <div id="overlay-visitor-crud" className="fixed inset-0 bg-black/85 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div id="visitor-form-modal-body" className="bg-[#2A2A2E] rounded-2xl border border-[#3e3e42] shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-5 border-b border-[#3e3e42] flex items-center justify-between">
               <h3 className="text-sm font-bold text-slate-100 uppercase tracking-wider flex items-center gap-2">
-                <Shield className="w-4 h-4 text-indigo-400" /> {editingId ? 'Modificar Pase de Acceso' : 'Emitir Credenciales QR'}
+                <Shield className="w-4 h-4 text-red-500" /> {editingId ? 'Modificar Pase de Acceso' : 'Emitir Credenciales QR'}
               </h3>
               <button 
                 id="btn-close-visitor-form"
@@ -344,7 +344,7 @@ export default function AdminDashboard({ onUsersUpdated }: AdminDashboardProps) 
                     placeholder="Ej. Juan de Dios Pérez"
                     value={formName}
                     onChange={(e) => setFormName(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-805 text-slate-100 rounded-xl focus:border-indigo-550 focus:outline-hidden"
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-805 text-slate-100 rounded-xl focus:border-red-500 focus:outline-hidden"
                   />
                 </div>
 
@@ -357,7 +357,7 @@ export default function AdminDashboard({ onUsersUpdated }: AdminDashboardProps) 
                     placeholder="Ej. 12.345.678-K"
                     value={formDocumentId}
                     onChange={(e) => setFormDocumentId(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-805 text-slate-100 rounded-xl focus:border-indigo-550 focus:outline-hidden"
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-805 text-slate-100 rounded-xl focus:border-red-500 focus:outline-hidden"
                   />
                 </div>
 
@@ -369,7 +369,7 @@ export default function AdminDashboard({ onUsersUpdated }: AdminDashboardProps) 
                     placeholder="visitante@ejemplo.com"
                     value={formEmail}
                     onChange={(e) => setFormEmail(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-805 text-slate-100 rounded-xl focus:border-indigo-550 focus:outline-hidden"
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-805 text-slate-100 rounded-xl focus:border-red-500 focus:outline-hidden"
                   />
                 </div>
 
@@ -381,7 +381,7 @@ export default function AdminDashboard({ onUsersUpdated }: AdminDashboardProps) 
                     placeholder="+56 9 1234 5678"
                     value={formPhone}
                     onChange={(e) => setFormPhone(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-805 text-slate-100 rounded-xl focus:border-indigo-550 focus:outline-hidden"
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-805 text-slate-100 rounded-xl focus:border-red-500 focus:outline-hidden"
                   />
                 </div>
               </div>
@@ -424,7 +424,7 @@ export default function AdminDashboard({ onUsersUpdated }: AdminDashboardProps) 
                     id="select-form-status"
                     value={formStatus}
                     onChange={(e) => setFormStatus(e.target.value as UserStatus)}
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 text-slate-200 rounded-xl focus:border-indigo-500 focus:outline-hidden cursor-pointer"
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 text-slate-202 rounded-xl focus:border-red-500 focus:outline-hidden cursor-pointer"
                   >
                     <option value={UserStatus.ACTIVE}>✓ Activo / Autorizado</option>
                     <option value={UserStatus.SUSPENDED}>⚠ Suspendido</option>
@@ -443,7 +443,7 @@ export default function AdminDashboard({ onUsersUpdated }: AdminDashboardProps) 
                       type="datetime-local"
                       value={formValidFrom}
                       onChange={(e) => setFormValidFrom(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 text-slate-100 rounded-xl focus:border-indigo-500 focus:outline-[#1e293b]"
+                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 text-slate-100 rounded-xl focus:border-red-500 focus:outline-[#1e293b]"
                     />
                   </div>
 
@@ -454,7 +454,7 @@ export default function AdminDashboard({ onUsersUpdated }: AdminDashboardProps) 
                       type="datetime-local"
                       value={formValidUntil}
                       onChange={(e) => setFormValidUntil(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 text-slate-100 rounded-xl focus:border-indigo-500 focus:outline-[#1e293b]"
+                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 text-slate-100 rounded-xl focus:border-red-500 focus:outline-[#1e293b]"
                     />
                   </div>
                 </div>
@@ -471,7 +471,7 @@ export default function AdminDashboard({ onUsersUpdated }: AdminDashboardProps) 
                         onClick={() => handleDayToggle(idx)}
                         className={`px-3 py-1.5 border rounded-lg font-semibold transition ${
                           formDays.includes(idx)
-                            ? 'bg-indigo-600 text-white border-indigo-500'
+                            ? 'bg-red-600 text-white border-red-500'
                             : 'bg-slate-950 text-slate-400 border-slate-800 hover:bg-slate-900'
                         }`}
                       >
@@ -490,7 +490,7 @@ export default function AdminDashboard({ onUsersUpdated }: AdminDashboardProps) 
                       type="time"
                       value={formStartTime}
                       onChange={(e) => setFormStartTime(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 text-slate-100 rounded-xl focus:border-indigo-550 focus:outline-[#1e293b]"
+                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 text-slate-100 rounded-xl focus:border-red-500 focus:outline-[#1e293b]"
                     />
                   </div>
 
@@ -501,34 +501,34 @@ export default function AdminDashboard({ onUsersUpdated }: AdminDashboardProps) 
                       type="time"
                       value={formEndTime}
                       onChange={(e) => setFormEndTime(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 text-slate-100 rounded-xl focus:border-indigo-550 focus:outline-[#1e293b]"
+                      className="w-full px-3 py-2 bg-slate-950 border border-slate-800 text-slate-100 rounded-xl focus:border-red-500 focus:outline-[#1e293b]"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Submit triggers banner */}
-              <div className="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-[11px] text-indigo-350 flex gap-2">
-                <Info className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+              <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-[11px] text-red-300 flex gap-2">
+                <Info className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
                 <p className="leading-relaxed font-semibold">
-                  Al confirmar, encriptamos y generamos la clave única para embeber en el pase QR. Las restricciones son asimiladas al instante por el panel del Guardia.
+                  Al confirmar, encriptamos y generamos la clave única para embeber en el pase QR. Las restricciones son asimiladas al instante por el módulo de acceso.
                 </p>
               </div>
 
               {/* Buttons rows */}
-              <div className="flex gap-2 pt-4 border-t border-slate-800 justify-end">
+              <div className="flex gap-2 pt-4 border-t border-[#3e3e42] justify-end">
                 <button
                   id="btn-cancel-form-process"
                   type="button"
                   onClick={() => setIsFormOpen(false)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-705 font-semibold rounded-xl transition cursor-pointer"
+                  className="px-4 py-2 bg-[#1A1A1E] hover:bg-zinc-800 text-slate-200 border border-[#3e3e42] font-semibold rounded-xl transition cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   id="btn-submit-form-save"
                   type="submit"
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl transition cursor-pointer"
+                  className="px-5 py-2 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-xl transition cursor-pointer"
                 >
                   Guardar Permiso
                 </button>
@@ -541,9 +541,9 @@ export default function AdminDashboard({ onUsersUpdated }: AdminDashboardProps) 
 
       {/* QR MODAL PREVIEW OVERLAY */}
       {selectedQRUser && createPortal(
-        <div id="overlay-qr-display" className="fixed inset-0 bg-[#020617]/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div id="qr-display-body" className="bg-[#0f172a] rounded-2xl border border-[#1e293b] shadow-2xl max-w-sm w-full p-6 text-center text-xs text-slate-200">
-            <div className="flex justify-between items-center pb-3 border-b border-[#1e293b] mb-6">
+        <div id="overlay-qr-display" className="fixed inset-0 bg-black/85 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div id="qr-display-body" className="bg-[#2A2A2E] rounded-2xl border border-[#3e3e42] shadow-2xl max-w-sm w-full p-6 text-center text-xs text-slate-200">
+            <div className="flex justify-between items-center pb-3 border-b border-[#3e3e42] mb-6">
               <h3 className="font-bold text-slate-200 uppercase tracking-wider">Premises Entry Pass (QR)</h3>
               <button 
                 id="btn-close-qr-preview"
@@ -573,14 +573,14 @@ export default function AdminDashboard({ onUsersUpdated }: AdminDashboardProps) 
             <p className="text-[10px] font-mono text-slate-400 mt-0.5">Identificación: <span className="text-slate-300 font-bold">{selectedQRUser.documentId}</span></p>
 
             {/* Quick Test Copy Section */}
-            <div id="quick-copy-token-sandbox" className="mt-4 bg-[#020617] border border-slate-800 p-2 rounded-xl text-left">
+            <div id="quick-copy-token-sandbox" className="mt-4 bg-[#1A1A1E] border border-[#3e3e42] p-2 rounded-xl text-left">
               <div className="flex items-center justify-between text-[10px] text-slate-400 uppercase tracking-wider mb-1">
                 <span>Token del Pase (Para Test)</span>
-                <span className="text-[9px] text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-1.5 rounded-xs font-bold">Test Mode</span>
+                <span className="text-[9px] text-red-400 bg-red-500/10 border border-red-500/20 px-1.5 rounded-xs font-bold font-mono">Test Mode</span>
               </div>
               <div className="flex items-center gap-2">
-                <code className="text-[10px] font-mono text-slate-350 flex-1 truncate block py-1 bg-slate-950 border border-slate-850 rounded px-1.5">
-                  {selectedQRUser.qrcodeToken}
+                <code className="text-[10px] font-mono text-slate-350 flex-1 truncate block py-1 bg-black border border-[#3e3e42] rounded px-1.5">
+                  {selectedQRUser.qrcodeToken.slice(0, 15)}...
                 </code>
                 <button
                   id="btn-copy-test-token"
@@ -602,7 +602,7 @@ export default function AdminDashboard({ onUsersUpdated }: AdminDashboardProps) 
                 id="link-download-qr-image"
                 href={generatedQRUrl}
                 download={`pase_qr_${selectedQRUser.name.replace(/\s+/g, '_').toLowerCase()}.png`}
-                className="inline-flex items-center gap-1.5 justify-center px-4 py-2 border border-slate-800 hover:bg-slate-900 text-slate-300 font-semibold rounded-xl text-xs transition text-center"
+                className="inline-flex items-center gap-1.5 justify-center px-4 py-2 border border-[#3e3e42] hover:bg-slate-900/60 text-slate-300 font-semibold rounded-xl text-xs transition text-center"
               >
                 <Download className="w-3.5 h-3.5" /> Descargar
               </a>
@@ -612,7 +612,7 @@ export default function AdminDashboard({ onUsersUpdated }: AdminDashboardProps) 
                   navigator.clipboard.writeText(`${window.location.origin}/?pass=${selectedQRUser.qrcodeToken}`);
                   alert('¡Enlace de pase público copiado al portapapeles! Ábrelo en tu teléfono móvil para realizar la prueba de cámara o en una pestaña nueva para simular.');
                 }}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl text-xs transition cursor-pointer"
+                className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-xl text-xs transition cursor-pointer"
               >
                 Compartir Pase
               </button>

@@ -133,7 +133,7 @@ export default function RolesManager({
   const getRoleLabel = (r: SystemUserRole) => {
     switch (r) {
       case SystemUserRole.ADMIN: return 'Director Admin 🛡️';
-      case SystemUserRole.GUARD: return 'Guardia de Acceso 👮';
+      case SystemUserRole.GUARD: return 'Residente 🏠';
       case SystemUserRole.SUPERVISOR: return 'Supervisor Turno ⚡';
       case SystemUserRole.AUDITOR: return 'Auditor Cumplimiento 🔍';
       default: return 'Desconocido';
@@ -142,9 +142,9 @@ export default function RolesManager({
 
   const getRoleBadgeStyle = (r: SystemUserRole) => {
     switch (r) {
-      case SystemUserRole.ADMIN: return 'bg-indigo-500/10 text-indigo-400 border-indigo-500/35';
+      case SystemUserRole.ADMIN: return 'bg-red-500/15 text-red-400 border-red-505/30';
       case SystemUserRole.SUPERVISOR: return 'bg-amber-500/10 text-amber-400 border-amber-500/25';
-      case SystemUserRole.GUARD: return 'bg-blue-500/10 text-blue-400 border-blue-500/15';
+      case SystemUserRole.GUARD: return 'bg-zinc-800 text-zinc-300 border-zinc-700';
       case SystemUserRole.AUDITOR: return 'bg-purple-500/10 text-purple-400 border-purple-500/15';
       default: return 'bg-slate-800 text-slate-400 border-slate-700';
     }
@@ -154,7 +154,7 @@ export default function RolesManager({
   const modulePermissions: ModulePermission[] = [
     {
       moduleName: 'Escanear Pase QR',
-      description: 'Cámara de lectura de guardia, verificación instantánea de firmas en cripto-hashes.',
+      description: 'Cámara de lectura de acceso, verificación instantánea de firmas en cripto-hashes.',
       icon: <Smartphone className="w-4 h-4" />,
       rolesWithAccess: [SystemUserRole.ADMIN, SystemUserRole.GUARD, SystemUserRole.SUPERVISOR]
     },
@@ -200,21 +200,21 @@ export default function RolesManager({
     <div id="roles-manager-cabinet-root" className="space-y-6">
       
       {/* Informative panel about roles and modules activation */}
-      <div id="roles-intro-alert-box" className="bg-[#0f172a] border border-[#1e293b] rounded-2xl p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div id="roles-intro-alert-box" className="bg-[#2A2A2E] border border-[#3e3e42] rounded-2xl p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 font-sans">
         <div className="space-y-1">
           <h2 className="text-sm font-bold text-slate-100 flex items-center gap-2 uppercase tracking-wider">
             <ShieldCheck className="w-4 h-4 text-emerald-400" /> Control por Roles Activado (RBAC)
           </h2>
           <p className="text-[11.5px] text-slate-400 leading-relaxed max-w-2xl">
-            Cada módulo del sistema se activa selectivamente según la directriz de seguridad nacional. Los Directores 
-            tienen control total, los Guardias se centran en el scanner operativo, los Supervisores autorizan pases, 
+            Cada módulo del sistema se activa selectivamente según la directriz del reglamento de condominio. Los Directores 
+            tienen control total, los Residentes y Operadores se centran en el scanner operativo, los Supervisores autorizan pases, 
             y los Auditores extraen reportes de cumplimiento técnico.
           </p>
         </div>
         <button
           id="btn-register-new-role-trigger"
           onClick={() => setIsFormOpen(true)}
-          className="inline-flex items-center gap-2 justify-center px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl transition cursor-pointer shrink-0"
+          className="inline-flex items-center gap-2 justify-center px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-xl transition cursor-pointer shrink-0"
         >
           <UserPlus className="w-3.5 h-3.5" /> Registrar Personal
         </button>
@@ -228,10 +228,10 @@ export default function RolesManager({
       )}
 
       {/* Main Grid View: Left = Roles lists & simulated trigger, Right = Module Permission Matrix Grid */}
-      <div id="roles-operational-splits" className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div id="roles-operational-splits" className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start font-sans">
         
         {/* Left pane: Active personnel roster */}
-        <div id="roles-left-list-col" className="lg:col-span-7 bg-[#0f172a] border border-[#1e293b] rounded-2xl p-5 space-y-4">
+        <div id="roles-left-list-col" className="lg:col-span-7 bg-[#2A2A2E] border border-[#3e3e42] rounded-2xl p-5 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <h3 className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center gap-2">
               <Users className="w-4 h-4 text-slate-400" /> Nómina de Personal Autorizado
@@ -248,7 +248,7 @@ export default function RolesManager({
                 placeholder="Buscar por nombre, email o rol..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-8.5 pr-2 py-1.5 text-xs bg-slate-950 border border-slate-800 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-slate-700"
+                className="w-full pl-8.5 pr-2 py-1.5 text-xs bg-[#1A1A1E] border border-[#3e3e42] rounded-lg text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-red-500"
               />
             </div>
           </div>
@@ -262,8 +262,8 @@ export default function RolesManager({
                   id={`operator-card-${r.uid}`}
                   className={`p-3.5 rounded-xl border transition-all flex items-center justify-between gap-3 ${
                     isSimulatingThis 
-                      ? 'bg-indigo-950/20 border-indigo-500/40 shadow-inner' 
-                      : 'bg-[#0a0f1d] border-[#1e293b] hover:border-slate-800'
+                      ? 'bg-red-950/20 border-red-500/30 shadow-inner' 
+                      : 'bg-[#1A1A1E] border-[#3e3e42] hover:border-slate-650'
                   }`}
                 >
                   <div className="space-y-1">
@@ -284,7 +284,7 @@ export default function RolesManager({
                         onClick={() => onSimulateRole(r.role, r.name)}
                         className={`px-2 py-1 text-[10px] font-bold rounded-lg transition-all border ${
                           isSimulatingThis 
-                            ? 'bg-indigo-600 text-white border-indigo-500' 
+                            ? 'bg-red-600 text-white border-red-500' 
                             : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white hover:bg-slate-900'
                         }`}
                         title="Probar comportamiento del sistema con este rol"
@@ -321,7 +321,7 @@ export default function RolesManager({
         </div>
 
         {/* Right pane: Module Matrix capabilities list */}
-        <div id="roles-cap-matrix-col" className="lg:col-span-5 bg-[#0f172a] border border-[#1e293b] rounded-2xl p-5 space-y-4">
+        <div id="roles-cap-matrix-col" className="lg:col-span-5 bg-[#2A2A2E] border border-[#3e3e42] rounded-2xl p-5 space-y-4 font-sans">
           <div className="space-y-0.5">
             <h3 className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center gap-2">
               <Shield className="w-4 h-4 text-emerald-400" /> Matriz de Privilegios Operativos
@@ -341,13 +341,13 @@ export default function RolesManager({
                   id={`capability-block-${i}`}
                   className={`p-3 rounded-xl border text-xs flex flex-col justify-between gap-1.5 ${
                     isSimulatedActiveRoleAllowed 
-                      ? 'bg-slate-950/40 border-slate-800' 
+                      ? 'bg-[#1A1A1E]/80 border-[#3e3e42]' 
                       : 'bg-rose-950/10 border-rose-950/40'
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className={`p-1 rounded bg-slate-900 border ${isSimulatedActiveRoleAllowed ? 'text-indigo-400 border-slate-800' : 'text-slate-500 border-rose-950/40'}`}>
+                       <span className={`p-1 rounded bg-[#1A1A1E] border ${isSimulatedActiveRoleAllowed ? 'text-red-500 border-[#3e3e42]' : 'text-slate-500 border-rose-950/40'}`}>
                         {mod.icon}
                       </span>
                       <span className={`font-bold ${isSimulatedActiveRoleAllowed ? 'text-slate-200' : 'text-slate-450 line-through'}`}>
@@ -375,8 +375,8 @@ export default function RolesManager({
                         key={roleCode} 
                         className={`text-[8.5px] px-1.5 py-0.5 rounded border capitalize font-semibold ${
                           activeSimulatedRole === roleCode 
-                            ? 'bg-indigo-600 text-white border-indigo-400' 
-                            : 'bg-slate-900 text-slate-400 border-slate-800'
+                            ? 'bg-red-600 text-white border-red-400' 
+                            : 'bg-[#1A1A1E] text-slate-400 border-[#3e3e42]'
                         }`}
                       >
                         {roleCode}
@@ -393,24 +393,24 @@ export default function RolesManager({
 
       {/* FORM REGISTRATION OVERLAY DIALOG */}
       {isFormOpen && createPortal(
-        <div id="overlay-operator-crud" className="fixed inset-0 bg-[#020617]/75 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div id="operator-form-modal-body" className="bg-[#0f172a] rounded-2xl border border-[#1e293b] shadow-2xl max-w-md w-full overflow-hidden">
-            <div className="p-5 border-b border-[#1e293b] flex items-center justify-between bg-slate-900/50">
+        <div id="overlay-operator-crud" className="fixed inset-0 bg-black/85 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div id="operator-form-modal-body" className="bg-[#2A2A2E] rounded-2xl border border-[#3e3e42] shadow-2xl max-w-md w-full overflow-hidden">
+            <div className="p-5 border-b border-[#3e3e42] flex items-center justify-between bg-[#2A2A2E]/50">
               <h3 className="text-xs font-extrabold text-slate-100 uppercase tracking-widest flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-indigo-400" /> Registrar Credencial Administrativa
+                <ShieldCheck className="w-4 h-4 text-red-500" /> Registrar Credencial Residente / Administrativa
               </h3>
               <button 
                 id="btn-close-operator-form"
                 onClick={() => setIsFormOpen(false)}
-                className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition"
+                className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-zinc-800 transition"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateRole} className="p-5 space-y-4 text-xs">
+            <form onSubmit={handleCreateRole} className="p-5 space-y-4 text-xs font-sans">
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Nombre Completo del Operador *</label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Nombre Completo del Operador / Residente *</label>
                 <input
                   id="input-operator-name"
                   type="text"
@@ -418,12 +418,12 @@ export default function RolesManager({
                   placeholder="Ej. Sgto. Claudio Barrientos"
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-805 text-slate-100 rounded-xl focus:border-indigo-500 focus:outline-hidden"
+                  className="w-full px-3 py-2 bg-[#1A1A1E] border border-[#3e3e42] text-slate-100 rounded-xl focus:border-red-500 focus:outline-hidden"
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Correo Electrónico Institucional *</label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Correo Electrónico Institucional / Condominal *</label>
                 <input
                   id="input-operator-email"
                   type="email"
@@ -431,9 +431,9 @@ export default function RolesManager({
                   placeholder="Ej. claudio@seguridad.local"
                   value={formEmail}
                   onChange={(e) => setFormEmail(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-920 border border-slate-805 text-slate-100 rounded-xl focus:border-indigo-500 focus:outline-hidden"
+                  className="w-full px-3 py-2 bg-[#111115] border border-[#3e3e42] text-slate-100 rounded-xl focus:border-red-500 focus:outline-hidden"
                 />
-                <p className="text-[9px] text-slate-500 mt-1">Se requiere para el enlace de sesión único por Google SSO.</p>
+                <p className="text-[9px] text-slate-550 mt-1 font-sans">Se requiere para el enlace de sesión único por Google SSO o Portal.</p>
               </div>
 
               <div>
@@ -442,18 +442,18 @@ export default function RolesManager({
                   id="select-operator-role"
                   value={formRole}
                   onChange={(e) => setFormRole(e.target.value as SystemUserRole)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 text-slate-200 rounded-xl focus:border-indigo-500 focus:outline-hidden cursor-pointer"
+                  className="w-full px-3 py-2 bg-[#1A1A1E] border border-[#3e3e42] text-slate-200 rounded-xl focus:border-red-500 focus:outline-hidden cursor-pointer"
                 >
-                  <option value={SystemUserRole.GUARD}>✓ Guardia de Acceso (CamScanner, Logs)</option>
-                  <option value={SystemUserRole.SUPERVISOR}>⚡ Supervisor de Turno (Emisión de Pases, Logs, CSV)</option>
-                  <option value={SystemUserRole.AUDITOR}>🔍 Auditor de Cumplimiento (Ver Logs y CSV solamente)</option>
-                  <option value={SystemUserRole.ADMIN}>🛡️ Director Administrador (Control Total Maestro)</option>
+                  <option value={SystemUserRole.GUARD} className="bg-[#1A1A1E]" >✓ Residente En Condominio (CamScanner, Logs)</option>
+                  <option value={SystemUserRole.SUPERVISOR} className="bg-[#1A1A1E]" >⚡ Supervisor de Turno (Emisión de Pases, Logs, CSV)</option>
+                  <option value={SystemUserRole.AUDITOR} className="bg-[#1A1A1E]" >🔍 Auditor de Cumplimiento (Ver Logs y CSV solamente)</option>
+                  <option value={SystemUserRole.ADMIN} className="bg-[#1A1A1E]" >🛡️ Director Administrador (Control Total Maestro)</option>
                 </select>
               </div>
 
-              <div className="p-3 bg-indigo-500/10 border border-indigo-500/15 rounded-xl flex gap-2">
-                <Key className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
-                <p className="text-[9.5px] text-indigo-300 leading-normal">
+              <div className="p-3 bg-red-500/10 border border-red-500/15 rounded-xl flex gap-2">
+                <Key className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                <p className="text-[9.5px] text-red-350 leading-normal">
                   Los privilegios se propagan instantáneamente a los tokens de sesión. En el entorno real, el operador utilizará Google Auth vinculando este email.
                 </p>
               </div>
@@ -463,14 +463,14 @@ export default function RolesManager({
                   id="btn-cancel-operator-action"
                   type="button"
                   onClick={() => setIsFormOpen(false)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-xl transition font-semibold cursor-pointer"
+                  className="px-4 py-2 bg-[#1A1A1E] hover:bg-zinc-800 text-slate-350 border border-[#3e3e42] rounded-xl transition font-semibold cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   id="btn-save-operator-submit"
                   type="submit"
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition font-semibold cursor-pointer"
+                  className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl transition font-semibold cursor-pointer"
                 >
                   Registrar Rol
                 </button>

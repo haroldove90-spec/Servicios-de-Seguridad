@@ -15,7 +15,7 @@ import {
   ShieldAlert, ScanLine, Users, FileBarChart2, Shield, LogOut, Check, Sparkles, 
   Database, AlertCircle, Key, Lock, Laptop, CheckCircle2, UserCircle, ShieldCheck,
   QrCode, Smartphone, ExternalLink, HelpCircle, RefreshCw, ChevronDown, ChevronUp,
-  Copy, Download, Clock as ClockIcon, AlertTriangle
+  Copy, Download, Clock as ClockIcon, AlertTriangle, Menu, X
 } from 'lucide-react';
 import { auth, IS_FIREBASE_DUMMY } from './firebase';
 import { dbService } from './services/dbService';
@@ -35,6 +35,52 @@ export default function App() {
   // Preview Mode Sandbox simulation controls
   const [demoRole, setDemoRole] = useState<SystemUserRole>(SystemUserRole.ADMIN);
   const [demoName, setDemoName] = useState<string>('Software AI Admin');
+
+  // Drawer lateral navigation state
+  const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
+
+  // Splash screen state
+  const [splashVisible, setSplashVisible] = useState<boolean>(true);
+
+  // PWA installation state
+  const [installPrompt, setInstallPrompt] = useState<any | null>(null);
+
+  useEffect(() => {
+    // Splash screen timer: closes splash transition automatically
+    const splashTimer = setTimeout(() => {
+      setSplashVisible(false);
+    }, 1500);
+
+    // Capture standard install prompts
+    const handleBeforeInstall = (e: Event) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+      console.log('CNLS beforeinstallprompt fired');
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    
+    window.addEventListener('appinstalled', () => {
+      setInstallPrompt(null);
+      console.log('CNLS system installed as a PWA!');
+    });
+
+    return () => {
+      clearTimeout(splashTimer);
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (installPrompt) {
+      installPrompt.prompt();
+      const { outcome } = await installPrompt.userChoice;
+      console.log(`PWA install outcome: ${outcome}`);
+      setInstallPrompt(null);
+    } else {
+      alert('Para instalar CNLS de inmediato:\n\n• En Android/Chrome: Presiona los 3 puntos verticales en la esquina superior y selecciona "Agregar a la pantalla principal" o "Instalar aplicación".\n• En iPhone/iPad/Safari: Pulsa el ícono de "Compartir" de la barra de navegación (cuadrado con flecha hacia arriba) y selecciona "Agregar a Inicio" (Add to Home Screen).\n• En Computadoras/PCs: Haz clic en el ícono de instalación PWA en la extrema derecha de la barra de direcciones.');
+    }
+  };
 
   // Interactive Demo & Virtual Mobile Pass Wallet states
   const [showDemoGuide, setShowDemoGuide] = useState<boolean>(true);
@@ -365,38 +411,38 @@ export default function App() {
   // Render standalone high-fidelity mobile visitor passport card if opened with public URL
   if (visitorPassToken) {
     return (
-      <div id="visitor-passport-viewport" className="min-h-screen bg-[#020617] text-slate-200 font-sans flex items-center justify-center p-4 selection:bg-indigo-500/30">
-        <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-[2rem] p-6 shadow-2xl relative overflow-hidden flex flex-col items-center text-center">
+      <div id="visitor-passport-viewport" className="min-h-screen bg-[#0A0A0A] text-slate-200 font-sans flex items-center justify-center p-4 selection:bg-red-500/30">
+        <div className="w-full max-w-sm bg-[#2A2A2E] border border-[#3e3e42] rounded-[2rem] p-6 shadow-2xl relative overflow-hidden flex flex-col items-center text-center">
           
           {/* Ambient Glow */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-48 bg-indigo-500/10 blur-3xl rounded-full pointer-events-none"></div>
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-48 bg-red-500/10 blur-3xl rounded-full pointer-events-none"></div>
           
           {/* Card Top Title Banner */}
-          <div className="flex items-center gap-2 text-[10px] uppercase font-bold text-indigo-400 tracking-widest mb-6">
+          <div className="flex items-center gap-2 text-[10px] uppercase font-bold text-red-500 tracking-widest mb-6">
             <ShieldCheck className="w-4 h-4 text-emerald-400" />
             <span>Pase Electrónico de Entrada</span>
           </div>
 
           {visitorPassLoading ? (
             <div className="py-20 flex flex-col items-center">
-              <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+              <div className="w-8 h-8 border-2 border-red-500 border-t-transparent rounded-full animate-spin mb-4"></div>
               <p className="text-xs text-slate-400">Verificando pase público...</p>
             </div>
           ) : visitorPassUser ? (
             <>
               {/* Visitor Wallet View */}
-              <div className="w-full bg-[#0b0f19] rounded-2xl p-4 border border-slate-800/80 mb-5 relative">
+              <div className="w-full bg-[#1A1A1E] rounded-2xl p-4 border border-[#3e3e42]/80 mb-5 relative">
                 {/* Floating status badge */}
                 <span className={`absolute top-3 right-3 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
                   visitorPassUser.status === 'active' && (!visitorPassUser.oneTime || !visitorPassUser.used)
-                    ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-                    : 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
+                    ? 'bg-emerald-500/15 text-emerald-450 border border-emerald-500/30'
+                    : 'bg-rose-500/15 text-rose-450 border border-rose-500/30'
                 }`}>
                   {visitorPassUser.status === 'active' && (!visitorPassUser.oneTime || !visitorPassUser.used) ? 'VÁLIDO ✅' : 'INVÁLIDO 🚫'}
                 </span>
 
-                <div className="w-12 h-12 bg-indigo-600/15 border border-indigo-500/20 rounded-full flex items-center justify-center mb-4">
-                  <UserCircle className="w-6 h-6 text-indigo-400" />
+                <div className="w-12 h-12 bg-red-650/15 border border-red-500/20 rounded-full flex items-center justify-center mb-4">
+                  <UserCircle className="w-6 h-6 text-red-500" />
                 </div>
 
                 <h3 className="text-lg font-extrabold text-white leading-tight">{visitorPassUser.name}</h3>
@@ -430,7 +476,7 @@ export default function App() {
 
               {/* Instructions */}
               <p className="text-xs text-slate-400 leading-relaxed max-w-xs mt-6">
-                Presenta este código QR frente al lector del guardia o cámara frontal para verificar tu autorización de acceso en portería.
+                Presenta este código QR frente al lector o cámara frontal para verificar tu autorización de acceso en portería.
               </p>
 
               {/* Demo Simulate buttons */}
@@ -439,9 +485,9 @@ export default function App() {
                   id="simulate-scan-from-pass-view"
                   onClick={() => {
                     handleSimulateScanDirect(visitorPassUser.qrcodeToken);
-                    alert('¡Simulando escaneo! Revisa la pestaña del Guardia para ver que el pase ya fue validado e ingresado.');
+                    alert('¡Simulando escaneo! Revisa la pestaña del sistema de control para ver que el pase ya fue validado.');
                   }}
-                  className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 bg-indigo-650 hover:bg-indigo-600 text-white font-semibold text-xs rounded-xl shadow-lg transition cursor-pointer"
+                  className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 bg-red-650 hover:bg-red-600 text-white font-semibold text-xs rounded-xl shadow-lg transition cursor-pointer"
                 >
                   <ScanLine className="w-4 h-4" /> Simular Escaneo en Caseta
                 </button>
@@ -491,149 +537,295 @@ export default function App() {
 
   if (loading) {
     return (
-      <div id="full-viewport-spinner" className="min-h-screen bg-[#020617] flex flex-col items-center justify-center p-6">
-        <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mt-4">Restaurando Credenciales de Acceso...</p>
+      <div id="full-viewport-spinner" className="min-h-screen bg-[#0A0A0A] flex flex-col items-center justify-center p-6">
+        <div className="w-12 h-12 border-4 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mt-4">Cargando Sistema CNLS...</p>
       </div>
     );
   }
 
   return (
-    <div id="integrated-app-root" className="min-h-screen bg-[#020617] text-slate-200 font-sans flex flex-col justify-between">
+    <div id="integrated-app-root" className="min-h-screen bg-[#0A0A0A] text-slate-200 font-sans flex flex-col justify-between selection:bg-red-650/30">
       <div>
-        {/* Dynamic Warning Notification Banner for Placeholder preview configurations */}
-        {IS_FIREBASE_DUMMY && (
-          <div id="development-alert-ribbon" className="bg-indigo-600/90 text-white text-xs px-4 py-3 shadow-md flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 border-b border-indigo-500/20 backdrop-blur-md">
-            <div className="flex items-center gap-2">
-              <Database className="w-4 h-4 text-indigo-200 animate-pulse" />
-              <p className="leading-relaxed">
-                <span className="font-bold">⚡ MODO PREVIEW LOCAL:</span> Base de datos simulada en navegador activa. Haz clic en <span className="bg-white/15 px-1 py-0.5 rounded font-mono">Accept Terms</span> en el panel del editor para sincronizar Cloud Firestore con seguridad ABAC.
-              </p>
+        {/* Splash screen component displaying unencapsulated logo centered */}
+        {splashVisible && (
+          <div id="cnls-splash-screen" className="fixed inset-0 bg-[#0A0A0A] z-[100] flex flex-col items-center justify-center animate-fade-in transition-all duration-300">
+            <img 
+              src="https://cossma.com.mx/cnls.png" 
+              alt="CNLS Splash Logo" 
+              className="w-32 h-auto object-contain max-w-[80vw] animate-pulse"
+              referrerPolicy="no-referrer"
+            />
+            <h1 className="text-xl font-black text-white tracking-[0.3em] font-sans uppercase mt-6">CNLS</h1>
+            <p className="text-[10px] text-red-500 font-mono tracking-widest uppercase mt-1">Valor • Lealtad • Excelencia</p>
+          </div>
+        )}
+
+        {/* Drawer / Flyout Sidebar Navigation aligned to the LHS of the viewport */}
+        <div 
+          id="cnls-lateral-drawer-overlay"
+          className={`fixed inset-0 bg-black/80 backdrop-blur-xs z-[50] transition-opacity duration-300 ${isDrawerOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+          onClick={() => setIsDrawerOpen(false)}
+        />
+        <div 
+          id="cnls-lateral-drawer"
+          className={`fixed top-0 left-0 bottom-0 w-80 bg-[#2A2A2E] border-r border-[#3e3e42] z-[60] p-6 flex flex-col justify-between transition-transform duration-300 ease-out transform ${
+            isDrawerOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
+        >
+          <div className="space-y-6">
+            <div className="flex items-center justify-between border-b border-[#3e3e42] pb-4">
+              <div className="flex items-center gap-3">
+                <img 
+                  src="https://cossma.com.mx/cnls.png" 
+                  alt="CNLS Menu Logo" 
+                  className="h-10 w-auto object-contain"
+                  referrerPolicy="no-referrer"
+                />
+                <div>
+                  <h3 className="text-sm font-black text-white tracking-widest font-sans">CNLS</h3>
+                  <p className="text-[9px] text-red-500 font-bold uppercase tracking-wider">Lealtad y Excelencia</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsDrawerOpen(false)}
+                className="p-1.5 bg-[#1A1A1E] text-slate-400 hover:text-white border border-[#3e3e42] rounded-xl transition cursor-pointer"
+                title="Cerrar menú"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
-            
-            {/* Quick switcher during sandboxed testing */}
-            <div id="live-role-sim-sandbox" className="flex items-center gap-1.5 self-start sm:self-center bg-[#070b13]/90 p-1 rounded-lg border border-slate-800 shadow-inner flex-wrap">
-              <span className="text-[10px] uppercase font-mono font-bold text-slate-400 px-2">Demo:</span>
+
+            <nav className="space-y-2 pt-2">
+              {!hasSelectedRole ? (
+                <div className="space-y-3">
+                  <p className="text-[10px] uppercase font-bold text-slate-500 px-3 tracking-wider font-mono">Demos / Perfiles de Acceso</p>
+                  <div className="grid grid-cols-1 gap-1.5 font-sans">
+                    <button 
+                      onClick={() => {
+                        handleRoleSelection(SystemUserRole.ADMIN, 'Administrador CNLS (Simulado)', 'crud');
+                        setIsDrawerOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-3 bg-[#1A1A1E] hover:bg-[#343438] text-white rounded-xl text-xs font-bold transition flex items-center gap-3 cursor-pointer border border-[#3e3e42] hover:border-red-500/20 animate-fade-in"
+                    >
+                      <Shield className="w-4 h-4 text-red-500" /> Administrador del Condominio
+                    </button>
+                    <button 
+                      onClick={() => {
+                        handleRoleSelection(SystemUserRole.SUPERVISOR, 'Supervisor de Seguridad (Simulado)', 'crud');
+                        setIsDrawerOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-3 bg-[#1A1A1E] hover:bg-[#343438] text-white rounded-xl text-xs font-bold transition flex items-center gap-3 cursor-pointer border border-[#3e3e42] hover:border-red-500/20 animate-fade-in"
+                    >
+                      <Users className="w-4 h-4 text-red-500" /> Supervisor / Operador Caseta
+                    </button>
+                    <button 
+                      onClick={() => {
+                        handleRoleSelection(SystemUserRole.GUARD, 'Residente Domínguez (Simulado)', 'scan');
+                        setIsDrawerOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-3 bg-[#1A1A1E] hover:bg-[#343438] text-white rounded-xl text-xs font-bold transition flex items-center gap-3 cursor-pointer border border-[#3e3e42] hover:border-red-500/20 animate-fade-in"
+                    >
+                      <ScanLine className="w-4 h-4 text-red-500" /> Residente: Autogestión de Pases
+                    </button>
+                    <button 
+                      onClick={() => {
+                        handleRoleSelection(SystemUserRole.AUDITOR, 'Auditor del Comité (Simulado)', 'reports');
+                        setIsDrawerOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-3 bg-[#1A1A1E] hover:bg-[#343438] text-white rounded-xl text-xs font-bold transition flex items-center gap-3 cursor-pointer border border-[#3e3e42] hover:border-red-500/20 animate-fade-in"
+                    >
+                      <FileBarChart2 className="w-4 h-4 text-red-500" /> Auditor del Comité Vecinal
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4 font-sans">
+                  <div className="px-3 py-2 bg-[#1A1A1E] border border-[#3e3e42] rounded-xl flex items-center justify-between">
+                    <div>
+                      <p className="text-[9px] uppercase font-bold text-slate-500 tracking-wider">Perfil Activo</p>
+                      <p className="text-xs font-extrabold text-white truncate max-w-[140px] mt-0.5 uppercase">
+                        {userRole?.role === SystemUserRole.ADMIN 
+                          ? 'Director Admin 🛡️' 
+                          : userRole?.role === SystemUserRole.SUPERVISOR 
+                          ? 'Supervisor ⚡' 
+                          : userRole?.role === SystemUserRole.AUDITOR 
+                          ? 'Auditor Comité 🔍' 
+                          : 'Residente: 🏡'}
+                      </p>
+                    </div>
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  </div>
+
+                  <div className="space-y-1.5 pt-1">
+                    <p className="text-[10px] uppercase font-bold text-slate-500 px-3 tracking-wider font-mono mb-2">Vistas y Herramientas</p>
+                    {canScan && (
+                      <button
+                        onClick={() => { setActiveTab('scan'); setIsDrawerOpen(false); }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer ${
+                          activeTab === 'scan' ? 'bg-red-650 text-white shadow-lg shadow-red-650/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
+                        }`}
+                      >
+                        <ScanLine className="w-4 h-4" /> Acceso de Residente
+                      </button>
+                    )}
+                    {canCrud && (
+                      <button
+                        onClick={() => { setActiveTab('crud'); setIsDrawerOpen(false); }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer ${
+                          activeTab === 'crud' ? 'bg-red-655 text-white shadow-lg shadow-red-650/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
+                        }`}
+                      >
+                        <Users className="w-4 h-4" /> Control Autorizados
+                      </button>
+                    )}
+                    {canReports && (
+                      <button
+                        onClick={() => { setActiveTab('reports'); setIsDrawerOpen(false); }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer ${
+                          activeTab === 'reports' ? 'bg-red-650 text-white shadow-lg shadow-red-650/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
+                        }`}
+                      >
+                        <FileBarChart2 className="w-4 h-4" /> Bitácora &amp; Reportes
+                      </button>
+                    )}
+                    {canManageRoles && (
+                      <button
+                        onClick={() => { setActiveTab('roles'); setIsDrawerOpen(false); }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer ${
+                          activeTab === 'roles' ? 'bg-red-650 text-white shadow-lg shadow-red-650/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
+                        }`}
+                      >
+                        <Shield className="w-4 h-4" /> Privilegios y Roles
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </nav>
+          </div>
+
+          <div className="space-y-3.5 border-t border-[#3e3e42] pt-4 font-sans">
+            <button
+              onClick={() => { handleInstallClick(); setIsDrawerOpen(false); }}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-500 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-red-600/20 transition cursor-pointer font-sans"
+            >
+              <Download className="w-4.5 h-4.5 shrink-0" /> Instalar Aplicación CNLS 📲
+            </button>
+
+            {hasSelectedRole && (
               <button
-                id="select-sim-role-admin"
-                onClick={() => {
-                  setDemoRole(SystemUserRole.ADMIN);
-                  setDemoName('Director Admin (Simulado)');
-                  setHasSelectedRole(true);
-                  setActiveTab('crud');
-                }}
-                className={`px-2 py-1 text-[10px] font-bold rounded-md transition cursor-pointer ${
-                  hasSelectedRole && demoRole === SystemUserRole.ADMIN 
-                    ? 'bg-indigo-600 text-white' 
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
-                }`}
+                onClick={() => { setHasSelectedRole(false); setIsDrawerOpen(false); }}
+                className="w-full flex items-center justify-center gap-1.5 py-2.5 text-slate-450 hover:text-white transition rounded-xl text-xs font-extrabold cursor-pointer hover:bg-[#1A1A1E]"
               >
-                🛠️ Admin
+                <LogOut className="w-4 h-4 text-red-500" /> Regresar a Selector de Roles
               </button>
-              <button
-                id="select-sim-role-supervisor"
-                onClick={() => {
-                  setDemoRole(SystemUserRole.SUPERVISOR);
-                  setDemoName('Supervisor de Turno (Simulado)');
-                  setHasSelectedRole(true);
-                  setActiveTab('crud');
-                }}
-                className={`px-2 py-1 text-[10px] font-bold rounded-md transition cursor-pointer ${
-                  hasSelectedRole && demoRole === SystemUserRole.SUPERVISOR 
-                    ? 'bg-emerald-600 text-white' 
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
-                }`}
+            )}
+
+            <div className="text-[9px] text-slate-500 text-center font-mono uppercase tracking-widest pt-1">
+              CNLS Acceso Residencial v1.5 • 2026
+            </div>
+          </div>
+        </div>
+
+        {/* Global top application header with Menu and Logo */}
+        <header id="cnls-main-top-navbar" className="bg-[#1A1A1E] border-b border-[#3e3e42] sticky top-0 z-40 px-4 py-3 shadow-md">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-3.5">
+              <button 
+                id="cnls-sidebar-hamburger"
+                onClick={() => setIsDrawerOpen(true)}
+                className="p-2 hover:bg-[#2A2A2E] text-slate-300 hover:text-white rounded-xl border border-[#3e3e42] hover:border-slate-500 transition cursor-pointer"
+                aria-label="Toggle navigation lateral drawer"
               >
-                ⚡ Supervisor
+                <Menu className="w-5 h-5" />
               </button>
+
+              <div className="flex items-center gap-3 cursor-pointer" onClick={() => setHasSelectedRole(false)}>
+                <img 
+                  src="https://cossma.com.mx/cnls.png" 
+                  alt="CNLS Header Logo" 
+                  className="h-8 max-h-8 w-auto object-contain"
+                  referrerPolicy="no-referrer"
+                />
+                <span className="text-sm font-black text-white tracking-[0.2em] font-sans uppercase">CNLS</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 font-sans">
+              {/* Red-colored button for installing the app */}
               <button
-                id="select-sim-role-guard"
-                onClick={() => {
-                  setDemoRole(SystemUserRole.GUARD);
-                  setDemoName('Guardia Pérez (Simulado)');
-                  setHasSelectedRole(true);
-                  setActiveTab('scan');
-                }}
-                className={`px-2 py-1 text-[10px] font-bold rounded-md transition cursor-pointer ${
-                  hasSelectedRole && demoRole === SystemUserRole.GUARD 
-                    ? 'bg-sky-600 text-white' 
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
-                }`}
+                id="pwa-header-install-btn"
+                onClick={handleInstallClick}
+                className="hidden sm:inline-flex items-center gap-2 px-3.5 py-2 bg-red-600 hover:bg-red-500 border border-transparent hover:border-white/10 text-white rounded-xl text-xs font-extrabold transition shadow-lg cursor-pointer font-sans"
+                title="Instalar CNLS"
               >
-                👮 Guardia
+                <Download className="w-4 h-4 shrink-0" />
+                <span>Instalar Aplicación</span>
               </button>
+
               <button
-                id="select-sim-role-auditor"
-                onClick={() => {
-                  setDemoRole(SystemUserRole.AUDITOR);
-                  setDemoName('Auditor de Calidad (Simulado)');
-                  setHasSelectedRole(true);
-                  setActiveTab('reports');
-                }}
-                className={`px-2 py-1 text-[10px] font-bold rounded-md transition cursor-pointer ${
-                  hasSelectedRole && demoRole === SystemUserRole.AUDITOR 
-                    ? 'bg-amber-600 text-white' 
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
-                }`}
+                id="pwa-header-install-btn-mobile"
+                onClick={handleInstallClick}
+                className="sm:hidden flex items-center justify-center p-2.5 bg-red-600 hover:bg-red-550 text-white rounded-xl transition cursor-pointer"
+                title="Instalar CNLS"
               >
-                🔍 Auditor
-              </button>
-              <div className="h-4 w-px bg-slate-800 mx-1"></div>
-              <button
-                id="select-sim-back-home"
-                onClick={() => setHasSelectedRole(false)}
-                className={`px-2.5 py-1 text-[10px] font-extrabold rounded-md transition cursor-pointer ${
-                  !hasSelectedRole 
-                    ? 'bg-white text-slate-900 border border-transparent' 
-                    : 'text-indigo-400 hover:text-white hover:bg-slate-850'
-                }`}
-              >
-                🏠 Selector Home
+                <Download className="w-4 h-4 shrink-0" />
               </button>
             </div>
           </div>
-        )}
+        </header>
 
         {/* Real Authenticated Mode Role Alert (Missing access role) */}
         {!IS_FIREBASE_DUMMY && !user && (
           <div id="db-active-auth-barrier" className="max-w-md mx-auto my-16 bg-[#0f172a] border border-[#1e293b] rounded-3xl p-8 shadow-2xl text-center">
-            <div className="w-16 h-16 bg-indigo-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-indigo-500/20">
-              <Lock className="w-6 h-6 text-indigo-400 animate-pulse" />
+            <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-red-500/20">
+              <Lock className="w-6 h-6 text-red-500 animate-pulse" />
             </div>
             <h2 className="text-xl font-bold text-white tracking-tight">Acceso Restringido Control QR</h2>
             <p className="text-xs text-slate-400 leading-relaxed mt-2.5 px-4 mb-8">
-              Inicia sesión con tu cuenta de correo autorizada como Administrador o Guardia de Control de Seguridad para registrar pases públicos y realizar escaneos.
+              Inicia sesión con tu cuenta de correo autorizada como Administrador o Residente de Control de Seguridad para registrar pases públicos y realizar escaneos.
             </p>
             <button
               id="google-authenticate-trigger"
               onClick={handleGoogleSignIn}
-              className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm rounded-2xl transition shadow-lg shadow-indigo-600/30"
+              className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 bg-red-600 hover:bg-red-500 text-white font-semibold text-sm rounded-2xl transition shadow-lg shadow-red-600/30"
             >
               Sign In with Google Account
             </button>
             
             <div className="border-t border-[#1e293b] pt-6 mt-8 flex items-center justify-center gap-2 text-[10.5px] text-slate-500">
               <Laptop className="w-4 h-4 text-slate-600" />
-              <span>Sincronizado vía Cloud Run y Google Firebase</span>
+              <span>Sincronizado con Firebase</span>
             </div>
           </div>
         )}
 
         {/* Main Welcome Gateway Role Selector (Home screen) */}
         {(IS_FIREBASE_DUMMY || user) && !hasSelectedRole && (
-          <div id="premises-role-selector-home" className="max-w-5xl mx-auto px-4 mt-8 sm:mt-16 mb-24 animate-fade-in text-center font-sans">
+          <div id="premises-role-selector-home" className="max-w-5xl mx-auto px-4 mt-8 sm:mt-12 mb-24 animate-fade-in text-center font-sans">
             
+            {/* Logo display requested by user */}
+            <div className="flex justify-center mb-6">
+              <img 
+                src="https://cossma.com.mx/cnls.png" 
+                alt="CNLS Logo" 
+                className="h-28 w-auto object-contain max-w-full drop-shadow-[0_0_15px_rgba(239,68,68,0.4)] animate-fade-in"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+
             {/* Header / Subdued upper banner */}
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-indigo-300 text-[11px] font-bold uppercase tracking-widest mb-6">
-              <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>TERMINAL DE SEGURIDAD PREMISE CONTROL</span>
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-red-600/10 border border-red-500/20 rounded-full text-red-400 text-[11px] font-mono font-bold uppercase tracking-widest mb-6">
+              <ShieldCheck className="w-4 h-4 text-red-500 shrink-0" />
+              <span>SISTEMA DE CONTROL DE ACCESO RESIDENCIAL — CNLS</span>
             </div>
 
             <h1 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight leading-none mb-4 animate-fade-in">
-              Portal de Control de Acceso QR
+              Acceso Residencial CNLS
             </h1>
             <p className="text-sm sm:text-base text-slate-400 max-w-2xl mx-auto leading-relaxed mb-12 animate-fade-in">
-              Bienvenido al sistema inteligente de gestión de pases y verificación de ingresos. Selecciona el módulo especializado de un rol para acceder a su panel de control independiente.
+              Gestión inteligente de condominios, pases de visitantes y control ágil en caseta. Selecciona el módulo de tu perfil para ingresar.
             </p>
 
             {/* Roles Grid Cards */}
@@ -642,112 +834,112 @@ export default function App() {
               {/* CARD 1: ADMIN */}
               <div 
                 id="role-gateway-card-admin"
-                onClick={() => handleRoleSelection(SystemUserRole.ADMIN, 'Director Admin (Simulado)', 'crud')}
-                className="group relative bg-[#0f172a]/95 hover:bg-slate-900 border border-slate-800 hover:border-indigo-500/50 rounded-3xl p-6 shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden"
+                onClick={() => handleRoleSelection(SystemUserRole.ADMIN, 'Administrador CNLS (Simulado)', 'crud')}
+                className="group relative bg-[#2A2A2E] hover:bg-[#343438] border border-[#3e3e42] hover:border-red-500 rounded-3xl p-6 shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden"
               >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 blur-3xl rounded-full group-hover:bg-indigo-500/10 transition"></div>
+                <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 blur-3xl rounded-full group-hover:bg-red-500/10 transition"></div>
                 
                 <div>
-                  <div className="w-12 h-12 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 transition shrink-0">
+                  <div className="w-12 h-12 bg-red-550/15 text-red-500 border border-red-500/25 rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 transition shrink-0">
                     <Shield className="w-6 h-6 animate-pulse" />
                   </div>
-                  <h3 className="text-lg font-extrabold text-white group-hover:text-indigo-400 transition">
-                    Director Administrador
+                  <h3 className="text-lg font-extrabold text-white group-hover:text-red-400 transition">
+                    Administrador del Fraccionamiento
                   </h3>
                   <p className="text-xs text-slate-400 leading-relaxed mt-2.5">
-                    Módulo de administración principal. Permite dar de alta, de baja o actualizar visitantes autorizados (CRUD), gestionar y revocar credenciales, crear pases temporales de un solo uso, administrar roles de sistema y auditar la bitácora de eventos.
+                    Módulo de administración principal. Permite dar de alta a residentes, administrar lotes y viviendas, gestionar o suspender credenciales, emitir pases públicos o restrictivos, configurar privilegios de residentes y auditar logs completos de ingresos.
                   </p>
                 </div>
 
-                <div className="mt-6 pt-5 border-t border-slate-800/80 flex items-center justify-between font-sans">
-                  <span className="text-[10px] font-bold text-indigo-400 tracking-wider uppercase group-hover:translate-x-1 transition-all">Acceder al Panel Admin →</span>
-                  <span className="text-[9px] bg-indigo-500/15 text-indigo-300 font-mono px-2 py-0.5 rounded-full uppercase">Control Total</span>
+                <div className="mt-6 pt-5 border-t border-[#3e3e42] flex items-center justify-between font-sans">
+                  <span className="text-[10px] font-bold text-red-405 tracking-wider uppercase group-hover:translate-x-1 transition-all">Acceder al Panel Admin →</span>
+                  <span className="text-[10px] bg-red-650/20 text-red-400 font-mono px-2.5 py-0.5 rounded-full uppercase font-bold">Control Total</span>
                 </div>
               </div>
 
               {/* CARD 2: SUPERVISOR */}
               <div 
                 id="role-gateway-card-supervisor"
-                onClick={() => handleRoleSelection(SystemUserRole.SUPERVISOR, 'Supervisor de Turno (Simulado)', 'crud')}
-                className="group relative bg-[#0f172a]/95 hover:bg-slate-900 border border-slate-800 hover:border-emerald-500/50 rounded-3xl p-6 shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden"
+                onClick={() => handleRoleSelection(SystemUserRole.SUPERVISOR, 'Supervisor de Seguridad (Simulado)', 'crud')}
+                className="group relative bg-[#2A2A2E] hover:bg-[#343438] border border-[#3e3e42] hover:border-red-500 rounded-3xl p-6 shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden"
               >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 blur-3xl rounded-full group-hover:bg-emerald-500/10 transition"></div>
+                <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 blur-3xl rounded-full group-hover:bg-red-500/10 transition"></div>
                 
                 <div>
-                  <div className="w-12 h-12 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 transition shrink-0">
+                  <div className="w-12 h-12 bg-red-550/15 text-red-500 border border-red-500/25 rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 transition shrink-0">
                     <Users className="w-6 h-6" />
                   </div>
-                  <h3 className="text-lg font-extrabold text-white group-hover:text-emerald-400 transition">
-                    Supervisor de Turno
+                  <h3 className="text-lg font-extrabold text-white group-hover:text-red-400 transition">
+                    Supervisor de Seguridad / Caseta
                   </h3>
                   <p className="text-xs text-slate-400 leading-relaxed mt-2.5">
-                    Módulo de asistencia y monitoreo de credenciales de portería. Permite registrar o inspeccionar pases de visitantes activos, actualizar registros, monitorear el flujo de accesos reales y gestionar incidencias técnicas.
+                    Módulo operativo de supervisión física en el fraccionamiento. Monitorea las entradas, visualiza la lista de residentes autorizados, revisa registros temporales y gestiona el flujo de accesos reales en tiempo real.
                   </p>
                 </div>
 
-                <div className="mt-6 pt-5 border-t border-slate-800/80 flex items-center justify-between font-sans">
-                  <span className="text-[10px] font-bold text-emerald-400 tracking-wider uppercase group-hover:translate-x-1 transition-all">Acceder como Supervisor →</span>
-                  <span className="text-[9px] bg-emerald-500/15 text-emerald-300 font-mono px-2 py-0.5 rounded-full uppercase">Gestión &amp; Monitoreo</span>
+                <div className="mt-6 pt-5 border-t border-[#3e3e42] flex items-center justify-between font-sans">
+                  <span className="text-[10px] font-bold text-red-455 tracking-wider uppercase group-hover:translate-x-1 transition-all">Acceder a Supervisión →</span>
+                  <span className="text-[10px] bg-red-650/20 text-red-400 font-mono px-2.5 py-0.5 rounded-full uppercase font-bold">Monitoreo &amp; Logs</span>
                 </div>
               </div>
 
-              {/* CARD 3: GUARD */}
+              {/* CARD 3: GUARD / RESIDENTE */}
               <div 
                 id="role-gateway-card-guard"
-                onClick={() => handleRoleSelection(SystemUserRole.GUARD, 'Guardia Pérez (Simulado)', 'scan')}
-                className="group relative bg-[#0f172a]/95 hover:bg-slate-900 border border-slate-800 hover:border-sky-500/50 rounded-3xl p-6 shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden"
+                onClick={() => handleRoleSelection(SystemUserRole.GUARD, 'Residente Domínguez (Simulado)', 'scan')}
+                className="group relative bg-[#2A2A2E] hover:bg-[#343438] border border-[#3e3e42] hover:border-red-500 rounded-3xl p-6 shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden"
               >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-sky-500/5 blur-3xl rounded-full group-hover:bg-sky-500/10 transition"></div>
+                <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 blur-3xl rounded-full group-hover:bg-red-500/10 transition"></div>
                 
                 <div>
-                  <div className="w-12 h-12 bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 transition shrink-0">
+                  <div className="w-12 h-12 bg-red-550/15 text-red-500 border border-red-500/25 rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 transition shrink-0">
                     <ScanLine className="w-6 h-6" />
                   </div>
-                  <h3 className="text-lg font-extrabold text-white group-hover:text-sky-400 transition">
-                    Guardia de Caseta (Portería)
+                  <h3 className="text-lg font-extrabold text-white group-hover:text-red-405 transition">
+                    Residente: Autogestión &amp; Escáner QR
                   </h3>
                   <p className="text-xs text-slate-400 leading-relaxed mt-2.5">
-                    Terminal directo del lector QR. Activa la cámara para realizar el escaneo instantáneo y validación horaria de pases. Emite alertas audibles/visuales ante pases vencidos o suspendidos para autorizar el ingreso seguro de vehículos y personas.
+                    Módulo interactivo para residentes autorizados de las propiedades. Permite visualizar credenciales residenciales, autogestionar pases de sus visitas o utilizar la cámara frontal/trasera para validar pases desde su propio dispositivo al recibir invitados.
                   </p>
                 </div>
 
-                <div className="mt-6 pt-5 border-t border-slate-800/80 flex items-center justify-between font-sans">
-                  <span className="text-[10px] font-bold text-sky-400 tracking-wider uppercase group-hover:translate-x-1 transition-all">Ingresar a Caseta →</span>
-                  <span className="text-[9px] bg-sky-500/15 text-sky-300 font-mono px-2 py-0.5 rounded-full uppercase">Terminal Escáner</span>
+                <div className="mt-6 pt-5 border-t border-[#3e3e42] flex items-center justify-between font-sans">
+                  <span className="text-[10px] font-bold text-red-455 tracking-wider uppercase group-hover:translate-x-1 transition-all">Ingresar como Residente →</span>
+                  <span className="text-[10px] bg-red-650/20 text-red-400 font-mono px-2.5 py-0.5 rounded-full uppercase font-bold">Pase de Residente</span>
                 </div>
               </div>
 
               {/* CARD 4: AUDITOR */}
               <div 
                 id="role-gateway-card-auditor"
-                onClick={() => handleRoleSelection(SystemUserRole.AUDITOR, 'Auditor de Calidad (Simulado)', 'reports')}
-                className="group relative bg-[#0f172a]/95 hover:bg-slate-900 border border-slate-800 hover:border-amber-500/50 rounded-3xl p-6 shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden"
+                onClick={() => handleRoleSelection(SystemUserRole.AUDITOR, 'Auditor del Comité (Simulado)', 'reports')}
+                className="group relative bg-[#2A2A2E] hover:bg-[#343438] border border-[#3e3e42] hover:border-red-500 rounded-3xl p-6 shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden"
               >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 blur-3xl rounded-full group-hover:bg-amber-500/10 transition"></div>
+                <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 blur-3xl rounded-full group-hover:bg-red-500/10 transition"></div>
                 
                 <div>
-                  <div className="w-12 h-12 bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 transition shrink-0">
+                  <div className="w-12 h-12 bg-red-550/15 text-red-500 border border-red-500/25 rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 transition shrink-0">
                     <FileBarChart2 className="w-6 h-6" />
                   </div>
-                  <h3 className="text-lg font-extrabold text-white group-hover:text-amber-400 transition">
-                    Auditor de Cumplimiento
+                  <h3 className="text-lg font-extrabold text-white group-hover:text-red-400 transition">
+                    Auditor de Cumplimiento / Comité
                   </h3>
                   <p className="text-xs text-slate-400 leading-relaxed mt-2.5">
-                    Módulo de reportería histórica y cumplimiento operacional. Proporciona visualización y filtros del historial completo de accesos registrados por todos los guardias, exportación de registros a CSV y PDF, y métricas.
+                    Módulo de control para el comité de colonos u auditores del fraccionamiento. Otorga visibilidad completa a la bitácora de auditoría histórica, exportación certificada de accesos a formatos PDF/CSV y análisis de flujo vehicular.
                   </p>
                 </div>
 
-                <div className="mt-6 pt-5 border-t border-slate-800/80 flex items-center justify-between font-sans">
-                  <span className="text-[10px] font-bold text-amber-400 tracking-wider uppercase group-hover:translate-x-1 transition-all">Ingresar a Auditoría →</span>
-                  <span className="text-[9px] bg-amber-500/15 text-amber-300 font-mono px-2 py-0.5 rounded-full uppercase">Visor Histórico</span>
+                <div className="mt-6 pt-5 border-t border-[#3e3e42] flex items-center justify-between font-sans">
+                  <span className="text-[10px] font-bold text-red-455 tracking-wider uppercase group-hover:translate-x-1 transition-all">Ingresar a Auditoría Comité →</span>
+                  <span className="text-[10px] bg-red-650/20 text-red-400 font-mono px-2.5 py-0.5 rounded-full uppercase font-bold">Visor Histórico</span>
                 </div>
               </div>
 
             </div>
 
             {/* Quick Helper Info */}
-            <div className="mt-16 p-6 bg-[#0f172a]/60 rounded-2xl border border-slate-800 max-w-2xl mx-auto text-left flex items-start gap-4 font-sans">
-              <Sparkles className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
+            <div className="mt-16 p-6 bg-[#2A2A2E] rounded-2xl border border-[#3e3e42] max-w-2xl mx-auto text-left flex items-start gap-4 font-sans">
+              <Sparkles className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
               <div>
                 <h4 className="text-xs font-extrabold text-white uppercase tracking-wider">¿Cómo funciona la simulación?</h4>
                 <p className="text-xs text-slate-400 leading-relaxed mt-1">
@@ -773,39 +965,38 @@ export default function App() {
         {/* Primary Operational workspace */}
         {(IS_FIREBASE_DUMMY || user) && hasSelectedRole && (
           <div id="dashboard-workspace-cabinet" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-fade-in">
-            
             {/* Header section */}
-            <div id="premises-dashboard-header" className="flex flex-col md:flex-row md:items-center md:justify-between bg-slate-900/50 p-5 rounded-2xl border border-slate-800 gap-4">
+            <div id="premises-dashboard-header" className="flex flex-col md:flex-row md:items-center md:justify-between bg-[#2A2A2E] p-5 rounded-2xl border border-[#3e3e42] gap-4">
               <div>
-                <div className="flex items-center gap-2 text-[11px] font-bold text-indigo-400 uppercase tracking-widest">
-                  <ShieldCheck className="w-4 h-4 shrink-0 text-emerald-400" />
-                  <span>PREMISES ACCESS CONTROL  —  DASHBOARD {userRole?.role === SystemUserRole.ADMIN 
+                <div className="flex items-center gap-2 text-[11px] font-bold text-red-500 uppercase tracking-widest font-sans">
+                  <ShieldCheck className="w-4 h-4 shrink-0 text-red-500" />
+                  <span>CNLS — ACCESO RESIDENCIAL {userRole?.role === SystemUserRole.ADMIN 
                     ? 'ADMINISTRATOR' 
                     : userRole?.role === SystemUserRole.SUPERVISOR 
                     ? 'SUPERVISOR' 
                     : userRole?.role === SystemUserRole.AUDITOR 
                     ? 'AUDITOR CUMPLIMIENTO' 
-                    : 'GUARDIA DE SEGURIDAD'}</span>
+                    : 'RESIDENTE'}</span>
                 </div>
-                <h1 className="text-2xl font-extrabold text-white tracking-tight mt-1">Control de Acceso QR</h1>
+                <h1 className="text-2xl font-extrabold text-white tracking-tight mt-1">Control de Acceso Residencial</h1>
               </div>
 
               {/* Connected Account status card & Exit/Switch Controls */}
               <div className="flex flex-wrap items-center gap-3">
-                <div id="authentication-status-badge" className="flex items-center gap-3 bg-[#0f172a] border border-[#1e293b] p-2.5 rounded-2xl shadow-md self-start">
-                  <div className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-bold text-xs">
+                <div id="authentication-status-badge" className="flex items-center gap-3 bg-[#1A1A1E] border border-[#3e3e42] p-2.5 rounded-2xl shadow-md self-start">
+                  <div className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 font-bold text-xs">
                     {userRole?.name.slice(0, 2).toUpperCase()}
                   </div>
                   <div className="text-left">
                     <p className="text-xs font-bold text-slate-200 leading-none">{userRole?.name}</p>
-                    <p className="text-[10px] text-slate-400 leading-none mt-1.5 uppercase font-semibold">
+                    <p className="text-[10px] text-slate-400 leading-none mt-1.5 uppercase font-semibold font-sans">
                       Rol: {userRole?.role === SystemUserRole.ADMIN 
-                        ? 'Director Admin 🛡️' 
+                        ? 'Administrador 🛡️' 
                         : userRole?.role === SystemUserRole.SUPERVISOR 
                         ? 'Supervisor Turno ⚡' 
                         : userRole?.role === SystemUserRole.AUDITOR 
-                        ? 'Auditor Cumplimiento 🔍' 
-                        : 'Guardia de Acceso 👮'}
+                        ? 'Comité Auditor 🔍' 
+                        : 'Residente: 🏡'}
                     </p>
                   </div>
                   
@@ -814,7 +1005,7 @@ export default function App() {
                     <button
                       id="auth-signout-trigger-btn"
                       onClick={handleSignOut}
-                      className="ml-2 p-1.5 bg-slate-850 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-705 rounded-lg transition cursor-pointer text-xs"
+                      className="ml-2 p-1.5 bg-[#2A2A2E] hover:bg-[#343438] text-slate-400 hover:text-white border border-[#3e3e42] rounded-lg transition cursor-pointer text-xs"
                       title="Cerrar de Sesión"
                     >
                       <LogOut className="w-3.5 h-3.5" />
@@ -826,10 +1017,10 @@ export default function App() {
                 <button
                   id="btn-logout-role-to-home"
                   onClick={() => setHasSelectedRole(false)}
-                  className="flex items-center gap-1.5 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 hover:text-rose-100 border border-rose-500/25 px-4 py-2.5 rounded-2xl text-xs font-bold transition duration-200 cursor-pointer shadow-lg shadow-black/30"
+                  className="flex items-center gap-1.5 bg-rose-950/45 hover:bg-rose-900/60 text-rose-300 hover:text-rose-100 border border-rose-500/25 px-4 py-2.5 rounded-2xl text-xs font-bold transition duration-200 cursor-pointer shadow-lg shadow-black/30 font-sans"
                   title="Salir de esta vista y volver al portal de roles"
                 >
-                  <LogOut className="w-4 h-4 text-rose-450" />
+                  <LogOut className="w-4 h-4 text-rose-455" />
                   <span>Cerrar Módulo / Salir</span>
                 </button>
               </div>
@@ -837,45 +1028,45 @@ export default function App() {
             </div>
 
             {/* COLLAPSIBLE DEMO PLAYGROUND & CLIENT WALKTHROUGH BOX */}
-            <div id="demo-playground-panel" className="bg-[#0f172a]/90 backdrop-blur-md border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
+            <div id="demo-playground-panel" className="bg-[#2A2A2E] border border-[#3e3e42] rounded-3xl overflow-hidden shadow-2xl">
               <button 
                 onClick={() => setShowDemoGuide(!showDemoGuide)}
-                className="w-full px-6 py-5 flex items-center justify-between text-left hover:bg-slate-900/50 transition cursor-pointer"
+                className="w-full px-6 py-5 flex items-center justify-between text-left hover:bg-[#343438] transition cursor-pointer"
               >
                 <div className="flex items-center gap-3">
-                  <div className="p-2.5 bg-indigo-500/10 text-indigo-400 rounded-xl border border-indigo-500/20">
-                    <Sparkles className="w-5 h-5 text-indigo-400" />
+                  <div className="p-2.5 bg-red-500/10 text-red-505 rounded-xl border border-red-500/20">
+                    <Sparkles className="w-5 h-5 text-red-500" />
                   </div>
                   <div>
                     <h2 className="text-sm font-extrabold text-white flex items-center gap-2">
                       Consola de Pruebas &amp; Guía de Demostración
-                      <span className="text-[9px] bg-indigo-500/20 text-indigo-300 font-mono tracking-wider px-2 py-0.5 rounded-full uppercase">PILOTO DEMO ACTIVO</span>
+                      <span className="text-[9px] bg-red-500/20 text-red-300 font-mono tracking-wider px-2 py-0.5 rounded-full uppercase">PILOTO DEMO ACTIVO</span>
                     </h2>
                     <p className="text-[11px] text-slate-400 mt-0.5">Utiliza este módulo de control para simular lecturas y validar accesos ante tu cliente en 1 clic.</p>
                   </div>
                 </div>
-                <div className="text-slate-400 p-1.5 hover:text-white transition">
+                <div className="text-slate-400 p-1.5 hover:text-white transition animate-fade-in">
                   {showDemoGuide ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                 </div>
               </button>
 
               {showDemoGuide && (
-                <div className="p-6 border-t border-slate-800/60 bg-[#070b13]/80 space-y-6">
+                <div className="p-6 border-t border-[#3e3e42]/60 bg-[#1A1A1E] space-y-6">
                   {/* Grid of instructions and quick-triggers */}
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 font-sans">
                     
                     {/* Column 1: Core Quick Info / Requisitos */}
-                    <div className="space-y-3 bg-slate-900/30 p-4 border border-slate-800/40 rounded-2xl flex flex-col justify-between">
+                    <div className="space-y-3 bg-[#2A2A2E]/50 p-4 border border-[#3e3e42]/45 rounded-2xl flex flex-col justify-between">
                       <div>
-                        <div className="flex items-center gap-2 text-xs font-bold text-indigo-300 uppercase tracking-wider mb-2">
-                          <HelpCircle className="w-4 h-4 text-indigo-400" />
+                        <div className="flex items-center gap-2 text-xs font-bold text-red-300 uppercase tracking-wider mb-2">
+                          <HelpCircle className="w-4 h-4 text-red-500" />
                           <span>Requisitos de Cámara</span>
                         </div>
-                        <p className="text-[11px] text-slate-450 leading-relaxed">
-                          Si tu cliente desea probar el escaneo usando su <strong>cámara web</strong> o <strong>cámara del celular</strong>, debe conceder accesos de cámara en el navegador. Las directivas ya están activas en <code className="bg-slate-950 px-1 py-0.5 rounded text-indigo-300 font-mono">metadata.json</code>.
+                        <p className="text-[11px] text-slate-400 leading-relaxed">
+                          Si tu cliente desea probar el escaneo usando su <strong>cámara web</strong> o <strong>cámara del celular</strong>, debe conceder accesos de cámara en el navegador. Las directivas ya están activas en <code className="bg-slate-950 px-1 py-0.5 rounded text-red-300 font-mono">metadata.json</code>.
                         </p>
                       </div>
-                      <div className="space-y-1.5 border-t border-slate-805 pt-3">
+                      <div className="space-y-1.5 border-t border-[#3e3e42]/30 pt-3">
                         <span className="flex items-center gap-2 text-[10.5px] text-slate-400">
                           <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> Permisos Frame: camera (Activo)
                         </span>
@@ -886,12 +1077,12 @@ export default function App() {
                     </div>
 
                     {/* Column 2: Seeder Triggers */}
-                    <div className="space-y-3 bg-slate-900/30 p-4 border border-slate-800/40 rounded-2xl font-sans">
+                    <div className="space-y-3 bg-[#2A2A2E]/50 p-4 border border-[#3e3e42]/45 rounded-2xl font-sans">
                       <div className="flex items-center gap-2 text-xs font-bold text-teal-300 uppercase tracking-wider mb-2">
                         <UserCircle className="w-4 h-4 text-teal-400" />
                         <span>Paso 1: Generar Pases Rápidos</span>
                       </div>
-                      <p className="text-[11px] text-slate-450 leading-relaxed mb-1.5">
+                      <p className="text-[11px] text-slate-400 leading-relaxed mb-1.5 font-sans">
                         Inyecta visitantes autorizados instantáneos con diferentes perfiles de seguridad para verificar las reglas en la caseta:
                       </p>
                       <div className="grid grid-cols-2 gap-2">
@@ -915,7 +1106,7 @@ export default function App() {
                         </button>
                         <button
                           onClick={() => handleCreateDemoPass('onetime_used')}
-                          className="px-2.5 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 rounded-xl text-[10px] font-bold text-center transition cursor-pointer"
+                          className="px-2.5 py-2 bg-zinc-800 hover:bg-zinc-700 text-slate-350 border border-[#3e3e42] rounded-xl text-[10px] font-bold text-center transition cursor-pointer"
                         >
                           ⚫ Pase Único Usado
                         </button>
@@ -923,12 +1114,12 @@ export default function App() {
                     </div>
 
                     {/* Column 3: Simulated Scan Options */}
-                    <div className="space-y-3 bg-slate-900/30 p-4 border border-slate-800/40 rounded-2xl font-sans">
-                      <div className="flex items-center gap-2 text-xs font-bold text-sky-300 uppercase tracking-wider mb-2">
+                    <div className="space-y-3 bg-[#2A2A2E]/50 p-4 border border-[#3e3e42]/45 rounded-2xl font-sans">
+                      <div className="flex items-center gap-2 text-xs font-bold text-sky-305 uppercase tracking-wider mb-2">
                         <Smartphone className="w-4 h-4 text-sky-400" />
                         <span>Paso 2: Simulación de Celular</span>
                       </div>
-                      <p className="text-[11px] text-slate-450 leading-relaxed mb-2">
+                      <p className="text-[11px] text-slate-405 leading-relaxed mb-2 font-sans">
                         Renderiza un teléfono inteligente directamente a un costado para reflejar la perspectiva del visitante y el guardia al unísono:
                       </p>
                       <button
@@ -936,7 +1127,7 @@ export default function App() {
                         className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer shadow-lg ${
                           showVirtualPhone 
                             ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/10' 
-                            : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/20'
+                            : 'bg-red-600 hover:bg-red-500 text-white shadow-red-650/20'
                         }`}
                       >
                         <Smartphone className="w-4 h-4" /> 
@@ -948,8 +1139,8 @@ export default function App() {
 
                   {/* Dynamic Feedback Banner */}
                   {demoFeedback && (
-                    <div className="bg-indigo-950/40 border border-indigo-500/20 text-indigo-300 px-4 py-3 rounded-2xl text-xs flex items-center gap-2.5 animate-pulse">
-                      <Sparkles className="w-4 h-4 text-indigo-400 shrink-0" />
+                    <div className="bg-red-950/20 border border-red-500/20 text-red-400 px-4 py-3 rounded-2xl text-xs flex items-center gap-2.5 animate-pulse font-sans">
+                      <Sparkles className="w-4 h-4 text-red-500 shrink-0" />
                       <span className="font-semibold">{demoFeedback}</span>
                     </div>
                   )}
@@ -965,18 +1156,18 @@ export default function App() {
               <div id="workspace-layout-column" className={showVirtualPhone ? 'lg:col-span-8 space-y-8' : 'w-full space-y-8'}>
                 
                 {/* Navigation Tabs bar */}
-                <div id="workspace-tabs-menu" className="flex border-b border-slate-800 pb-px flex-wrap gap-y-2">
+                <div id="workspace-tabs-menu" className="flex border-b border-[#3e3e42] pb-px flex-wrap gap-y-2 font-sans">
                   {canScan && (
                     <button
                       id="nav-tab-scan"
                       onClick={() => setActiveTab('scan')}
                       className={`flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
                         activeTab === 'scan'
-                          ? 'border-indigo-500 text-indigo-400'
+                          ? 'border-red-500 text-red-500 font-extrabold'
                           : 'border-transparent text-slate-400 hover:text-slate-200'
                       }`}
                     >
-                      <ScanLine className="w-4 h-4" /> Escaneo de Guardia
+                      <ScanLine className="w-4 h-4" /> Acceso de Residente
                     </button>
                   )}
 
@@ -986,11 +1177,11 @@ export default function App() {
                       onClick={() => setActiveTab('crud')}
                       className={`flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
                         activeTab === 'crud'
-                          ? 'border-indigo-500 text-indigo-400'
+                          ? 'border-red-500 text-red-500 font-extrabold'
                           : 'border-transparent text-slate-400 hover:text-slate-200'
                       }`}
                     >
-                      <Users className="w-4 h-4" /> Gestión Autorizados (CRUD)
+                      <Users className="w-4 h-4" /> Control Autorizados
                     </button>
                   )}
 
@@ -1000,11 +1191,11 @@ export default function App() {
                       onClick={() => setActiveTab('reports')}
                       className={`flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
                         activeTab === 'reports'
-                          ? 'border-indigo-500 text-indigo-400'
+                          ? 'border-red-500 text-red-500 font-extrabold'
                           : 'border-transparent text-slate-400 hover:text-slate-200'
                       }`}
                     >
-                      <FileBarChart2 className="w-4 h-4" /> Historial y Reportes
+                      <FileBarChart2 className="w-4 h-4" /> Bitácora &amp; Reportes
                     </button>
                   )}
 
@@ -1014,11 +1205,11 @@ export default function App() {
                       onClick={() => setActiveTab('roles')}
                       className={`flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
                         activeTab === 'roles'
-                          ? 'border-indigo-500 text-indigo-400'
+                          ? 'border-red-500 text-red-500 font-extrabold'
                           : 'border-transparent text-slate-400 hover:text-slate-200'
                       }`}
                     >
-                      <Shield className="w-4 h-4" /> Roles de Sistema
+                      <Shield className="w-4 h-4" /> Privilegios y Roles
                     </button>
                   )}
                 </div>
@@ -1087,7 +1278,7 @@ export default function App() {
                           const found = visitorsList.find(v => v.id === e.target.value);
                           if (found) setVirtualPhoneUser(found);
                         }}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-medium"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2 text-xs text-white focus:outline-none focus:border-red-500 font-medium"
                       >
                         {visitorsList.length === 0 ? (
                           <option>Aun no hay códigos registrados</option>
@@ -1117,8 +1308,8 @@ export default function App() {
                           </span>
                         </div>
 
-                        <div className="w-10 h-10 bg-indigo-600/10 border border-indigo-500/20 rounded-full flex items-center justify-center mb-2.5">
-                          <UserCircle className="w-5 h-5 text-indigo-400" />
+                        <div className="w-10 h-10 bg-red-600/10 border border-red-500/20 rounded-full flex items-center justify-center mb-2.5">
+                          <UserCircle className="w-5 h-5 text-red-505" />
                         </div>
 
                         <h5 className="text-sm font-bold text-slate-200 mt-1 truncate max-w-full text-center leading-none">{virtualPhoneUser.name}</h5>
@@ -1162,7 +1353,7 @@ export default function App() {
                         <p className="text-[11px] text-slate-500 leading-relaxed">No hay visitantes de prueba inyectados aún.</p>
                         <button
                           onClick={() => handleCreateDemoPass('active')}
-                          className="mt-3 px-3 py-1.5 bg-indigo-600/20 text-indigo-400 text-[10px] uppercase tracking-wide font-bold rounded-lg hover:bg-indigo-600/30 transition cursor-pointer"
+                          className="mt-3 px-3 py-1.5 bg-red-600/20 text-red-400 text-[10px] uppercase tracking-wide font-bold rounded-lg hover:bg-red-650/35 transition cursor-pointer"
                         >
                           Crear Pase Activo
                         </button>
@@ -1175,9 +1366,9 @@ export default function App() {
                         id="btn-trigger-virtual-scan-feed"
                         onClick={() => virtualPhoneUser && handleSimulateScanDirect(virtualPhoneUser.qrcodeToken)}
                         disabled={!virtualPhoneUser}
-                        className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-lg shadow-indigo-600/20 transition cursor-pointer"
+                        className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-lg shadow-red-600/20 transition cursor-pointer"
                       >
-                        <ScanLine className="w-4 h-4 animate-ping" /> Simular Escaneo Guardia
+                        <ScanLine className="w-4 h-4" /> Simular Escaneo Residente
                       </button>
                       
                       <button
