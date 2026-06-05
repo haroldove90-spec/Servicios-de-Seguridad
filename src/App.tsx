@@ -15,7 +15,7 @@ import {
   ShieldAlert, ScanLine, Users, FileBarChart2, Shield, LogOut, Check, Sparkles, 
   Database, AlertCircle, Key, Lock, Laptop, CheckCircle2, UserCircle, ShieldCheck,
   QrCode, Smartphone, ExternalLink, HelpCircle, RefreshCw, ChevronDown, ChevronUp,
-  Copy, Download, Clock as ClockIcon, AlertTriangle, Menu, X
+  Copy, Download, Clock as ClockIcon, AlertTriangle, Menu, X, Home
 } from 'lucide-react';
 import { auth, IS_FIREBASE_DUMMY } from './firebase';
 import { dbService } from './services/dbService';
@@ -24,6 +24,8 @@ import ScannerInterface from './components/ScannerInterface';
 import AdminDashboard from './components/AdminDashboard';
 import AuditLogs from './components/AuditLogs';
 import RolesManager from './components/RolesManager';
+import ResidenciasManager from './components/ResidenciasManager';
+import ResidentesManager from './components/ResidentesManager';
 import QRCode from 'qrcode';
 
 export default function App() {
@@ -101,11 +103,11 @@ export default function App() {
   const [accessLogs, setAccessLogs] = useState<AccessLog[]>([]);
   
   // Navigation tabs
-  const [activeTab, setActiveTab] = useState<'scan' | 'crud' | 'reports' | 'roles'>('scan');
+  const [activeTab, setActiveTab] = useState<'scan' | 'crud' | 'reports' | 'roles' | 'residencias' | 'residentes'>('scan');
   const [hasSelectedRole, setHasSelectedRole] = useState<boolean>(false);
 
   // Helper to choose active dashboard role and set appropriate tab
-  const handleRoleSelection = (role: SystemUserRole, nameSimulated: string, defaultTab: 'scan' | 'crud' | 'reports' | 'roles') => {
+  const handleRoleSelection = (role: SystemUserRole, nameSimulated: string, defaultTab: 'scan' | 'crud' | 'reports' | 'roles' | 'residencias' | 'residentes') => {
     setDemoRole(role);
     setDemoName(nameSimulated);
     
@@ -387,6 +389,8 @@ export default function App() {
   const canCrud = isAdmin || isSupervisor;
   const canReports = isAdmin || isSupervisor || isAuditor;
   const canManageRoles = isAdmin;
+  const canManageResidences = isAdmin;
+  const canManageResidents = isAdmin;
 
   // Gracefully redirect the user if they simulation-switch roles and lose tab privilege
   useEffect(() => {
@@ -405,8 +409,12 @@ export default function App() {
       if (canScan) setActiveTab('scan');
       else if (canCrud) setActiveTab('crud');
       else setActiveTab('reports');
+    } else if ((current === 'residencias' && !canManageResidences) || (current === 'residentes' && !canManageResidents)) {
+      if (canScan) setActiveTab('scan');
+      else if (canCrud) setActiveTab('crud');
+      else setActiveTab('reports');
     }
-  }, [userRole, activeTab, canScan, canCrud, canReports, canManageRoles]);
+  }, [userRole, activeTab, canScan, canCrud, canReports, canManageRoles, canManageResidences, canManageResidents]);
 
   // Render standalone high-fidelity mobile visitor passport card if opened with public URL
   if (visitorPassToken) {
@@ -687,6 +695,26 @@ export default function App() {
                         }`}
                       >
                         <FileBarChart2 className="w-4 h-4" /> Bitácora &amp; Reportes
+                      </button>
+                    )}
+                    {canManageResidences && (
+                      <button
+                        onClick={() => { setActiveTab('residencias'); setIsDrawerOpen(false); }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer ${
+                          activeTab === 'residencias' ? 'bg-red-650 text-white shadow-lg shadow-red-650/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
+                        }`}
+                      >
+                        <Home className="w-4 h-4" /> Registro de Residencia
+                      </button>
+                    )}
+                    {canManageResidents && (
+                      <button
+                        onClick={() => { setActiveTab('residentes'); setIsDrawerOpen(false); }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer ${
+                          activeTab === 'residentes' ? 'bg-red-650 text-white shadow-lg shadow-red-650/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
+                        }`}
+                      >
+                        <Smartphone className="w-4 h-4" /> Registro de Residente
                       </button>
                     )}
                     {canManageRoles && (
@@ -1199,6 +1227,34 @@ export default function App() {
                     </button>
                   )}
 
+                  {canManageResidences && (
+                    <button
+                      id="nav-tab-residencias"
+                      onClick={() => setActiveTab('residencias')}
+                      className={`flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
+                        activeTab === 'residencias'
+                          ? 'border-red-500 text-red-500 font-extrabold'
+                          : 'border-transparent text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      <Home className="w-4 h-4" /> Registro de Residencia
+                    </button>
+                  )}
+
+                  {canManageResidents && (
+                    <button
+                      id="nav-tab-residentes"
+                      onClick={() => setActiveTab('residentes')}
+                      className={`flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
+                        activeTab === 'residentes'
+                          ? 'border-red-500 text-red-500 font-extrabold'
+                          : 'border-transparent text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      <Smartphone className="w-4 h-4" /> Registro de Residente
+                    </button>
+                  )}
+
                   {canManageRoles && (
                     <button
                       id="nav-tab-roles"
@@ -1233,6 +1289,18 @@ export default function App() {
                     <AuditLogs 
                       logs={accessLogs} 
                       onRefresh={reloadAccessLogs} 
+                    />
+                  )}
+
+                  {activeTab === 'residencias' && canManageResidences && (
+                    <ResidenciasManager 
+                      onRefresh={loadVisitorsForPhoneList}
+                    />
+                  )}
+
+                  {activeTab === 'residentes' && canManageResidents && (
+                    <ResidentesManager 
+                      onRefresh={loadVisitorsForPhoneList}
                     />
                   )}
 

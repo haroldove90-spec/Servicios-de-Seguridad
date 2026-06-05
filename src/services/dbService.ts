@@ -26,13 +26,17 @@ import {
   SystemUserRole, 
   LogType, 
   LogStatus, 
-  OperationType 
+  OperationType,
+  Residencia,
+  Residente
 } from '../types';
 
 // Storage keys for the high-performance LocalStorage engine fallback
 const LS_USERS_KEY = 'qr_authorized_users';
 const LS_LOGS_KEY = 'qr_access_logs';
 const LS_ROLES_KEY = 'qr_system_roles';
+const LS_RESIDENCIAS_KEY = 'qr_residencias';
+const LS_RESIDENTES_KEY = 'qr_residentes';
 
 // Simple unique string generator
 function generateId(): string {
@@ -224,6 +228,65 @@ const LocalDB = {
 
   saveRoles(roles: SystemRole[]) {
     localStorage.setItem(LS_ROLES_KEY, JSON.stringify(roles));
+  },
+
+  getResidencias(): Residencia[] {
+    const data = localStorage.getItem(LS_RESIDENCIAS_KEY);
+    if (!data) {
+      const demoResidencias: Residencia[] = [
+        {
+          id: 'res-demo-1',
+          nombre: 'Lomas de Chapultepec',
+          administrador: 'Ing. Alejandro Ruiz',
+          numResidencias: 120,
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        {
+          id: 'res-demo-2',
+          nombre: 'Residencial Cumbres',
+          administrador: 'Lic. Martha Gómez',
+          numResidencias: 85,
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }
+      ];
+      localStorage.setItem(LS_RESIDENCIAS_KEY, JSON.stringify(demoResidencias));
+      return demoResidencias;
+    }
+    return JSON.parse(data);
+  },
+
+  saveResidencias(residencias: Residencia[]) {
+    localStorage.setItem(LS_RESIDENCIAS_KEY, JSON.stringify(residencias));
+  },
+
+  getResidentes(): Residente[] {
+    const data = localStorage.getItem(LS_RESIDENTES_KEY);
+    if (!data) {
+      const demoResidentes: Residente[] = [
+        {
+          id: 'resd-demo-1',
+          nombre: 'Mariana Sosa',
+          residenciaId: 'res-demo-1',
+          residenciaNombre: 'Lomas de Chapultepec',
+          direccion: 'Calle Roble #14',
+          qrcodeToken: 'residente_mariana_token',
+          accessUserId: 'usr-resd-demo-1',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }
+      ];
+      localStorage.setItem(LS_RESIDENTES_KEY, JSON.stringify(demoResidentes));
+      return demoResidentes;
+    }
+    return JSON.parse(data);
+  },
+
+  saveResidentes(residentes: Residente[]) {
+    localStorage.setItem(LS_RESIDENTES_KEY, JSON.stringify(residentes));
   }
 };
 
@@ -429,6 +492,168 @@ export const dbService = {
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, `access_logs/${id}`);
       throw err;
+    }
+  },
+
+  // --------------------------------------------------
+  // Residencias Management CRUD
+  // --------------------------------------------------
+  async getResidencias(): Promise<Residencia[]> {
+    if (IS_FIREBASE_DUMMY) {
+      return LocalDB.getResidencias();
+    }
+
+    try {
+      const colRef = collection(db, 'residencias');
+      const q = query(colRef, orderBy('createdAt', 'desc'));
+      const snap = await getDocs(q);
+      const results: Residencia[] = [];
+      snap.forEach(d => {
+        results.push(d.data() as Residencia);
+      });
+      return results;
+    } catch (err) {
+      handleFirestoreError(err, OperationType.LIST, 'residencias');
+      return [];
+    }
+  },
+
+  async createResidencia(residencia: Omit<Residencia, 'id'>): Promise<Residencia> {
+    const id = 'res_' + generateId();
+    const newResidencia: Residencia = { ...residencia, id };
+
+    if (IS_FIREBASE_DUMMY) {
+      const list = LocalDB.getResidencias();
+      list.unshift(newResidencia);
+      LocalDB.saveResidencias(list);
+      return newResidencia;
+    }
+
+    try {
+      const docRef = doc(db, 'residencias', id);
+      await setDoc(docRef, newResidencia);
+      return newResidencia;
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, `residencias/${id}`);
+      throw err;
+    }
+  },
+
+  async updateResidencia(id: string, updates: Partial<Residencia>): Promise<void> {
+    if (IS_FIREBASE_DUMMY) {
+      const list = LocalDB.getResidencias();
+      const updated = list.map(item => {
+        if (item.id === id) {
+          return { ...item, ...updates, updatedAt: new Date().toISOString() };
+        }
+        return item;
+      });
+      LocalDB.saveResidencias(updated);
+      return;
+    }
+
+    try {
+      const docRef = doc(db, 'residencias', id);
+      await updateDoc(docRef, { ...updates, updatedAt: new Date().toISOString() });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `residencias/${id}`);
+    }
+  },
+
+  async deleteResidencia(id: string): Promise<void> {
+    if (IS_FIREBASE_DUMMY) {
+      const list = LocalDB.getResidencias();
+      const filtered = list.filter(item => item.id !== id);
+      LocalDB.saveResidencias(filtered);
+      return;
+    }
+
+    try {
+      const docRef = doc(db, 'residencias', id);
+      await deleteDoc(docRef);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, `residencias/${id}`);
+    }
+  },
+
+  // --------------------------------------------------
+  // Residentes Management CRUD
+  // --------------------------------------------------
+  async getResidentes(): Promise<Residente[]> {
+    if (IS_FIREBASE_DUMMY) {
+      return LocalDB.getResidentes();
+    }
+
+    try {
+      const colRef = collection(db, 'residentes');
+      const q = query(colRef, orderBy('createdAt', 'desc'));
+      const snap = await getDocs(q);
+      const results: Residente[] = [];
+      snap.forEach(d => {
+        results.push(d.data() as Residente);
+      });
+      return results;
+    } catch (err) {
+      handleFirestoreError(err, OperationType.LIST, 'residentes');
+      return [];
+    }
+  },
+
+  async createResidente(residente: Omit<Residente, 'id'>): Promise<Residente> {
+    const id = 'resd_' + generateId();
+    const newResidente: Residente = { ...residente, id };
+
+    if (IS_FIREBASE_DUMMY) {
+      const list = LocalDB.getResidentes();
+      list.unshift(newResidente);
+      LocalDB.saveResidentes(list);
+      return newResidente;
+    }
+
+    try {
+      const docRef = doc(db, 'residentes', id);
+      await setDoc(docRef, newResidente);
+      return newResidente;
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, `residentes/${id}`);
+      throw err;
+    }
+  },
+
+  async updateResidente(id: string, updates: Partial<Residente>): Promise<void> {
+    if (IS_FIREBASE_DUMMY) {
+      const list = LocalDB.getResidentes();
+      const updated = list.map(item => {
+        if (item.id === id) {
+          return { ...item, ...updates, updatedAt: new Date().toISOString() };
+        }
+        return item;
+      });
+      LocalDB.saveResidentes(updated);
+      return;
+    }
+
+    try {
+      const docRef = doc(db, 'residentes', id);
+      await updateDoc(docRef, { ...updates, updatedAt: new Date().toISOString() });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `residentes/${id}`);
+    }
+  },
+
+  async deleteResidente(id: string): Promise<void> {
+    if (IS_FIREBASE_DUMMY) {
+      const list = LocalDB.getResidentes();
+      const filtered = list.filter(item => item.id !== id);
+      LocalDB.saveResidentes(filtered);
+      return;
+    }
+
+    try {
+      const docRef = doc(db, 'residentes', id);
+      await deleteDoc(docRef);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, `residentes/${id}`);
     }
   }
 

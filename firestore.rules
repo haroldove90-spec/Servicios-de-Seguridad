@@ -66,6 +66,23 @@ service cloud.firestore {
              data.role in ['admin', 'guard'];
     }
 
+    // Validation Blueprint for Residencia
+    function isValidResidencia(data) {
+      return data.nombre is string && data.nombre.size() > 0 && data.nombre.size() <= 200 &&
+             data.administrador is string && data.administrador.size() > 0 && data.administrador.size() <= 200 &&
+             data.numResidencias is int && data.numResidencias >= 0 &&
+             data.isActive is bool;
+    }
+
+    // Validation Blueprint for Residente
+    function isValidResidente(data) {
+      return data.nombre is string && data.nombre.size() > 0 && data.nombre.size() <= 200 &&
+             data.residenciaId is string && data.residenciaId.size() > 0 &&
+             data.residenciaNombre is string && data.residenciaNombre.size() > 0 &&
+             data.direccion is string && data.direccion.size() > 0 && data.direccion.size() <= 500 &&
+             data.qrcodeToken is string && data.qrcodeToken.size() > 0;
+    }
+
     // 2. Collection Rules with Master Gates
 
     // Collection: system_roles
@@ -110,6 +127,24 @@ service cloud.firestore {
       
       // Strict block for changes inside log archives
       allow update, delete: if false;
+    }
+
+    // Collection: residencias
+    match /residencias/{residenciaId} {
+      // Guards and admins can query subdivisions
+      allow read: if isGuard();
+      // Only admins can create, update, or delete subdivisions
+      allow create, update: if isAdmin() && isValidId(residenciaId) && isValidResidencia(incoming());
+      allow delete: if isAdmin() && isValidId(residenciaId);
+    }
+
+    // Collection: residentes
+    match /residentes/{residenteId} {
+      // Guards and admins can query residents
+      allow read: if isGuard();
+      // Only admins can create, update, or delete resident credentials
+      allow create, update: if isAdmin() && isValidId(residenteId) && isValidResidente(incoming());
+      allow delete: if isAdmin() && isValidId(residenteId);
     }
   }
 }

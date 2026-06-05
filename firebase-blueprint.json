@@ -54,6 +54,38 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["email", "name", "role", "createdAt"]
+    },
+    "Residencia": {
+      "title": "Residencia",
+      "description": "A residential block, condominium, or subdivision managed in the system.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nombre": { "type": "string" },
+        "administrador": { "type": "string" },
+        "numResidencias": { "type": "integer" },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["nombre", "administrador", "numResidencias", "isActive", "createdAt", "updatedAt"]
+    },
+    "Residente": {
+      "title": "Residente",
+      "description": "A resident living inside one of the registered subdivisions.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nombre": { "type": "string" },
+        "residenciaId": { "type": "string" },
+        "residenciaNombre": { "type": "string" },
+        "direccion": { "type": "string" },
+        "qrcodeToken": { "type": "string" },
+        "accessUserId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["nombre", "residenciaId", "residenciaNombre", "direccion", "qrcodeToken", "createdAt", "updatedAt"]
     }
   },
   "firestore": {
@@ -68,6 +100,14 @@
     "/system_roles/{uid}": {
       "schema": "SystemRole",
       "description": "User authorization database for administrators and guard personnel"
+    },
+    "/residencias/{residenciaId}": {
+      "schema": "Residencia",
+      "description": "Registered subdivisions list"
+    },
+    "/residentes/{residenteId}": {
+      "schema": "Residente",
+      "description": "Authorized residents database linked to their corresponding QR code"
     }
   }
 }

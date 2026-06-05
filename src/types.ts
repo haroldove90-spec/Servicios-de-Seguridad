@@ -69,6 +69,28 @@ export interface SystemRole {
   createdAt: string; // ISO DateTime
 }
 
+export interface Residencia {
+  id: string;
+  nombre: string;
+  administrador: string;
+  numResidencias: number;
+  isActive: boolean;
+  createdAt: string; // ISO DateTime
+  updatedAt: string; // ISO DateTime
+}
+
+export interface Residente {
+  id: string;
+  nombre: string;
+  residenciaId: string;
+  residenciaNombre: string;
+  direccion: string;
+  qrcodeToken: string;
+  accessUserId?: string; // Optional linked AuthorizedUser id
+  createdAt: string; // ISO DateTime
+  updatedAt: string; // ISO DateTime
+}
+
 export enum OperationType {
   CREATE = 'create',
   UPDATE = 'update',
