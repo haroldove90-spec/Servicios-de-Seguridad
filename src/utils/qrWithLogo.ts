@@ -91,12 +91,34 @@ export async function generateQRWithLogo(
         resolve(canvas.toDataURL('image/png'));
       };
       
+      // Since cossma.com.mx doesn't send wild-card CORS headers, we proxy through images.weserv.nl
+      // which loads and serves the image with fully open CORS header support.
+      const proxyUrl = `https://images.weserv.nl/?url=${encodeURIComponent(logoUrl)}`;
+      
       img.onerror = () => {
-        console.warn('Could not load QR logo from:', logoUrl, '- using standard fallback QR.');
-        resolve(canvas.toDataURL('image/png'));
+        console.warn('Could not load proxied QR logo from:', proxyUrl, '- trying direct load...');
+        
+        // Final fallback: try direct load if proxy is blocked or down
+        const fallbackImg = new Image();
+        fallbackImg.onload = () => {
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            const qrSize = canvas.width;
+            const logoSize = qrSize * 0.22;
+            const x = (qrSize - logoSize) / 2;
+            const y = (qrSize - logoSize) / 2;
+            ctx.drawImage(fallbackImg, x, y, logoSize, logoSize);
+          }
+          resolve(canvas.toDataURL('image/png'));
+        };
+        fallbackImg.onerror = () => {
+          console.error('Failed to load direct logo fallback as well.');
+          resolve(canvas.toDataURL('image/png'));
+        };
+        fallbackImg.src = logoUrl;
       };
       
-      img.src = logoUrl;
+      img.src = proxyUrl;
     });
   });
 }
