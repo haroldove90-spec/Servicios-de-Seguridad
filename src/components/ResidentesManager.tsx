@@ -20,6 +20,7 @@ interface ResidentesManagerProps {
 export default function ResidentesManager({ onRefresh }: ResidentesManagerProps) {
   const [residentes, setResidentes] = useState<Residente[]>([]);
   const [residencias, setResidencias] = useState<Residencia[]>([]);
+  const [authorizedUsers, setAuthorizedUsers] = useState<AuthorizedUser[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
   
   // Form State
@@ -30,6 +31,11 @@ export default function ResidentesManager({ onRefresh }: ResidentesManagerProps)
   const [formDireccion, setFormDireccion] = useState<string>('');
   const [formWhatsapp, setFormWhatsapp] = useState<string>('');
   const [formCreateQR, setFormCreateQR] = useState<boolean>(true); // Generar QR automáticamente
+  const [formValidUntil, setFormValidUntil] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 365); // Default: 1 year validity
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  });
 
   // QR Modal Overlay
   const [selectedResidentQR, setSelectedResidentQR] = useState<Residente | null>(null);
@@ -44,6 +50,9 @@ export default function ResidentesManager({ onRefresh }: ResidentesManagerProps)
 
       const resdList = await dbService.getResidentes();
       setResidentes(resdList);
+
+      const authList = await dbService.getAuthorizedUsers();
+      setAuthorizedUsers(authList);
     } catch (error) {
       console.error('Error loading data in ResidentesManager:', error);
     }
@@ -73,6 +82,12 @@ export default function ResidentesManager({ onRefresh }: ResidentesManagerProps)
     setFormDireccion('');
     setFormWhatsapp('');
     setFormCreateQR(true);
+    
+    // Set default validity to 1 year
+    const d = new Date();
+    d.setDate(d.getDate() + 365);
+    setFormValidUntil(new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16));
+    
     setIsFormOpen(true);
   };
 
@@ -83,6 +98,18 @@ export default function ResidentesManager({ onRefresh }: ResidentesManagerProps)
     setFormDireccion(item.direccion);
     setFormWhatsapp(item.whatsapp || '');
     setFormCreateQR(!!item.qrcodeToken);
+
+    // Try to load linked AuthorizedUser validUntil or fallback to 1 year from now
+    const linkedUser = authorizedUsers.find(u => u.id === item.accessUserId || (item.qrcodeToken && u.qrcodeToken === item.qrcodeToken));
+    if (linkedUser && linkedUser.validUntil) {
+      const d = new Date(linkedUser.validUntil);
+      setFormValidUntil(new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16));
+    } else {
+      const d = new Date();
+      d.setDate(d.getDate() + 365);
+      setFormValidUntil(new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16));
+    }
+
     setIsFormOpen(true);
   };
 
@@ -114,9 +141,9 @@ export default function ResidentesManager({ onRefresh }: ResidentesManagerProps)
       }
 
       // Synchronously record/update in authorized_users (so Guard scans are valid instantly!)
-      // Residents get 1-year broad schedule access out-of-the-box
+      // Residents get custom validity duration configured by the administrator
       const startOfYear = new Date();
-      const endOfYear = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+      const endOfYear = new Date(formValidUntil);
 
       const authUserPayload: Omit<AuthorizedUser, 'id'> = {
         name: formNombre.trim() + ' (Residente)',
@@ -134,7 +161,9 @@ export default function ResidentesManager({ onRefresh }: ResidentesManagerProps)
         endTime: '23:59',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        createdBy: 'admin-auto'
+        createdBy: 'admin-auto',
+        residenciaId: matchedComplex.id,
+        residenciaNombre: matchedComplex.nombre
       };
 
       try {
@@ -158,6 +187,7 @@ export default function ResidentesManager({ onRefresh }: ResidentesManagerProps)
       qrcodeToken: qrToken,
       whatsapp: formWhatsapp.trim(),
       accessUserId: accessUserId,
+      validUntil: new Date(formValidUntil).toISOString(),
       updatedAt: new Date().toISOString()
     };
 
@@ -324,12 +354,28 @@ export default function ResidentesManager({ onRefresh }: ResidentesManagerProps)
                     </td>
                     <td className="py-4 px-6 text-center">
                       {item.qrcodeToken ? (
-                        <button
-                          onClick={() => setSelectedResidentQR(item)}
-                          className="inline-flex items-center gap-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer"
-                        >
-                          <QrCode className="w-3.5 h-3.5" /> Ver Código QR
-                        </button>
+                        <div className="flex flex-col items-center gap-1">
+                          <button
+                            onClick={() => setSelectedResidentQR(item)}
+                            className="inline-flex items-center gap-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer"
+                          >
+                            <QrCode className="w-3.5 h-3.5" /> Ver Código QR
+                          </button>
+                          {(() => {
+                            const user = authorizedUsers.find(u => u.id === item.accessUserId || u.qrcodeToken === item.qrcodeToken);
+                            if (user && user.validUntil) {
+                              const isExpired = new Date(user.validUntil) < new Date();
+                              return (
+                                <span className={`text-[9px] font-bold tracking-tight px-1.5 py-0.5 rounded ${
+                                  isExpired ? 'bg-red-500/15 text-red-400 font-extrabold border border-red-500/20' : 'text-slate-500'
+                                }`}>
+                                  Expira: {new Date(user.validUntil).toLocaleDateString()}
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
+                        </div>
                       ) : (
                         <span className="text-slate-600 font-mono text-[10px]">Sin Pase Emitido</span>
                       )}
@@ -457,9 +503,27 @@ export default function ResidentesManager({ onRefresh }: ResidentesManagerProps)
                   <span className="text-xs text-slate-300 font-medium">Habilitar y emitir Pase QR de Acceso automático</span>
                 </label>
                 <p className="text-[10px] text-slate-500 mt-1 ml-6">
-                  Crea automáticamente una autorización de ingreso permanente en vigencia de 1 año con horario ilimitado de entrada.
+                  Crea automáticamente una autorización de ingreso permanente con horario ilimitado de entrada en vigencia personalizada.
                 </p>
               </div>
+
+              {formCreateQR && (
+                <div className="bg-[#111115] border border-[#2e2e38] p-4 rounded-xl space-y-2">
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Vigencia del Pase QR (Expiración) *
+                  </label>
+                  <input
+                    type="datetime-local"
+                    required
+                    value={formValidUntil}
+                    onChange={(e) => setFormValidUntil(e.target.value)}
+                    className="w-full bg-[#18181c] border border-[#2e2e38] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-500 transition-all cursor-pointer font-sans"
+                  />
+                  <p className="text-[9.5px] text-slate-500">
+                    Defina el límite administrativo de ingreso. Una vez alcanzada esta fecha, la credencial QR del residente denegará el paso automáticamente.
+                  </p>
+                </div>
+              )}
 
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#2e2e38]">
                 <button

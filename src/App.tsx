@@ -30,8 +30,22 @@ import { generateQRWithLogo } from './utils/qrWithLogo';
 
 export default function App() {
   // Authentication states
-  const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [userRole, setUserRole] = useState<SystemRole | null>(null);
+  const [user, setUser] = useState<any | null>(() => {
+    const saved = localStorage.getItem('cnls_auth_user');
+    try {
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [userRole, setUserRole] = useState<SystemRole | null>(() => {
+    const saved = localStorage.getItem('cnls_user_role');
+    try {
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [loading, setLoading] = useState<boolean>(true);
 
   // Preview Mode Sandbox simulation controls
@@ -45,17 +59,23 @@ export default function App() {
   // Drawer lateral navigation state
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
 
-  // Splash screen state
-  const [splashVisible, setSplashVisible] = useState<boolean>(true);
+  // Splash screen state (shown only once per browser session)
+  const [splashVisible, setSplashVisible] = useState<boolean>(() => {
+    return !sessionStorage.getItem('cnls_splash_screen_shown');
+  });
 
   // PWA installation state
   const [installPrompt, setInstallPrompt] = useState<any | null>(null);
 
   useEffect(() => {
     // Splash screen timer: closes splash transition automatically
-    const splashTimer = setTimeout(() => {
-      setSplashVisible(false);
-    }, 1500);
+    let splashTimer: any = null;
+    if (splashVisible) {
+      splashTimer = setTimeout(() => {
+        setSplashVisible(false);
+        sessionStorage.setItem('cnls_splash_screen_shown', 'true');
+      }, 1500);
+    }
 
     // Capture standard install prompts
     const handleBeforeInstall = (e: Event) => {
@@ -72,10 +92,10 @@ export default function App() {
     });
 
     return () => {
-      clearTimeout(splashTimer);
+      if (splashTimer) clearTimeout(splashTimer);
       window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
     };
-  }, []);
+  }, [splashVisible]);
 
   const handleInstallClick = async () => {
     if (installPrompt) {
@@ -129,6 +149,27 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('cnls_demo_name', demoName);
   }, [demoName]);
+
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem('cnls_auth_user', JSON.stringify({
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName,
+        photoURL: user.photoURL
+      }));
+    } else {
+      localStorage.removeItem('cnls_auth_user');
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (userRole) {
+      localStorage.setItem('cnls_user_role', JSON.stringify(userRole));
+    } else {
+      localStorage.removeItem('cnls_user_role');
+    }
+  }, [userRole]);
 
   // Helper to choose active dashboard role and set appropriate tab
   const handleRoleSelection = (role: SystemUserRole, nameSimulated: string, defaultTab: 'scan' | 'crud' | 'reports' | 'roles' | 'residencias' | 'residentes') => {
@@ -395,7 +436,7 @@ export default function App() {
   const isGuard = userRole?.role === SystemUserRole.GUARD;
 
   // Strict role separation for custom dashboards
-  const canScan = isGuard;
+  const canScan = isGuard || isSupervisor || isAdmin;
   const canCrud = isAdmin || isSupervisor;
   const canReports = isAdmin || isSupervisor || isAuditor;
   const canManageRoles = isAdmin;
@@ -628,32 +669,26 @@ export default function App() {
                     >
                       <Shield className="w-4 h-4 text-red-500" /> Administrador del Condominio
                     </button>
-                    <button 
+                     <button 
                       onClick={() => {
-                        handleRoleSelection(SystemUserRole.SUPERVISOR, 'Supervisor de Seguridad (Simulado)', 'crud');
+                        handleRoleSelection(SystemUserRole.SUPERVISOR, 'Oficial de Seguridad (Simulado)', 'scan');
                         setIsDrawerOpen(false);
                       }}
-                      className="w-full text-left px-4 py-3 bg-[#1A1A1E] hover:bg-[#343438] text-white rounded-xl text-xs font-bold transition flex items-center gap-3 cursor-pointer border border-[#3e3e42] hover:border-red-500/20 animate-fade-in"
+                      className="w-full text-left px-4 py-3 bg-[#1A1A1E] hover:bg-[#343438] text-white rounded-xl text-xs font-bold transition flex items-center gap-3 cursor-pointer border border-[#3e3e42] hover:border-red-500/20"
                     >
-                      <Users className="w-4 h-4 text-red-500" /> Supervisor / Operador Caseta
+                      <Users className="w-4 h-4 text-red-500" /> Seguridad / Control Acceso
                     </button>
                     <button 
-                      onClick={() => {
-                        handleRoleSelection(SystemUserRole.GUARD, 'Residente Domínguez (Simulado)', 'scan');
-                        setIsDrawerOpen(false);
-                      }}
-                      className="w-full text-left px-4 py-3 bg-[#1A1A1E] hover:bg-[#343438] text-white rounded-xl text-xs font-bold transition flex items-center gap-3 cursor-pointer border border-[#3e3e42] hover:border-red-500/20 animate-fade-in"
+                      className="w-full text-left px-4 py-3 bg-[#1A1A1E] text-slate-550 rounded-xl text-xs font-bold flex items-center gap-3 cursor-not-allowed border border-[#3e3e42] opacity-50 font-sans"
+                      disabled
                     >
-                      <ScanLine className="w-4 h-4 text-red-500" /> Residente: Autogestión de Pases
+                      <ScanLine className="w-4 h-4 text-slate-550" /> Residente (Desactivado)
                     </button>
                     <button 
-                      onClick={() => {
-                        handleRoleSelection(SystemUserRole.AUDITOR, 'Auditor del Comité (Simulado)', 'reports');
-                        setIsDrawerOpen(false);
-                      }}
-                      className="w-full text-left px-4 py-3 bg-[#1A1A1E] hover:bg-[#343438] text-white rounded-xl text-xs font-bold transition flex items-center gap-3 cursor-pointer border border-[#3e3e42] hover:border-red-500/20 animate-fade-in"
+                      className="w-full text-left px-4 py-3 bg-[#1A1A1E] text-slate-550 rounded-xl text-xs font-bold flex items-center gap-3 cursor-not-allowed border border-[#3e3e42] opacity-50 font-sans"
+                      disabled
                     >
-                      <FileBarChart2 className="w-4 h-4 text-red-500" /> Auditor del Comité Vecinal
+                      <FileBarChart2 className="w-4 h-4 text-slate-550" /> Auditor (Desactivado)
                     </button>
                   </div>
                 </div>
@@ -666,7 +701,7 @@ export default function App() {
                         {userRole?.role === SystemUserRole.ADMIN 
                           ? 'Director Admin 🛡️' 
                           : userRole?.role === SystemUserRole.SUPERVISOR 
-                          ? 'Supervisor ⚡' 
+                          ? 'Seguridad 🛡️' 
                           : userRole?.role === SystemUserRole.AUDITOR 
                           ? 'Auditor Comité 🔍' 
                           : 'Residente: 🏡'}
@@ -895,81 +930,75 @@ export default function App() {
                 </div>
               </div>
 
-              {/* CARD 2: SUPERVISOR */}
+              {/* CARD 2: SEGURIDAD */}
               <div 
                 id="role-gateway-card-supervisor"
-                onClick={() => handleRoleSelection(SystemUserRole.SUPERVISOR, 'Supervisor de Seguridad (Simulado)', 'crud')}
+                onClick={() => handleRoleSelection(SystemUserRole.SUPERVISOR, 'Oficial de Seguridad (Simulado)', 'scan')}
                 className="group relative bg-[#2A2A2E] hover:bg-[#343438] border border-[#3e3e42] hover:border-red-500 rounded-3xl p-6 shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden"
               >
                 <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 blur-3xl rounded-full group-hover:bg-red-500/10 transition"></div>
                 
                 <div>
                   <div className="w-12 h-12 bg-red-550/15 text-red-500 border border-red-500/25 rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 transition shrink-0">
-                    <Users className="w-6 h-6" />
+                    <Users className="w-6 h-6 text-red-500" />
                   </div>
                   <h3 className="text-lg font-extrabold text-white group-hover:text-red-400 transition">
-                    Supervisor de Seguridad / Caseta
+                    Módulo de Seguridad / Caseta
                   </h3>
                   <p className="text-xs text-slate-400 leading-relaxed mt-2.5">
-                    Módulo operativo de supervisión física en el fraccionamiento. Monitorea las entradas, visualiza la lista de residentes autorizados, revisa registros temporales y gestiona el flujo de accesos reales en tiempo real.
+                    Módulo operativo para el personal de vigilancia. Permite escanear y validar códigos QR desde la cámara o de forma computalizada, visualizar visitas en el recinto y consultar electrónicamente la bitácora de ingresos del día.
                   </p>
                 </div>
 
                 <div className="mt-6 pt-5 border-t border-[#3e3e42] flex items-center justify-between font-sans">
-                  <span className="text-[10px] font-bold text-red-455 tracking-wider uppercase group-hover:translate-x-1 transition-all">Acceder a Supervisión →</span>
-                  <span className="text-[10px] bg-red-650/20 text-red-400 font-mono px-2.5 py-0.5 rounded-full uppercase font-bold">Monitoreo &amp; Logs</span>
+                  <span className="text-[10px] font-bold text-red-405 tracking-wider uppercase group-hover:translate-x-1 transition-all">Ingresar al Módulo Seguridad →</span>
+                  <span className="text-[10px] bg-red-650/20 text-red-400 font-mono px-2.5 py-0.5 rounded-full uppercase font-bold">Activo</span>
                 </div>
               </div>
 
               {/* CARD 3: GUARD / RESIDENTE */}
               <div 
                 id="role-gateway-card-guard"
-                onClick={() => handleRoleSelection(SystemUserRole.GUARD, 'Residente Domínguez (Simulado)', 'scan')}
-                className="group relative bg-[#2A2A2E] hover:bg-[#343438] border border-[#3e3e42] hover:border-red-500 rounded-3xl p-6 shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden"
+                className="relative bg-[#2A2A2E] border border-[#3e3e42] rounded-3xl p-6 shadow-xl opacity-45 cursor-not-allowed flex flex-col justify-between overflow-hidden"
               >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 blur-3xl rounded-full group-hover:bg-red-500/10 transition"></div>
-                
                 <div>
-                  <div className="w-12 h-12 bg-red-550/15 text-red-500 border border-red-500/25 rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 transition shrink-0">
+                  <div className="w-12 h-12 bg-slate-800 text-slate-550 border border-[#3e3e42] rounded-2xl flex items-center justify-center mb-5 shrink-0">
                     <ScanLine className="w-6 h-6" />
                   </div>
-                  <h3 className="text-lg font-extrabold text-white group-hover:text-red-405 transition">
+                  <h3 className="text-lg font-extrabold text-slate-400">
                     Residente: Autogestión &amp; Escáner QR
                   </h3>
-                  <p className="text-xs text-slate-400 leading-relaxed mt-2.5">
+                  <p className="text-xs text-slate-500 leading-relaxed mt-2.5">
                     Módulo interactivo para residentes autorizados de las propiedades. Permite visualizar credenciales residenciales, autogestionar pases de sus visitas o utilizar la cámara frontal/trasera para validar pases desde su propio dispositivo al recibir invitados.
                   </p>
                 </div>
 
                 <div className="mt-6 pt-5 border-t border-[#3e3e42] flex items-center justify-between font-sans">
-                  <span className="text-[10px] font-bold text-red-455 tracking-wider uppercase group-hover:translate-x-1 transition-all">Ingresar como Residente →</span>
-                  <span className="text-[10px] bg-red-650/20 text-red-400 font-mono px-2.5 py-0.5 rounded-full uppercase font-bold">Pase de Residente</span>
+                  <span className="text-[10px] font-bold text-red-500 tracking-wider uppercase font-mono">Desactivado temporalmente</span>
+                  <span className="text-[10px] bg-[#1e1e24] text-slate-400 font-mono px-2.5 py-0.5 rounded-full uppercase font-bold">Inactivo</span>
                 </div>
               </div>
 
               {/* CARD 4: AUDITOR */}
               <div 
                 id="role-gateway-card-auditor"
-                onClick={() => handleRoleSelection(SystemUserRole.AUDITOR, 'Auditor del Comité (Simulado)', 'reports')}
-                className="group relative bg-[#2A2A2E] hover:bg-[#343438] border border-[#3e3e42] hover:border-red-500 rounded-3xl p-6 shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden"
+                className="relative bg-[#2A2A2E] border border-[#3e3e42] rounded-3xl p-6 shadow-xl opacity-45 cursor-not-allowed flex flex-col justify-between overflow-hidden"
               >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 blur-3xl rounded-full group-hover:bg-red-500/10 transition"></div>
-                
                 <div>
-                  <div className="w-12 h-12 bg-red-550/15 text-red-500 border border-red-500/25 rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 transition shrink-0">
+                  <div className="w-12 h-12 bg-slate-800 text-slate-550 border border-[#3e3e42] rounded-2xl flex items-center justify-center mb-5 shrink-0">
                     <FileBarChart2 className="w-6 h-6" />
                   </div>
-                  <h3 className="text-lg font-extrabold text-white group-hover:text-red-400 transition">
+                  <h3 className="text-lg font-extrabold text-slate-400">
                     Auditor de Cumplimiento / Comité
                   </h3>
-                  <p className="text-xs text-slate-400 leading-relaxed mt-2.5">
+                  <p className="text-xs text-slate-500 leading-relaxed mt-2.5">
                     Módulo de control para el comité de colonos u auditores del fraccionamiento. Otorga visibilidad completa a la bitácora de auditoría histórica, exportación certificada de accesos a formatos PDF/CSV y análisis de flujo vehicular.
                   </p>
                 </div>
 
                 <div className="mt-6 pt-5 border-t border-[#3e3e42] flex items-center justify-between font-sans">
-                  <span className="text-[10px] font-bold text-red-455 tracking-wider uppercase group-hover:translate-x-1 transition-all">Ingresar a Auditoría Comité →</span>
-                  <span className="text-[10px] bg-red-650/20 text-red-400 font-mono px-2.5 py-0.5 rounded-full uppercase font-bold">Visor Histórico</span>
+                  <span className="text-[10px] font-bold text-red-500 tracking-wider uppercase font-mono">Desactivado temporalmente</span>
+                  <span className="text-[10px] bg-[#1e1e24] text-slate-400 font-mono px-2.5 py-0.5 rounded-full uppercase font-bold">Inactivo</span>
                 </div>
               </div>
 

@@ -40,7 +40,7 @@ export default function RolesManager({
   const [isFormOpen, setIsFormOpen] = useState<boolean>(false);
   const [formName, setFormName] = useState<string>('');
   const [formEmail, setFormEmail] = useState<string>('');
-  const [formRole, setFormRole] = useState<SystemUserRole>(SystemUserRole.GUARD);
+  const [formRole, setFormRole] = useState<SystemUserRole>(SystemUserRole.ADMIN);
 
   // Success message feedback
   const [successMsg, setSuccessMsg] = useState<string>('');
@@ -54,7 +54,7 @@ export default function RolesManager({
           ...list,
           {
             uid: 'supervisor-demo-uid',
-            name: 'Elena Rostova (Supervisor)',
+            name: 'Elena Rostova (Seguridad)',
             email: 'elena@seguridad.local',
             role: SystemUserRole.SUPERVISOR,
             createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
@@ -109,7 +109,7 @@ export default function RolesManager({
     // Clear & Feedback
     setFormName('');
     setFormEmail('');
-    setFormRole(SystemUserRole.GUARD);
+    setFormRole(SystemUserRole.ADMIN);
     setIsFormOpen(false);
     
     setSuccessMsg(`Operador "${payload.name}" agregado con éxito como ${getRoleLabel(payload.role)}.`);
@@ -134,7 +134,7 @@ export default function RolesManager({
     switch (r) {
       case SystemUserRole.ADMIN: return 'Director Admin 🛡️';
       case SystemUserRole.GUARD: return 'Residente 🏠';
-      case SystemUserRole.SUPERVISOR: return 'Supervisor Turno ⚡';
+      case SystemUserRole.SUPERVISOR: return 'Seguridad 🛡️';
       case SystemUserRole.AUDITOR: return 'Auditor Cumplimiento 🔍';
       default: return 'Desconocido';
     }
@@ -444,9 +444,9 @@ export default function RolesManager({
                   onChange={(e) => setFormRole(e.target.value as SystemUserRole)}
                   className="w-full px-3 py-2 bg-[#1A1A1E] border border-[#3e3e42] text-slate-200 rounded-xl focus:border-red-500 focus:outline-hidden cursor-pointer"
                 >
-                  <option value={SystemUserRole.GUARD} className="bg-[#1A1A1E]" >✓ Residente En Condominio (CamScanner, Logs)</option>
-                  <option value={SystemUserRole.SUPERVISOR} className="bg-[#1A1A1E]" >⚡ Supervisor de Turno (Emisión de Pases, Logs, CSV)</option>
-                  <option value={SystemUserRole.AUDITOR} className="bg-[#1A1A1E]" >🔍 Auditor de Cumplimiento (Ver Logs y CSV solamente)</option>
+                  <option value={SystemUserRole.GUARD} className="bg-[#1A1A1E]" disabled>✓ Residente En Condominio (Desactivado temporalmente)</option>
+                  <option value={SystemUserRole.SUPERVISOR} className="bg-[#1A1A1E]" >👮 Seguridad / Control de Accesos (Lector QR, Bitácora)</option>
+                  <option value={SystemUserRole.AUDITOR} className="bg-[#1A1A1E]" disabled>🔍 Auditor de Cumplimiento (Desactivado temporalmente)</option>
                   <option value={SystemUserRole.ADMIN} className="bg-[#1A1A1E]" >🛡️ Director Administrador (Control Total Maestro)</option>
                 </select>
               </div>
