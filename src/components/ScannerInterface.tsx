@@ -18,7 +18,7 @@ import {
 } from '../types';
 
 interface ScannerInterfaceProps {
-  currentGuard: { uid: string; name: string } | null;
+  currentGuard: { uid: string; name: string; role?: SystemUserRole } | null;
   onScanLogged: () => void;
 }
 
@@ -296,8 +296,75 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
     }
     
     const tokenClean = token.trim();
+    let tokenToQuery = tokenClean;
+    
+    // Support URL parsing dynamically to extract 'pass' parameter if present
+    if (tokenClean.startsWith('http://') || tokenClean.startsWith('https://') || tokenClean.includes('?pass=')) {
+      try {
+        const urlParams = new URL(tokenClean);
+        const passParam = urlParams.searchParams.get('pass');
+        if (passParam) {
+          tokenToQuery = passParam.trim();
+        } else if (tokenClean.includes('?pass=')) {
+          const parts = tokenClean.split('?pass=');
+          if (parts[1]) {
+            tokenToQuery = parts[1].split('&')[0].trim();
+          }
+        }
+      } catch (urlErr) {
+        if (tokenClean.includes('?pass=')) {
+          const parts = tokenClean.split('?pass=');
+          if (parts[1]) {
+            tokenToQuery = parts[1].split('&')[0].trim();
+          }
+        }
+      }
+    }
+
     const users = await dbService.getAuthorizedUsers();
-    const matchedUser = users.find(u => u.qrcodeToken === tokenClean);
+    let matchedUser = users.find(u => u.qrcodeToken === tokenToQuery);
+
+    // Dynamic self-healing recovery for registered residents (like Sandra Santiago)
+    if (!matchedUser) {
+      const allResidents = await dbService.getResidentes();
+      const matchedRes = allResidents.find(r => r.qrcodeToken === tokenToQuery);
+      
+      if (matchedRes) {
+        // Automatically provision missing authorized_users link
+        const autoPayload: Omit<AuthorizedUser, 'id'> = {
+          name: matchedRes.nombre + ' (Residente)',
+          documentId: 'RESID-AUTO-' + matchedRes.id.substring(0, 5).toUpperCase(),
+          email: 'residente@local.casa',
+          phone: matchedRes.whatsapp || '',
+          status: UserStatus.ACTIVE,
+          qrcodeToken: tokenToQuery,
+          oneTime: false,
+          used: false,
+          validFrom: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+          validUntil: matchedRes.validUntil || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+          days: [],
+          startTime: '00:00',
+          endTime: '23:59',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          createdBy: 'system-auto-recovery',
+          residenciaId: matchedRes.residenciaId,
+          residenciaNombre: matchedRes.residenciaNombre
+        };
+        
+        try {
+          const createdAuth = await dbService.createAuthorizedUser(autoPayload);
+          // Update resident to point to authorized_users entry
+          await dbService.updateResidente(matchedRes.id, {
+            ...matchedRes,
+            accessUserId: createdAuth.id
+          });
+          matchedUser = createdAuth;
+        } catch (err) {
+          console.error('Dynamic authorized_users recovery failed:', err);
+        }
+      }
+    }
 
     const guardName = currentGuard?.name || 'Oficial de Seguridad';
     const guardId = currentGuard?.uid || 'anonymous-guard';
@@ -733,7 +800,8 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
         </div>
 
         {/* Sandbox Simulation Frame for instant testing */}
-        <div id="simulation-sandbox-tray" className="mt-8 border-t border-zinc-900 pt-6">
+        {currentGuard?.role !== SystemUserRole.SUPERVISOR && (
+          <div id="simulation-sandbox-tray" className="mt-8 border-t border-zinc-900 pt-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <div className="flex items-center gap-2">
               <span className="flex h-2 w-2 relative">
@@ -877,6 +945,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
             </button>
           </div>
         </div>
+        )}
       </div>
 
       {/* Access Verdict Results Frame */}
@@ -955,12 +1024,19 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
                 <div className="scan-overlay opacity-20"></div>
                 <Smartphone className="w-7 h-7 text-red-500 animate-pulse" />
               </div>
-              <h3 className="text-base font-semibold text-slate-200">Esperando Lectura de Código</h3>
+              <h3 className="text-base font-semibold text-slate-200">
+                {currentGuard?.role === SystemUserRole.SUPERVISOR ? 'Lector QR de Caseta Activo' : 'Esperando Lectura de Código'}
+              </h3>
               <p className="text-xs text-slate-400 max-w-xs mx-auto mt-2 leading-relaxed">
-                Escanea un QR o introduce datos en el panel simulador de la izquierda para desplegar el dictamen automático de entrada/salida y revisar credenciales.
+                {currentGuard?.role === SystemUserRole.SUPERVISOR 
+                  ? 'Posicione el código QR del pase del residente o visitante frente al lector o cámara para validar su ingreso/salida.'
+                  : 'Escanea un QR o introduce datos en el panel simulador de la izquierda para desplegar el dictamen automático de entrada/salida y revisar credenciales.'
+                }
               </p>
               <div id="active-guard-context-card" className="mt-8 inline-block bg-black border border-zinc-800 rounded-xl px-4 py-2.5 text-xs text-slate-300 text-left">
-                <p className="font-semibold text-red-500">Residente Autenticado:</p>
+                <p className="font-semibold text-red-500">
+                  {currentGuard?.role === SystemUserRole.SUPERVISOR ? 'Oficial de Seguridad:' : 'Residente Autenticado:'}
+                </p>
                 <p className="text-slate-300 mt-0.5">{currentGuard?.name} • <span className="font-mono text-red-400">{currentGuard?.uid}</span></p>
               </div>
             </div>
@@ -1097,8 +1173,8 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
     {/* BENTO GRID SECURITY ROADMAP & COMMAND CENTER */}
     <div id="security-bento-grid" className="grid grid-cols-1 md:grid-cols-12 gap-6 mt-8">
       
-      {/* Module 1: Panic Trigger Command (col-span-4) */}
-      <div id="bento-panic-card" className="md:col-span-4 bg-[#0f172a] border border-[#1e293b] rounded-2xl p-5 flex flex-col justify-between min-h-[220px]">
+      {/* Module 1: Panic Trigger Command (col-span-12 or col-span-4 depending on role) */}
+      <div id="bento-panic-card" className={`${currentGuard?.role === SystemUserRole.SUPERVISOR ? 'md:col-span-12' : 'md:col-span-4'} bg-[#0f172a] border border-[#1e293b] rounded-2xl p-5 flex flex-col justify-between min-h-[200px]`}>
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="px-2 py-1 text-[9px] font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-md uppercase tracking-widest">Procedimiento Crisis</span>
@@ -1137,118 +1213,122 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
       </div>
 
       {/* Module 2: Occupancy Monitor (col-span-4) */}
-      <div id="bento-occupancy-card" className="md:col-span-4 bg-[#0f172a] border border-[#1e293b] rounded-2xl p-5 flex flex-col justify-between min-h-[220px]">
-        <div className="space-y-3 w-full">
-          <div className="flex items-center justify-between">
-            <span className="px-2 py-1 text-[9px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 rounded-md uppercase tracking-widest">Control de Tránsito</span>
-            <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-400">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span>En Sitio: {onsitePeople.length}</span>
+      {currentGuard?.role !== SystemUserRole.SUPERVISOR && (
+        <div id="bento-occupancy-card" className="md:col-span-4 bg-[#0f172a] border border-[#1e293b] rounded-2xl p-5 flex flex-col justify-between min-h-[220px]">
+          <div className="space-y-3 w-full">
+            <div className="flex items-center justify-between">
+              <span className="px-2 py-1 text-[9px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 rounded-md uppercase tracking-widest">Control de Tránsito</span>
+              <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-400">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>En Sitio: {onsitePeople.length}</span>
+              </div>
+            </div>
+
+            <div className="space-y-0.5">
+              <h4 className="text-xs font-bold text-slate-200 uppercase tracking-widest">Instalación / Tránsito Interno</h4>
+              <p className="text-[10.5px] text-slate-400 leading-normal">Pases con check-in activo que no registran salida.</p>
+            </div>
+
+            <div id="onsite-visitors-list" className="space-y-2 max-h-[110px] overflow-y-auto pr-1">
+              {onsitePeople.map(p => (
+                <div key={p.userId} id={`onsite-person-${p.userId}`} className="bg-[#020617] p-2 rounded-xl border border-slate-800/80 flex items-center justify-between gap-2 text-[10.5px]">
+                  <div className="truncate flex-1">
+                    <p className="font-bold text-slate-300 truncate">{p.name}</p>
+                    <p className="text-[9px] text-slate-500 font-mono">DNI: {p.document} • Entró: {p.time}</p>
+                  </div>
+                  <button
+                    id={`onsite-checkout-${p.userId}`}
+                    onClick={() => handleForceCheckout(p.userId, p.name, p.document)}
+                    className="px-2 py-1 bg-slate-900 border border-slate-800 hover:border-red-500 hover:bg-red-950/20 text-slate-400 hover:text-red-400 rounded-lg text-[9px] font-bold transition shrink-0 cursor-pointer"
+                  >
+                    Salida
+                  </button>
+                </div>
+              ))}
+
+              {onsitePeople.length === 0 && (
+                <div id="onsite-empty-panel" className="text-center py-6 text-slate-500 text-[11px]">
+                  <p>Las instalaciones se encuentran vacías.</p>
+                </div>
+              )}
             </div>
           </div>
-
-          <div className="space-y-0.5">
-            <h4 className="text-xs font-bold text-slate-200 uppercase tracking-widest">Instalación / Tránsito Interno</h4>
-            <p className="text-[10.5px] text-slate-400 leading-normal">Pases con check-in activo que no registran salida.</p>
-          </div>
-
-          <div id="onsite-visitors-list" className="space-y-2 max-h-[110px] overflow-y-auto pr-1">
-            {onsitePeople.map(p => (
-              <div key={p.userId} id={`onsite-person-${p.userId}`} className="bg-[#020617] p-2 rounded-xl border border-slate-800/80 flex items-center justify-between gap-2 text-[10.5px]">
-                <div className="truncate flex-1">
-                  <p className="font-bold text-slate-300 truncate">{p.name}</p>
-                  <p className="text-[9px] text-slate-500 font-mono">DNI: {p.document} • Entró: {p.time}</p>
-                </div>
-                <button
-                  id={`onsite-checkout-${p.userId}`}
-                  onClick={() => handleForceCheckout(p.userId, p.name, p.document)}
-                  className="px-2 py-1 bg-slate-900 border border-slate-800 hover:border-red-500 hover:bg-red-950/20 text-slate-400 hover:text-red-400 rounded-lg text-[9px] font-bold transition shrink-0 cursor-pointer"
-                >
-                  Salida
-                </button>
-              </div>
-            ))}
-
-            {onsitePeople.length === 0 && (
-              <div id="onsite-empty-panel" className="text-center py-6 text-slate-500 text-[11px]">
-                <p>Las instalaciones se encuentran vacías.</p>
-              </div>
-            )}
-          </div>
         </div>
-      </div>
+      )}
 
       {/* Module 3: Security Checklist & Roadmap Scheduler (col-span-4) */}
-      <div id="bento-roadmap-checklist" className="md:col-span-4 bg-[#0f172a] border border-[#1e293b] rounded-2xl p-5 flex flex-col justify-between min-h-[220px]">
-        <div className="space-y-3 w-full">
-          <div className="flex items-center justify-between">
-            <span className="px-2 py-1 text-[9px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-md uppercase tracking-widest">Roadmap Técnico</span>
-            <HelpCircle className="w-4 h-4 text-slate-500" />
-          </div>
-
-          <div className="space-y-0.5">
-            <h4 className="text-xs font-bold text-slate-200 uppercase tracking-widest">Checklist de Cumplimiento</h4>
-            <p className="text-[10px] text-slate-400 leading-normal">Solicitudes pendientes o sugerencias para planes futuros:</p>
-          </div>
-
-          {checklistFeedback && (
-            <div id="checklist-sug-feedback" className="p-1 px-2.5 bg-amber-500/10 border border-amber-500/20 text-[9px] text-amber-400 rounded-lg animate-pulse font-semibold">
-              {checklistFeedback}
+      {currentGuard?.role !== SystemUserRole.SUPERVISOR && (
+        <div id="bento-roadmap-checklist" className="md:col-span-4 bg-[#0f172a] border border-[#1e293b] rounded-2xl p-5 flex flex-col justify-between min-h-[220px]">
+          <div className="space-y-3 w-full">
+            <div className="flex items-center justify-between">
+              <span className="px-2 py-1 text-[9px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-md uppercase tracking-widest">Roadmap Técnico</span>
+              <HelpCircle className="w-4 h-4 text-slate-500" />
             </div>
-          )}
 
-          <div id="checklist-items-stack" className="space-y-2 max-h-[110px] overflow-y-auto pr-1">
-            <div className="flex items-start gap-1.5 text-[10px]">
-              <input type="checkbox" checked readOnly className="mt-0.5 pointer-events-none accent-red-500 shrink-0" />
-              <div className="leading-tight">
-                <p className="font-bold text-emerald-400">✓ Roles y Permisos RBAC Activados</p>
-                <p className="text-[9px] text-slate-500">Módulos restringidos para Admin/Guardia/Supervisores</p>
+            <div className="space-y-0.5">
+              <h4 className="text-xs font-bold text-slate-200 uppercase tracking-widest">Checklist de Cumplimiento</h4>
+              <p className="text-[10px] text-slate-400 leading-normal">Solicitudes pendientes o sugerencias para planes futuros:</p>
+            </div>
+
+            {checklistFeedback && (
+              <div id="checklist-sug-feedback" className="p-1 px-2.5 bg-amber-500/10 border border-amber-500/20 text-[9px] text-amber-400 rounded-lg animate-pulse font-semibold">
+                {checklistFeedback}
               </div>
-            </div>
+            )}
 
-            <div className="flex items-start gap-1.5 text-[10px]">
-              <input type="checkbox" checked readOnly className="mt-0.5 pointer-events-none accent-red-500 shrink-0" />
-              <div className="leading-tight">
-                <p className="font-bold text-emerald-400">✓ Restricciones Horario y Fechas</p>
-                <p className="text-[9px] text-slate-500">Doble bloqueo horario diario e intramatutino</p>
+            <div id="checklist-items-stack" className="space-y-2 max-h-[110px] overflow-y-auto pr-1">
+              <div className="flex items-start gap-1.5 text-[10px]">
+                <input type="checkbox" checked readOnly className="mt-0.5 pointer-events-none accent-red-500 shrink-0" />
+                <div className="leading-tight">
+                  <p className="font-bold text-emerald-400">✓ Roles y Permisos RBAC Activados</p>
+                  <p className="text-[9px] text-slate-500">Módulos restringidos para Admin/Guardia/Supervisores</p>
+                </div>
               </div>
-            </div>
 
-            {/* Simulated Roadmap Plan */}
-            {[
-              { label: '📡 Sensor Biométrico Facial', desc: 'Evita transferir pases', code: 'facial' },
-              { label: '📨 Alertas SMS Directas', desc: 'Despacho automático al emitir pase QRs', code: 'sms' },
-              { label: '📊 Dashboard de Tránsito en Vivo', desc: 'Panel ocupacional bento integrado', code: 'tracked' },
-              { label: '🌐 Integración de Listas Negras', desc: 'Alertas inmediatas en policía', code: 'blacklist' }
-            ].map(feat => {
-              const voted = votedFeatures.includes(feat.code);
-              return (
-                <button
-                  key={feat.code}
-                  id={`vote-${feat.code}-btn`}
-                  onClick={() => {
-                    if (voted) {
-                      setVotedFeatures(votedFeatures.filter(x => x !== feat.code));
-                      setChecklistFeedback(`Eliminado: ${feat.label}.`);
-                    } else {
-                      setVotedFeatures([...votedFeatures, feat.code]);
-                      setChecklistFeedback(`✓ Agregado: ${feat.label} al plan de desarrollo.`);
-                    }
-                    setTimeout(() => setChecklistFeedback(''), 4000);
-                  }}
-                  className="w-full flex items-start gap-1.5 text-left text-[10px] hover:bg-slate-950 p-1 rounded transition cursor-pointer"
-                >
-                  <input type="checkbox" checked={voted} readOnly className="mt-0.5 accent-amber-500 pointer-events-none shrink-0" />
-                  <div className="leading-tight">
-                    <p className={`font-semibold ${voted ? 'text-amber-400 font-bold' : 'text-slate-450'}`}>{feat.label}</p>
-                    <p className="text-[8.5px] text-slate-500">{feat.desc}</p>
-                  </div>
-                </button>
-              );
-            })}
+              <div className="flex items-start gap-1.5 text-[10px]">
+                <input type="checkbox" checked readOnly className="mt-0.5 pointer-events-none accent-red-500 shrink-0" />
+                <div className="leading-tight">
+                  <p className="font-bold text-emerald-400">✓ Restricciones Horario y Fechas</p>
+                  <p className="text-[9px] text-slate-500">Doble bloqueo horario diario e intramatutino</p>
+                </div>
+              </div>
+
+              {/* Simulated Roadmap Plan */}
+              {[
+                { label: '📡 Sensor Biométrico Facial', desc: 'Evita transferir pases', code: 'facial' },
+                { label: '📨 Alertas SMS Directas', desc: 'Despacho automático al emitir pase QRs', code: 'sms' },
+                { label: '📊 Dashboard de Tránsito en Vivo', desc: 'Panel ocupacional bento integrado', code: 'tracked' },
+                { label: '🌐 Integración de Listas Negras', desc: 'Alertas inmediatas en policía', code: 'blacklist' }
+              ].map(feat => {
+                const voted = votedFeatures.includes(feat.code);
+                return (
+                  <button
+                    key={feat.code}
+                    id={`vote-${feat.code}-btn`}
+                    onClick={() => {
+                      if (voted) {
+                        setVotedFeatures(votedFeatures.filter(x => x !== feat.code));
+                        setChecklistFeedback(`Eliminado: ${feat.label}.`);
+                      } else {
+                        setVotedFeatures([...votedFeatures, feat.code]);
+                        setChecklistFeedback(`✓ Agregado: ${feat.label} al plan de desarrollo.`);
+                      }
+                      setTimeout(() => setChecklistFeedback(''), 4000);
+                    }}
+                    className="w-full flex items-start gap-1.5 text-left text-[10px] hover:bg-slate-950 p-1 rounded transition cursor-pointer"
+                  >
+                    <input type="checkbox" checked={voted} readOnly className="mt-0.5 accent-amber-500 pointer-events-none shrink-0" />
+                    <div className="leading-tight">
+                      <p className={`font-semibold ${voted ? 'text-amber-400 font-bold' : 'text-slate-450'}`}>{feat.label}</p>
+                      <p className="text-[8.5px] text-slate-500">{feat.desc}</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
     </div>
   </div>

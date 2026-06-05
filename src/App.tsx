@@ -1095,126 +1095,128 @@ export default function App() {
             </div>
 
             {/* COLLAPSIBLE DEMO PLAYGROUND & CLIENT WALKTHROUGH BOX */}
-            <div id="demo-playground-panel" className="bg-[#2A2A2E] border border-[#3e3e42] rounded-3xl overflow-hidden shadow-2xl">
-              <button 
-                onClick={() => setShowDemoGuide(!showDemoGuide)}
-                className="w-full px-6 py-5 flex items-center justify-between text-left hover:bg-[#343438] transition cursor-pointer"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 bg-red-500/10 text-red-505 rounded-xl border border-red-500/20">
-                    <Sparkles className="w-5 h-5 text-red-500" />
+            {userRole?.role !== SystemUserRole.SUPERVISOR && (
+              <div id="demo-playground-panel" className="bg-[#2A2A2E] border border-[#3e3e42] rounded-3xl overflow-hidden shadow-2xl">
+                <button 
+                  onClick={() => setShowDemoGuide(!showDemoGuide)}
+                  className="w-full px-6 py-5 flex items-center justify-between text-left hover:bg-[#343438] transition cursor-pointer"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-red-500/10 text-red-505 rounded-xl border border-red-500/20">
+                      <Sparkles className="w-5 h-5 text-red-500" />
+                    </div>
+                    <div>
+                      <h2 className="text-sm font-extrabold text-white flex items-center gap-2">
+                        Consola de Pruebas &amp; Guía de Demostración
+                        <span className="text-[9px] bg-red-500/20 text-red-300 font-mono tracking-wider px-2 py-0.5 rounded-full uppercase">PILOTO DEMO ACTIVO</span>
+                      </h2>
+                      <p className="text-[11px] text-slate-400 mt-0.5">Utiliza este módulo de control para simular lecturas y validar accesos ante tu cliente en 1 clic.</p>
+                    </div>
                   </div>
-                  <div>
-                    <h2 className="text-sm font-extrabold text-white flex items-center gap-2">
-                      Consola de Pruebas &amp; Guía de Demostración
-                      <span className="text-[9px] bg-red-500/20 text-red-300 font-mono tracking-wider px-2 py-0.5 rounded-full uppercase">PILOTO DEMO ACTIVO</span>
-                    </h2>
-                    <p className="text-[11px] text-slate-400 mt-0.5">Utiliza este módulo de control para simular lecturas y validar accesos ante tu cliente en 1 clic.</p>
+                  <div className="text-slate-400 p-1.5 hover:text-white transition animate-fade-in">
+                    {showDemoGuide ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                   </div>
-                </div>
-                <div className="text-slate-400 p-1.5 hover:text-white transition animate-fade-in">
-                  {showDemoGuide ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                </div>
-              </button>
+                </button>
 
-              {showDemoGuide && (
-                <div className="p-6 border-t border-[#3e3e42]/60 bg-[#1A1A1E] space-y-6">
-                  {/* Grid of instructions and quick-triggers */}
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 font-sans">
-                    
-                    {/* Column 1: Core Quick Info / Requisitos */}
-                    <div className="space-y-3 bg-[#2A2A2E]/50 p-4 border border-[#3e3e42]/45 rounded-2xl flex flex-col justify-between">
-                      <div>
-                        <div className="flex items-center gap-2 text-xs font-bold text-red-300 uppercase tracking-wider mb-2">
-                          <HelpCircle className="w-4 h-4 text-red-500" />
-                          <span>Requisitos de Cámara</span>
+                {showDemoGuide && (
+                  <div className="p-6 border-t border-[#3e3e42]/60 bg-[#1A1A1E] space-y-6">
+                    {/* Grid of instructions and quick-triggers */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 font-sans">
+                      
+                      {/* Column 1: Core Quick Info / Requisitos */}
+                      <div className="space-y-3 bg-[#2A2A2E]/50 p-4 border border-[#3e3e42]/45 rounded-2xl flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center gap-2 text-xs font-bold text-red-300 uppercase tracking-wider mb-2">
+                            <HelpCircle className="w-4 h-4 text-red-500" />
+                            <span>Requisitos de Cámara</span>
+                          </div>
+                          <p className="text-[11px] text-slate-404 leading-relaxed">
+                            Si tu cliente desea probar el escaneo usando su <strong>cámara web</strong> o <strong>cámara del celular</strong>, debe conceder accesos de cámara en el navegador. Las directivas ya están activas en <code className="bg-slate-950 px-1 py-0.5 rounded text-red-300 font-mono">metadata.json</code>.
+                          </p>
                         </div>
-                        <p className="text-[11px] text-slate-400 leading-relaxed">
-                          Si tu cliente desea probar el escaneo usando su <strong>cámara web</strong> o <strong>cámara del celular</strong>, debe conceder accesos de cámara en el navegador. Las directivas ya están activas en <code className="bg-slate-950 px-1 py-0.5 rounded text-red-300 font-mono">metadata.json</code>.
+                        <div className="space-y-1.5 border-t border-[#3e3e42]/30 pt-3">
+                          <span className="flex items-center gap-2 text-[10.5px] text-slate-404">
+                            <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> Permisos Frame: camera (Activo)
+                          </span>
+                          <span className="flex items-center gap-2 text-[10.5px] text-slate-404">
+                            <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> Enlace móvil autogenerado
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Column 2: Seeder Triggers */}
+                      <div className="space-y-3 bg-[#2A2A2E]/50 p-4 border border-[#3e3e42]/45 rounded-2xl font-sans">
+                        <div className="flex items-center gap-2 text-xs font-bold text-teal-300 uppercase tracking-wider mb-2">
+                          <UserCircle className="w-4 h-4 text-teal-400" />
+                          <span>Paso 1: Generar Pases Rápidos</span>
+                        </div>
+                        <p className="text-[11px] text-slate-404 leading-relaxed mb-1.5 font-sans">
+                          Inyecta visitantes autorizados instantáneos con diferentes perfiles de seguridad para verificar las reglas en la caseta:
                         </p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            onClick={() => handleCreateDemoPass('active')}
+                            className="px-2.5 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-xl text-[10px] font-bold text-center transition cursor-pointer"
+                          >
+                            🟢 Pase Activo (Andrés)
+                          </button>
+                          <button
+                            onClick={() => handleCreateDemoPass('expired')}
+                            className="px-2.5 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl text-[10px] font-bold text-center transition cursor-pointer"
+                          >
+                            🔴 Pase Vencido (Sonia)
+                          </button>
+                          <button
+                            onClick={() => handleCreateDemoPass('suspended')}
+                            className="px-2.5 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-xl text-[10px] font-bold text-center transition cursor-pointer"
+                          >
+                            🟡 Suspendido (Mariano)
+                          </button>
+                          <button
+                            onClick={() => handleCreateDemoPass('onetime_used')}
+                            className="px-2.5 py-2 bg-zinc-800 hover:bg-zinc-700 text-slate-350 border border-[#3e3e42] rounded-xl text-[10px] font-bold text-center transition cursor-pointer"
+                          >
+                            ⚫ Pase Único Usado
+                          </button>
+                        </div>
                       </div>
-                      <div className="space-y-1.5 border-t border-[#3e3e42]/30 pt-3">
-                        <span className="flex items-center gap-2 text-[10.5px] text-slate-400">
-                          <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> Permisos Frame: camera (Activo)
-                        </span>
-                        <span className="flex items-center gap-2 text-[10.5px] text-slate-400">
-                          <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> Enlace móvil autogenerado
-                        </span>
+
+                      {/* Column 3: Simulated Scan Options */}
+                      <div className="space-y-3 bg-[#2A2A2E]/50 p-4 border border-[#3e3e42]/45 rounded-2xl font-sans">
+                        <div className="flex items-center gap-2 text-xs font-bold text-sky-305 uppercase tracking-wider mb-2">
+                          <Smartphone className="w-4 h-4 text-sky-400" />
+                          <span>Paso 2: Simulación de Celular</span>
+                        </div>
+                        <p className="text-[11px] text-slate-405 leading-relaxed mb-2 font-sans">
+                          Renderiza un teléfono inteligente directamente a un costado para reflejar la perspectiva del visitante y el guardia al unísono:
+                        </p>
+                        <button
+                          onClick={() => setShowVirtualPhone(!showVirtualPhone)}
+                          className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer shadow-lg ${
+                            showVirtualPhone 
+                              ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/10' 
+                              : 'bg-red-600 hover:bg-red-500 text-white shadow-red-650/20'
+                          }`}
+                        >
+                          <Smartphone className="w-4 h-4" /> 
+                          {showVirtualPhone ? 'Cerrar Celular de Prueba' : 'Abrir Celular de Prueba 📱'}
+                        </button>
                       </div>
+
                     </div>
 
-                    {/* Column 2: Seeder Triggers */}
-                    <div className="space-y-3 bg-[#2A2A2E]/50 p-4 border border-[#3e3e42]/45 rounded-2xl font-sans">
-                      <div className="flex items-center gap-2 text-xs font-bold text-teal-300 uppercase tracking-wider mb-2">
-                        <UserCircle className="w-4 h-4 text-teal-400" />
-                        <span>Paso 1: Generar Pases Rápidos</span>
+                    {/* Dynamic Feedback Banner */}
+                    {demoFeedback && (
+                      <div className="bg-red-950/20 border border-red-500/20 text-red-400 px-4 py-3 rounded-2xl text-xs flex items-center gap-2.5 animate-pulse font-sans">
+                        <Sparkles className="w-4 h-4 text-red-500 shrink-0" />
+                        <span className="font-semibold">{demoFeedback}</span>
                       </div>
-                      <p className="text-[11px] text-slate-400 leading-relaxed mb-1.5 font-sans">
-                        Inyecta visitantes autorizados instantáneos con diferentes perfiles de seguridad para verificar las reglas en la caseta:
-                      </p>
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          onClick={() => handleCreateDemoPass('active')}
-                          className="px-2.5 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-xl text-[10px] font-bold text-center transition cursor-pointer"
-                        >
-                          🟢 Pase Activo (Andrés)
-                        </button>
-                        <button
-                          onClick={() => handleCreateDemoPass('expired')}
-                          className="px-2.5 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl text-[10px] font-bold text-center transition cursor-pointer"
-                        >
-                          🔴 Pase Vencido (Sonia)
-                        </button>
-                        <button
-                          onClick={() => handleCreateDemoPass('suspended')}
-                          className="px-2.5 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-xl text-[10px] font-bold text-center transition cursor-pointer"
-                        >
-                          🟡 Suspendido (Mariano)
-                        </button>
-                        <button
-                          onClick={() => handleCreateDemoPass('onetime_used')}
-                          className="px-2.5 py-2 bg-zinc-800 hover:bg-zinc-700 text-slate-350 border border-[#3e3e42] rounded-xl text-[10px] font-bold text-center transition cursor-pointer"
-                        >
-                          ⚫ Pase Único Usado
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Column 3: Simulated Scan Options */}
-                    <div className="space-y-3 bg-[#2A2A2E]/50 p-4 border border-[#3e3e42]/45 rounded-2xl font-sans">
-                      <div className="flex items-center gap-2 text-xs font-bold text-sky-305 uppercase tracking-wider mb-2">
-                        <Smartphone className="w-4 h-4 text-sky-400" />
-                        <span>Paso 2: Simulación de Celular</span>
-                      </div>
-                      <p className="text-[11px] text-slate-405 leading-relaxed mb-2 font-sans">
-                        Renderiza un teléfono inteligente directamente a un costado para reflejar la perspectiva del visitante y el guardia al unísono:
-                      </p>
-                      <button
-                        onClick={() => setShowVirtualPhone(!showVirtualPhone)}
-                        className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer shadow-lg ${
-                          showVirtualPhone 
-                            ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/10' 
-                            : 'bg-red-600 hover:bg-red-500 text-white shadow-red-650/20'
-                        }`}
-                      >
-                        <Smartphone className="w-4 h-4" /> 
-                        {showVirtualPhone ? 'Cerrar Celular de Prueba' : 'Abrir Celular de Prueba 📱'}
-                      </button>
-                    </div>
+                    )}
 
                   </div>
-
-                  {/* Dynamic Feedback Banner */}
-                  {demoFeedback && (
-                    <div className="bg-red-950/20 border border-red-500/20 text-red-400 px-4 py-3 rounded-2xl text-xs flex items-center gap-2.5 animate-pulse font-sans">
-                      <Sparkles className="w-4 h-4 text-red-500 shrink-0" />
-                      <span className="font-semibold">{demoFeedback}</span>
-                    </div>
-                  )}
-
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
 
             {/* Grid wrapper for Virtual smartphone option */}
             <div className={`grid grid-cols-1 ${showVirtualPhone ? 'lg:grid-cols-12' : ''} gap-8 items-start`}>
@@ -1223,97 +1225,99 @@ export default function App() {
               <div id="workspace-layout-column" className={showVirtualPhone ? 'lg:col-span-8 space-y-8' : 'w-full space-y-8'}>
                 
                 {/* Navigation Tabs bar */}
-                <div id="workspace-tabs-menu" className="flex border-b border-[#3e3e42] pb-px flex-wrap gap-y-2 font-sans">
-                  {canScan && (
-                    <button
-                      id="nav-tab-scan"
-                      onClick={() => setActiveTab('scan')}
-                      className={`flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
-                        activeTab === 'scan'
-                          ? 'border-red-500 text-red-500 font-extrabold'
-                          : 'border-transparent text-slate-400 hover:text-slate-200'
-                      }`}
-                    >
-                      <ScanLine className="w-4 h-4" /> Acceso de Residente
-                    </button>
-                  )}
+                {userRole?.role !== SystemUserRole.SUPERVISOR && (
+                  <div id="workspace-tabs-menu" className="flex border-b border-[#3e3e42] pb-px flex-wrap gap-y-2 font-sans">
+                    {canScan && (
+                      <button
+                        id="nav-tab-scan"
+                        onClick={() => setActiveTab('scan')}
+                        className={`flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
+                          activeTab === 'scan'
+                            ? 'border-red-500 text-red-500 font-extrabold'
+                            : 'border-transparent text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        <ScanLine className="w-4 h-4" /> Acceso de Residente
+                      </button>
+                    )}
 
-                  {canCrud && (
-                    <button
-                      id="nav-tab-crud"
-                      onClick={() => setActiveTab('crud')}
-                      className={`flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
-                        activeTab === 'crud'
-                          ? 'border-red-500 text-red-500 font-extrabold'
-                          : 'border-transparent text-slate-400 hover:text-slate-200'
-                      }`}
-                    >
-                      <Users className="w-4 h-4" /> Control Autorizados
-                    </button>
-                  )}
+                    {canCrud && (
+                      <button
+                        id="nav-tab-crud"
+                        onClick={() => setActiveTab('crud')}
+                        className={`flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
+                          activeTab === 'crud'
+                            ? 'border-red-505 text-red-505'
+                            : 'border-transparent text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        <Users className="w-4 h-4" /> Control Autorizados
+                      </button>
+                    )}
 
-                  {canReports && (
-                    <button
-                      id="nav-tab-reports"
-                      onClick={() => setActiveTab('reports')}
-                      className={`flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
-                        activeTab === 'reports'
-                          ? 'border-red-500 text-red-500 font-extrabold'
-                          : 'border-transparent text-slate-400 hover:text-slate-200'
-                      }`}
-                    >
-                      <FileBarChart2 className="w-4 h-4" /> Bitácora &amp; Reportes
-                    </button>
-                  )}
+                    {canReports && (
+                      <button
+                        id="nav-tab-reports"
+                        onClick={() => setActiveTab('reports')}
+                        className={`flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
+                          activeTab === 'reports'
+                            ? 'border-red-505 text-red-505 font-extrabold'
+                            : 'border-transparent text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        <FileBarChart2 className="w-4 h-4" /> Bitácora &amp; Reportes
+                      </button>
+                    )}
 
-                  {canManageResidences && (
-                    <button
-                      id="nav-tab-residencias"
-                      onClick={() => setActiveTab('residencias')}
-                      className={`flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
-                        activeTab === 'residencias'
-                          ? 'border-red-500 text-red-500 font-extrabold'
-                          : 'border-transparent text-slate-400 hover:text-slate-200'
-                      }`}
-                    >
-                      <Home className="w-4 h-4" /> Registro de Residencia
-                    </button>
-                  )}
+                    {canManageResidences && (
+                      <button
+                        id="nav-tab-residencias"
+                        onClick={() => setActiveTab('residencias')}
+                        className={`flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
+                          activeTab === 'residencias'
+                            ? 'border-red-500 text-red-500 font-extrabold'
+                            : 'border-transparent text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        <Home className="w-4 h-4" /> Registro de Residencia
+                      </button>
+                    )}
 
-                  {canManageResidents && (
-                    <button
-                      id="nav-tab-residentes"
-                      onClick={() => setActiveTab('residentes')}
-                      className={`flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
-                        activeTab === 'residentes'
-                          ? 'border-red-500 text-red-500 font-extrabold'
-                          : 'border-transparent text-slate-400 hover:text-slate-200'
-                      }`}
-                    >
-                      <Smartphone className="w-4 h-4" /> Registro de Residente
-                    </button>
-                  )}
+                    {canManageResidents && (
+                      <button
+                        id="nav-tab-residentes"
+                        onClick={() => setActiveTab('residentes')}
+                        className={`flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
+                          activeTab === 'residentes'
+                            ? 'border-red-500 text-red-500 font-extrabold'
+                            : 'border-transparent text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        <Smartphone className="w-4 h-4" /> Registro de Residente
+                      </button>
+                    )}
 
-                  {canManageRoles && (
-                    <button
-                      id="nav-tab-roles"
-                      onClick={() => setActiveTab('roles')}
-                      className={`flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
-                        activeTab === 'roles'
-                          ? 'border-red-500 text-red-500 font-extrabold'
-                          : 'border-transparent text-slate-400 hover:text-slate-200'
-                      }`}
-                    >
-                      <Shield className="w-4 h-4" /> Privilegios y Roles
-                    </button>
-                  )}
-                </div>
+                    {canManageRoles && (
+                      <button
+                        id="nav-tab-roles"
+                        onClick={() => setActiveTab('roles')}
+                        className={`flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
+                          activeTab === 'roles'
+                            ? 'border-red-500 text-red-500 font-extrabold'
+                            : 'border-transparent text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        <Shield className="w-4 h-4" /> Privilegios y Roles
+                      </button>
+                    )}
+                  </div>
+                )}
 
                 {/* Tab Views routers */}
                 <div id="workspace-routed-frame" className="animate-fade-in-up">
                   {activeTab === 'scan' && canScan && (
                     <ScannerInterface 
-                      currentGuard={userRole ? { uid: userRole.uid, name: userRole.name } : null} 
+                      currentGuard={userRole ? { uid: userRole.uid, name: userRole.name, role: userRole.role } : null} 
                       onScanLogged={handleLogsUpdated} 
                     />
                   )}
@@ -1359,7 +1363,7 @@ export default function App() {
               </div>
 
               {/* Right column: Visitor Simulated Smartphone Pass */}
-              {showVirtualPhone && (
+              {showVirtualPhone && userRole?.role !== SystemUserRole.SUPERVISOR && (
                 <div id="phone-simulation-column" className="lg:col-span-4 animate-fade-in-right sticky top-6">
                   <div className="w-full max-w-[325px] mx-auto bg-slate-900 border-4 border-slate-800 rounded-[2.5rem] shadow-2xl relative overflow-hidden flex flex-col items-center p-5 pt-10 pb-6 border-b-8">
                     
