@@ -45,7 +45,9 @@ service cloud.firestore {
              data.oneTime is bool &&
              data.used is bool &&
              data.validFrom is string && data.validFrom.size() <= 50 &&
-             data.validUntil is string && data.validUntil.size() <= 50;
+             data.validUntil is string && data.validUntil.size() <= 50 &&
+             (!('residenciaId' in data) || data.residenciaId is string) &&
+             (!('residenciaNombre' in data) || data.residenciaNombre is string);
     }
 
     // Validation Blueprint for AccessLog

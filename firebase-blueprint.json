@@ -21,7 +21,9 @@
         "endTime": { "type": "string", "description": "Daily allowed entry end time, e.g., '18:00'" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" },
-        "createdBy": { "type": "string", "description": "UID of the admin who created this entry" }
+        "createdBy": { "type": "string", "description": "UID of the admin who created this entry" },
+        "residenciaId": { "type": "string", "description": "Target residence ID" },
+        "residenciaNombre": { "type": "string", "description": "Target residence name" }
       },
       "required": ["name", "documentId", "status", "qrcodeToken", "oneTime", "used", "validFrom", "validUntil"]
     },

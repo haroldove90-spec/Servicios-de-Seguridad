@@ -35,8 +35,12 @@ export default function App() {
   const [loading, setLoading] = useState<boolean>(true);
 
   // Preview Mode Sandbox simulation controls
-  const [demoRole, setDemoRole] = useState<SystemUserRole>(SystemUserRole.ADMIN);
-  const [demoName, setDemoName] = useState<string>('Software AI Admin');
+  const [demoRole, setDemoRole] = useState<SystemUserRole>(() => {
+    return (localStorage.getItem('cnls_demo_role') as any) || SystemUserRole.ADMIN;
+  });
+  const [demoName, setDemoName] = useState<string>(() => {
+    return localStorage.getItem('cnls_demo_name') || 'Software AI Admin';
+  });
 
   // Drawer lateral navigation state
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
@@ -103,8 +107,28 @@ export default function App() {
   const [accessLogs, setAccessLogs] = useState<AccessLog[]>([]);
   
   // Navigation tabs
-  const [activeTab, setActiveTab] = useState<'scan' | 'crud' | 'reports' | 'roles' | 'residencias' | 'residentes'>('scan');
-  const [hasSelectedRole, setHasSelectedRole] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<'scan' | 'crud' | 'reports' | 'roles' | 'residencias' | 'residentes'>(() => {
+    return (localStorage.getItem('cnls_active_tab') as any) || 'scan';
+  });
+  const [hasSelectedRole, setHasSelectedRole] = useState<boolean>(() => {
+    return localStorage.getItem('cnls_has_selected_role') === 'true';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('cnls_active_tab', activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
+    localStorage.setItem('cnls_has_selected_role', String(hasSelectedRole));
+  }, [hasSelectedRole]);
+
+  useEffect(() => {
+    localStorage.setItem('cnls_demo_role', demoRole);
+  }, [demoRole]);
+
+  useEffect(() => {
+    localStorage.setItem('cnls_demo_name', demoName);
+  }, [demoName]);
 
   // Helper to choose active dashboard role and set appropriate tab
   const handleRoleSelection = (role: SystemUserRole, nameSimulated: string, defaultTab: 'scan' | 'crud' | 'reports' | 'roles' | 'residencias' | 'residentes') => {

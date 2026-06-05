@@ -739,6 +739,12 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
                       <p className="text-slate-500 font-medium">Contacto / Telf.</p>
                       <p className="font-semibold text-slate-200">{scanResult.user.phone || 'No registrado'}</p>
                     </div>
+                    {scanResult.user.residenciaNombre && (
+                      <div className="col-span-2 mt-2 bg-zinc-900 border border-zinc-800 p-3 rounded-lg">
+                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">🏡 Residencia de Destino (Se dirige a)</p>
+                        <p className="font-extrabold text-white text-xs mt-0.5">{scanResult.user.residenciaNombre}</p>
+                      </div>
+                    )}
                   </div>
 
                   <div className="border-t border-dashed border-zinc-850 pt-2.5 mt-2.5 grid grid-cols-1 gap-y-1">

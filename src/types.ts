@@ -47,6 +47,8 @@ export interface AuthorizedUser {
   createdAt: string; // ISO DateTime
   updatedAt: string; // ISO DateTime
   createdBy: string; // Admin UID
+  residenciaId?: string; // Target residence ID
+  residenciaNombre?: string; // Target residence name
 }
 
 export interface AccessLog {
