@@ -5,13 +5,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import QRCode from 'qrcode';
 import { 
   Plus, Search, Edit2, Trash2, QrCode, Download, Copy, Check, X, Calendar, 
   Clock, Shield, User, Smartphone, Eye, Mail, Info, RefreshCcw, UserPlus
 } from 'lucide-react';
 import { dbService } from '../services/dbService';
 import { AuthorizedUser, UserStatus } from '../types';
+import { generateQRWithLogo } from '../utils/qrWithLogo';
 
 interface AdminDashboardProps {
   onUsersUpdated: () => void;
@@ -56,17 +56,9 @@ export default function AdminDashboard({ onUsersUpdated }: AdminDashboardProps) 
   // Sync QR generation when visitor is selected for QR popup
   useEffect(() => {
     if (selectedQRUser) {
-      // Generate highly detailed standard QR code containing the secure unique access token string
-      QRCode.toDataURL(selectedQRUser.qrcodeToken, {
-        width: 320,
-        margin: 2,
-        color: {
-          dark: '#0f172a',  // slate-900
-          light: '#ffffff', // white
-        }
-      })
-      .then(url => setGeneratedQRUrl(url))
-      .catch(err => console.error('Fallo al generar imagen QR', err));
+      generateQRWithLogo(selectedQRUser.qrcodeToken)
+        .then(url => setGeneratedQRUrl(url))
+        .catch(err => console.error('Fallo al generar imagen QR', err));
     } else {
       setGeneratedQRUrl('');
     }

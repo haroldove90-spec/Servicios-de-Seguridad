@@ -26,7 +26,7 @@ import AuditLogs from './components/AuditLogs';
 import RolesManager from './components/RolesManager';
 import ResidenciasManager from './components/ResidenciasManager';
 import ResidentesManager from './components/ResidentesManager';
-import QRCode from 'qrcode';
+import { generateQRWithLogo } from './utils/qrWithLogo';
 
 export default function App() {
   // Authentication states
@@ -217,14 +217,7 @@ export default function App() {
         if (found) {
           setVisitorPassUser(found);
           // Generate high quality QR code for public phone rendering
-          QRCode.toDataURL(token, {
-            width: 310,
-            margin: 2,
-            color: {
-              dark: '#0f172a',  // slate-900
-              light: '#ffffff'  // white
-            }
-          }).then(url => {
+          generateQRWithLogo(token).then(url => {
             setVisitorPassQRUrl(url);
             setVisitorPassLoading(false);
           }).catch(err => {
@@ -255,14 +248,7 @@ export default function App() {
   // 3. Keep virtual phone QR updated
   useEffect(() => {
     if (virtualPhoneUser) {
-      QRCode.toDataURL(virtualPhoneUser.qrcodeToken, {
-        width: 250,
-        margin: 1.5,
-        color: {
-          dark: '#0f172a',
-          light: '#ffffff'
-        }
-      }).then(url => {
+      generateQRWithLogo(virtualPhoneUser.qrcodeToken).then(url => {
         setVirtualPhoneQR(url);
       }).catch(err => console.error(err));
     } else {

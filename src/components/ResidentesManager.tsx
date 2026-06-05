@@ -4,7 +4,6 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import QRCode from 'qrcode';
 import { 
   Plus, Search, Edit2, Trash2, QrCode, Download, Copy, Check, X, 
   MapPin, User, Home, Shield, Smartphone, ExternalLink, Sparkles, RefreshCw,
@@ -12,6 +11,7 @@ import {
 } from 'lucide-react';
 import { dbService } from '../services/dbService';
 import { Residente, Residencia, AuthorizedUser, UserStatus } from '../types';
+import { generateQRWithLogo } from '../utils/qrWithLogo';
 
 interface ResidentesManagerProps {
   onRefresh?: () => void;
@@ -56,16 +56,9 @@ export default function ResidentesManager({ onRefresh }: ResidentesManagerProps)
   // Update QR code when resident is clicked
   useEffect(() => {
     if (selectedResidentQR) {
-      QRCode.toDataURL(selectedResidentQR.qrcodeToken, {
-        width: 320,
-        margin: 2,
-        color: {
-          dark: '#0f172a',  // slate-900
-          light: '#ffffff', // white
-        }
-      })
-      .then(url => setGeneratedQRUrl(url))
-      .catch(err => console.error('Error generating QR', err));
+      generateQRWithLogo(selectedResidentQR.qrcodeToken)
+        .then(url => setGeneratedQRUrl(url))
+        .catch(err => console.error('Error generating QR', err));
     } else {
       setGeneratedQRUrl('');
     }
