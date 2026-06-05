@@ -108,6 +108,27 @@ const LocalDB = {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           createdBy: 'admin-demo-uid',
+        },
+        {
+          id: 'usr-resd-demo-1',
+          name: 'Mariana Sosa (Residente)',
+          documentId: 'RESID-LOM-CALLE-ROBLE-#14',
+          email: 'residente@local.casa',
+          phone: '+525512345678',
+          status: UserStatus.ACTIVE,
+          qrcodeToken: 'residente_mariana_token',
+          oneTime: false,
+          used: false,
+          validFrom: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+          validUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year
+          days: [], // all days
+          startTime: '00:00',
+          endTime: '23:59',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          createdBy: 'admin-auto',
+          residenciaId: 'res-demo-1',
+          residenciaNombre: 'Lomas de Chapultepec'
         }
       ];
       localStorage.setItem(LS_USERS_KEY, JSON.stringify(demoUsers));

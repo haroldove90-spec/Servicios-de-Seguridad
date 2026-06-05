@@ -265,10 +265,10 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
     const users = await dbService.getAuthorizedUsers();
     const matchedUser = users.find(u => u.qrcodeToken === tokenClean);
 
-    const guardName = currentGuard?.name || 'Guardia de Guardia';
+    const guardName = currentGuard?.name || 'Oficial de Seguridad';
     const guardId = currentGuard?.uid || 'anonymous-guard';
 
-    // 1. Check if token matches any visitor
+    // 1. Check if token matches any visitor or registered resident
     if (!matchedUser) {
       const failedResult = {
         success: false,
@@ -292,6 +292,28 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
       return;
     }
 
+    // Determine resident and automatic transition rule
+    const isResident = matchedUser.name.includes('(Residente)') || matchedUser.id.startsWith('usr_resd_');
+    let detectedType = validationType;
+
+    if (isResident) {
+      const logsList = await dbService.getAccessLogs();
+      const successLogs = logsList
+        .filter(l => l.userId === matchedUser.id && l.status === LogStatus.SUCCESS)
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+      if (successLogs.length > 0) {
+        // Automatically toggle: if last was Check-In, next is Check-Out, and vice-versa
+        detectedType = successLogs[0].type === LogType.CHECK_IN ? LogType.CHECK_OUT : LogType.CHECK_IN;
+      } else {
+        // Use vigilante's selection on first scan
+        detectedType = validationType;
+      }
+      
+      // Sync the toggle state visually on screen
+      setValidationType(detectedType);
+    }
+
     // 2. Check if account is suspended / expired in status
     if (matchedUser.status === UserStatus.SUSPENDED) {
       const result = {
@@ -301,7 +323,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
         status: LogStatus.REVOKED_USER
       };
       setScanResult(result);
-      logScan(matchedUser, LogStatus.REVOKED_USER);
+      logScan(matchedUser, LogStatus.REVOKED_USER, detectedType);
       return;
     }
 
@@ -313,7 +335,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
         status: LogStatus.EXPIRED_TOKEN
       };
       setScanResult(result);
-      logScan(matchedUser, LogStatus.EXPIRED_TOKEN);
+      logScan(matchedUser, LogStatus.EXPIRED_TOKEN, detectedType);
       return;
     }
 
@@ -330,7 +352,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
         status: LogStatus.OUTSIDE_SCHEDULE
       };
       setScanResult(result);
-      logScan(matchedUser, LogStatus.OUTSIDE_SCHEDULE);
+      logScan(matchedUser, LogStatus.OUTSIDE_SCHEDULE, detectedType);
       return;
     }
 
@@ -342,7 +364,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
         status: LogStatus.EXPIRED_TOKEN
       };
       setScanResult(result);
-      logScan(matchedUser, LogStatus.EXPIRED_TOKEN);
+      logScan(matchedUser, LogStatus.EXPIRED_TOKEN, detectedType);
       return;
     }
 
@@ -361,7 +383,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
         status: LogStatus.OUTSIDE_SCHEDULE
       };
       setScanResult(result);
-      logScan(matchedUser, LogStatus.OUTSIDE_SCHEDULE);
+      logScan(matchedUser, LogStatus.OUTSIDE_SCHEDULE, detectedType);
       return;
     }
 
@@ -376,13 +398,13 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
           status: LogStatus.OUTSIDE_SCHEDULE
         };
         setScanResult(result);
-        logScan(matchedUser, LogStatus.OUTSIDE_SCHEDULE);
+        logScan(matchedUser, LogStatus.OUTSIDE_SCHEDULE, detectedType);
         return;
       }
     }
 
     // 5. One-time access check
-    if (matchedUser.oneTime && matchedUser.used && validationType === LogType.CHECK_IN) {
+    if (matchedUser.oneTime && matchedUser.used && detectedType === LogType.CHECK_IN) {
       const result = {
         success: false,
         message: `Acceso Denegado: El pase de un solo uso ya ha sido UTILIZADO anteriormente y no se permite la re-entrada.`,
@@ -390,26 +412,43 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
         status: LogStatus.ALREADY_USED
       };
       setScanResult(result);
-      logScan(matchedUser, LogStatus.ALREADY_USED);
+      logScan(matchedUser, LogStatus.ALREADY_USED, detectedType);
       return;
     }
 
     // SUCCESS - VALID QR PASS!
+    const displayResName = matchedUser.name.replace(' (Residente)', '');
+    let successMessage = `¡Pase VALIDADOR Autorizado! Bienvenido, ${matchedUser.name}.`;
+    
+    if (isResident) {
+      if (detectedType === LogType.CHECK_IN) {
+        successMessage = `🟢 ¡ENTRADA REGISTRADA Y AUTORIZADA! Bienvenido de vuelta, residente: ${displayResName}.`;
+      } else {
+        successMessage = `🔵 ¡SALIDA REGISTRADA Y AUTORIZADA! Buen viaje, residente: ${displayResName}.`;
+      }
+    } else {
+      if (detectedType === LogType.CHECK_IN) {
+        successMessage = `🟢 ¡ENTRADA AUTORIZADA! Bienvenido, visitante: ${matchedUser.name}.`;
+      } else {
+        successMessage = `🔵 ¡SALIDA AUTORIZADA! Buen viaje, visitante: ${matchedUser.name}.`;
+      }
+    }
+
     const successResult = {
       success: true,
-      message: `¡Pase VALIDADOR Autorizado! Bienvenido, ${matchedUser.name}.`,
+      message: successMessage,
       user: matchedUser,
       status: LogStatus.SUCCESS
     };
     setScanResult(successResult);
 
     // If one-time checkin, mark the user as used!
-    if (matchedUser.oneTime && validationType === LogType.CHECK_IN) {
+    if (matchedUser.oneTime && detectedType === LogType.CHECK_IN) {
       await dbService.updateAuthorizedUser(matchedUser.id, { used: true });
     }
 
     // Log the successful access audit trail
-    await logScan(matchedUser, LogStatus.SUCCESS);
+    await logScan(matchedUser, LogStatus.SUCCESS, detectedType);
 
     // Fire confetti for a high-craft delightful verification animation!
     confetti({
@@ -419,13 +458,13 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
     });
   };
 
-  const logScan = async (user: AuthorizedUser, status: LogStatus) => {
+  const logScan = async (user: AuthorizedUser, status: LogStatus, customType?: LogType) => {
     const logData: Omit<AccessLog, 'id'> = {
       userId: user.id,
       userName: user.name,
       documentId: user.documentId,
       timestamp: new Date().toISOString(),
-      type: validationType,
+      type: customType || validationType,
       status: status,
       guardId: currentGuard?.uid || 'anonymous-guard',
       guardName: currentGuard?.name || 'Guardia de Seguridad',
