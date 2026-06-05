@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
-import { Camera, CheckCircle, XCircle, AlertTriangle, RefreshCw, Smartphone, Key, Users, HelpCircle } from 'lucide-react';
+import { Camera, CheckCircle, XCircle, AlertTriangle, RefreshCw, Smartphone, Key, Users, HelpCircle, Search, Activity, ShieldAlert, FileText, Download } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { dbService } from '../services/dbService';
 import { 
@@ -35,6 +35,12 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
   const [validationType, setValidationType] = useState<LogType>(LogType.CHECK_IN);
   const [quickUsers, setQuickUsers] = useState<AuthorizedUser[]>([]);
   const scannerRef = useRef<Html5Qrcode | null>(null);
+
+  // States for live bitácora logs and testing filters
+  const [recentLogs, setRecentLogs] = useState<AccessLog[]>([]);
+  const [recentSearch, setRecentSearch] = useState<string>('');
+  const [demoSearch, setDemoSearch] = useState<string>('');
+  const [demoCategory, setDemoCategory] = useState<'all' | 'resident' | 'visitor'>('all');
 
   // Advanced Security Modules States
   const [onsitePeople, setOnsitePeople] = useState<{ userId: string; name: string; document: string; time: string }[]>([]);
@@ -137,12 +143,23 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
     onScanLogged();
   };
 
-  // Load quick-scan options and facility occupancy list
+  const reloadRecentLogs = async () => {
+    try {
+      const logs = await dbService.getAccessLogs();
+      const sorted = logs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      setRecentLogs(sorted);
+    } catch (err) {
+      console.warn('Error loading recent logs:', err);
+    }
+  };
+
+  // Load quick-scan options, occupancy list and live bitácora logs
   useEffect(() => {
     dbService.getAuthorizedUsers().then(users => {
       setQuickUsers(users);
     });
     reloadOnsitePeople();
+    reloadRecentLogs();
   }, [scanResult]);
 
   // Handle custom simulated scan event trigger for demo flows
@@ -250,6 +267,23 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
     };
   }, [useCamera, validationType]);
 
+  const handleQrFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setScanResult(null);
+    setPermissionError(null);
+    
+    try {
+      const html5Qr = new Html5Qrcode('qr-file-scroller-temp-id');
+      const decodedText = await html5Qr.scanFile(file, true);
+      handleVerifyToken(decodedText);
+    } catch (err: any) {
+      console.warn('QR file scanning failed:', err);
+      setPermissionError('No se pudo decodificar el Código QR de la imagen. Asegúrate de que el archivo sea un código QR válido, nítido y bien enfocado o usa el panel de simulación rápida.');
+    }
+  };
+
   const handleVerifyToken = async (token: string) => {
     if (!token) return;
     if (panicActive) {
@@ -299,12 +333,20 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
     if (isResident) {
       const logsList = await dbService.getAccessLogs();
       const successLogs = logsList
-        .filter(l => l.userId === matchedUser.id && l.status === LogStatus.SUCCESS)
-        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        .filter(l => l.userId === matchedUser.id && l.status === LogStatus.SUCCESS);
 
       if (successLogs.length > 0) {
-        // Automatically toggle: if last was Check-In, next is Check-Out, and vice-versa
-        detectedType = successLogs[0].type === LogType.CHECK_IN ? LogType.CHECK_OUT : LogType.CHECK_IN;
+        // Sort oldest to newest to identify the very first scan choice selected by the guard
+        const sortedOldestFirst = [...successLogs].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+        const firstType = sortedOldestFirst[0].type;
+        const totalUserReads = successLogs.length;
+
+        // Determine next state using parity: if even, same as first; if odd, opposite direction
+        if (totalUserReads % 2 === 0) {
+          detectedType = firstType;
+        } else {
+          detectedType = firstType === LogType.CHECK_IN ? LogType.CHECK_OUT : LogType.CHECK_IN;
+        }
       } else {
         // Use vigilante's selection on first scan
         detectedType = validationType;
@@ -647,6 +689,28 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
                     <Smartphone className="w-3.5 h-3.5 text-red-500" /> Solicitar Permiso de Cámara
                   </button>
                 )}
+
+                {/* Highly efficient File Scanner fallback tool */}
+                <div className="border border-slate-800/80 p-3 rounded-xl bg-slate-950/60 text-left mt-3">
+                  <div className="flex items-center gap-1.5 mb-1 bg-black/40 p-1.5 rounded-md">
+                    <span className="p-1 bg-red-500/15 rounded-md text-red-500"><Download className="w-3.5 h-3.5" /></span>
+                    <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider font-sans">Opción B: Decodificar Imagen QR</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 leading-relaxed mb-2.5">
+                    ¿No tienes cámara o estás en entorno simulado? Descarga el pase QR de un residente o visitante y cárgalo aquí:
+                  </p>
+                  <label className="block">
+                    <span className="sr-only">Seleccionar Archivo</span>
+                    <input
+                      id="qr-image-file-decoder"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleQrFileSelected}
+                      className="block w-full text-[10px] text-slate-405 file:mr-3 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-[10px] file:font-bold file:bg-red-600/20 file:text-red-400 hover:file:bg-red-600/30 cursor-pointer"
+                    />
+                  </label>
+                  <div id="qr-file-scroller-temp-id" className="hidden"></div>
+                </div>
               </div>
 
               {/* Main scan Trigger Button */}
@@ -670,42 +734,119 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
 
         {/* Sandbox Simulation Frame for instant testing */}
         <div id="simulation-sandbox-tray" className="mt-8 border-t border-zinc-900 pt-6">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="flex h-2 w-2 relative">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-            </span>
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Pruebas Manuales y Simulación de QR</label>
-          </div>
-          <p className="text-xs text-slate-400 mb-4 leading-relaxed">
-            Presiona cualquiera de los visitantes pre-configurados para simular el escaneo automático del pase, analizando alertas, expiraciones y pases de un solo uso sin requerir cámara activa:
-          </p>
-          <div id="quick-demo-test-grid" className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
-            {quickUsers.slice(0, 4).map((user) => (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div className="flex items-center gap-2">
+              <span className="flex h-2 w-2 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+              </span>
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Pruebas Manuales y Simulación de QR</label>
+            </div>
+            
+            {/* Quick configuration category switcher */}
+            <div className="flex bg-slate-950 border border-slate-800 rounded-lg p-0.5">
               <button
-                key={user.id}
-                id={`simulate-scan-${user.id}`}
-                onClick={() => {
-                  setScanResult(null);
-                  handleVerifyToken(user.qrcodeToken);
-                }}
-                className="flex items-center justify-between text-left px-3 py-2 border border-slate-800 bg-[#020617]/50 rounded-xl hover:border-slate-700 hover:bg-slate-900 transition text-xs"
+                type="button"
+                onClick={() => setDemoCategory('all')}
+                className={`px-2 py-1 text-[10px] font-bold rounded-md transition ${demoCategory === 'all' ? 'bg-[#1e293b] text-white' : 'text-slate-400 hover:text-white'}`}
               >
-                <div className="truncate pr-2">
-                  <p className="font-semibold text-slate-200 truncate">{user.name}</p>
-                  <p className="text-[10px] text-slate-450 font-mono truncate">{user.documentId}</p>
-                </div>
-                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border shrink-0 ${
-                  user.status === UserStatus.ACTIVE 
-                    ? user.oneTime 
-                      ? 'bg-purple-500/10 text-purple-400 border-purple-500/25' 
-                      : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25'
-                    : 'bg-red-500/10 text-red-400 border-red-500/25'
-                }`}>
-                  {user.status === UserStatus.ACTIVE ? (user.oneTime ? 'Único' : 'Frecuente') : 'Inactivo'}
-                </span>
+                Todos
               </button>
-            ))}
+              <button
+                type="button"
+                onClick={() => setDemoCategory('resident')}
+                className={`px-2 py-1 text-[10px] font-bold rounded-md transition ${demoCategory === 'resident' ? 'bg-[#1e293b] text-white' : 'text-slate-400 hover:text-white'}`}
+              >
+                Residentes 🏡
+              </button>
+              <button
+                type="button"
+                onClick={() => setDemoCategory('visitor')}
+                className={`px-2 py-1 text-[10px] font-bold rounded-md transition ${demoCategory === 'visitor' ? 'bg-[#1e293b] text-white' : 'text-slate-400 hover:text-white'}`}
+              >
+                Visitantes 🎫
+              </button>
+            </div>
+          </div>
+
+          <p className="text-xs text-slate-400 mb-4 leading-relaxed">
+            Busca y presiona el botón de escaneo de cualquier residente o visitante para simular la lectura de su código QR y evaluar las autorizaciones, vigilando el tránsito con total agilidad:
+          </p>
+
+          {/* Real-time search query for the simulator */}
+          <div className="relative mb-3">
+            <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+              <Search className="w-3.5 h-3.5" />
+            </span>
+            <input
+              type="text"
+              placeholder="Buscar por nombre, documento o residencia id..."
+              value={demoSearch}
+              onChange={(e) => setDemoSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-950 border border-slate-800 rounded-lg text-slate-200 focus:border-slate-700/80 focus:outline-hidden"
+            />
+          </div>
+
+          {/* Interactive Simulation Grid */}
+          <div id="quick-demo-test-grid" className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4 max-h-[160px] overflow-y-auto pr-1">
+            {quickUsers.filter(user => {
+              const isRes = user.name.includes('(Residente)') || user.id.startsWith('usr_resd_');
+              const matchesCategory = 
+                demoCategory === 'all' || 
+                (demoCategory === 'resident' && isRes) || 
+                (demoCategory === 'visitor' && !isRes);
+                
+              const matchesSearch = 
+                user.name.toLowerCase().includes(demoSearch.toLowerCase()) || 
+                user.documentId.toLowerCase().includes(demoSearch.toLowerCase());
+                
+              return matchesCategory && matchesSearch;
+            }).map((user) => {
+              const isRes = user.name.includes('(Residente)') || user.id.startsWith('usr_resd_');
+              return (
+                <button
+                  key={user.id}
+                  type="button"
+                  id={`simulate-scan-${user.id}`}
+                  onClick={() => {
+                    setScanResult(null);
+                    handleVerifyToken(user.qrcodeToken);
+                  }}
+                  className="flex items-center justify-between text-left px-3 py-2 border border-slate-850 bg-[#020617]/40 rounded-xl hover:border-slate-750 hover:bg-slate-900 transition text-xs cursor-pointer group"
+                >
+                  <div className="truncate pr-2">
+                    <p className="font-semibold text-slate-200 group-hover:text-red-400 transition truncate flex items-center gap-1">
+                      {isRes ? '🏡' : '🎫'} {user.name}
+                    </p>
+                    <p className="text-[10px] text-slate-450 font-mono truncate">{user.documentId}</p>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border shrink-0 ${
+                    user.status === UserStatus.ACTIVE 
+                      ? user.oneTime 
+                        ? 'bg-purple-500/10 text-purple-400 border-purple-500/25' 
+                        : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25'
+                      : 'bg-red-500/10 text-red-400 border-red-500/25'
+                  }`}>
+                    {user.status === UserStatus.ACTIVE ? (user.oneTime ? 'Único' : 'Frecuente') : 'Expirado'}
+                  </span>
+                </button>
+              );
+            })}
+            {quickUsers.filter(user => {
+              const isRes = user.name.includes('(Residente)') || user.id.startsWith('usr_resd_');
+              const matchesCategory = 
+                demoCategory === 'all' || 
+                (demoCategory === 'resident' && isRes) || 
+                (demoCategory === 'visitor' && !isRes);
+                
+              const matchesSearch = 
+                user.name.toLowerCase().includes(demoSearch.toLowerCase()) || 
+                user.documentId.toLowerCase().includes(demoSearch.toLowerCase());
+                
+              return matchesCategory && matchesSearch;
+            }).length === 0 && (
+              <p className="text-slate-500 text-xs text-center col-span-2 py-4">No se encontraron residentes o visitantes cargados con ese filtro.</p>
+            )}
           </div>
 
           <div id="simulated-token-typing" className="flex gap-2">
@@ -716,20 +857,21 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
               <input
                 id="input-token-manual-type"
                 type="text"
-                placeholder="Introducir token del pase manualmente..."
+                placeholder="O escribe/pega el token del pase manualmente..."
                 value={manualToken}
                 onChange={(e) => setManualToken(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-xs bg-slate-950 border border-slate-800 rounded-xl text-slate-200 focus:border-slate-600 focus:outline-hidden"
+                className="w-full pl-9 pr-3 py-2 text-xs bg-slate-950 border border-slate-850 rounded-xl text-slate-205 focus:border-slate-700 focus:outline-hidden"
               />
             </div>
             <button
               id="btn-trigger-manual-token"
+              type="button"
               onClick={() => {
                 setScanResult(null);
                 handleVerifyToken(manualToken);
                 setManualToken('');
               }}
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl transition border border-slate-700"
+              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl transition border border-slate-700 cursor-pointer"
             >
               Simular Lectura
             </button>
@@ -824,6 +966,131 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
             </div>
           )}
         </div>
+      </div>
+    </div>
+
+    {/* Live Access Log Terminal (Bitácora del Día en Tiempo Real) */}
+    <div id="live-reception-logbook" className="mt-8 bg-[#0f172a] rounded-2xl border border-[#1e293b] p-6 shadow-2xl">
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 pb-4 border-b border-slate-900 mb-6">
+        <div>
+          <h3 className="text-base font-extrabold tracking-tight text-white flex items-center gap-2">
+            <span className="flex h-2 w-2 relative font-sans">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            📖 Bitácora en Vivo de Accesos (Caseta 7)
+          </h3>
+          <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+            Muestra el registro cronológico en tiempo real de residentes y visitantes autorizados que cruzan el punto de acceso.
+          </p>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-2">
+          {/* Real-time search filter */}
+          <div className="relative">
+            <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+              <Search className="w-3.5 h-3.5" />
+            </span>
+            <input
+              type="text"
+              placeholder="Filtrar bitácora por nombre..."
+              value={recentSearch}
+              onChange={(e) => setRecentSearch(e.target.value)}
+              className="w-full sm:w-[240px] pl-9 pr-3 py-1.5 text-xs bg-slate-950 border border-slate-800 rounded-xl text-slate-200 focus:border-slate-700/80 focus:outline-hidden"
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={reloadRecentLogs}
+            className="inline-flex items-center gap-1.5 justify-center px-3 py-1.5 bg-slate-850 hover:bg-slate-800 text-slate-300 text-xs font-semibold rounded-xl transition border border-slate-800 cursor-pointer"
+          >
+            <RefreshCw className="w-3.5 h-3.5" /> Sincronizar
+          </button>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-xs text-slate-300">
+          <thead className="bg-[#020617] text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-900">
+            <tr>
+              <th className="py-3 px-4">Hora</th>
+              <th className="py-3 px-4">Residente / Visitante</th>
+              <th className="py-3 px-4">DNI / Identificación</th>
+              <th className="py-3 px-4">Tipo Movimiento</th>
+              <th className="py-3 px-4">Estado</th>
+              <th className="py-3 px-4 text-right">Vigilante Responsable</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-900/60 font-sans">
+            {recentLogs
+              .filter(log => {
+                if (!recentSearch) return true;
+                return log.userName.toLowerCase().includes(recentSearch.toLowerCase()) || 
+                       log.documentId.toLowerCase().includes(recentSearch.toLowerCase());
+              })
+              .map((log) => {
+                const isRes = log.userName.includes('(Residente)') || log.userId.startsWith('usr_resd_');
+                return (
+                  <tr key={log.id} className="hover:bg-slate-900/30 transition-colors">
+                    <td className="py-3 px-4 font-mono text-slate-400 font-bold">
+                      {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="font-extrabold text-slate-200 flex items-center gap-1.5">
+                        {isRes ? '🏡' : '🎫'} {log.userName}
+                      </div>
+                    </td>
+                    <td className="py-3 px-4 font-mono text-red-400/90 font-semibold">{log.documentId}</td>
+                    <td className="py-3 px-4">
+                      {log.type === LogType.CHECK_IN ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400"></span> Entrada
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                          <span className="h-1.5 w-1.5 rounded-full bg-blue-400"></span> Salida
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4">
+                      {log.status === LogStatus.SUCCESS ? (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-400/10 text-emerald-400">
+                          ✓ Autorizado
+                        </span>
+                      ) : log.status === LogStatus.EXPIRED_TOKEN ? (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-[#ef4444]/10 text-[#f87171]">
+                          ✗ Expirado/No Válido
+                        </span>
+                      ) : log.status === LogStatus.REVOKED_USER ? (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-amber-500/10 text-amber-450">
+                          ⚠ Bloqueado/Pánico
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-zinc-500/10 text-zinc-400">
+                          {log.status}
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4 text-right text-slate-400 font-medium">
+                      {log.guardName || 'Sistema'}
+                    </td>
+                  </tr>
+                );
+              })}
+            {recentLogs.filter(log => {
+              if (!recentSearch) return true;
+              return log.userName.toLowerCase().includes(recentSearch.toLowerCase()) || 
+                     log.documentId.toLowerCase().includes(recentSearch.toLowerCase());
+            }).length === 0 && (
+              <tr>
+                <td colSpan={6} className="py-10 text-center text-slate-500 font-medium">
+                  {recentSearch ? 'No se encontraron registros de accesos con esa descripción.' : 'No se registran accesos en la bitácora el día de hoy.'}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
 
