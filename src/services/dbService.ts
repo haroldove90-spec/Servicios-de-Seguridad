@@ -274,6 +274,7 @@ const LocalDB = {
           residenciaNombre: 'Lomas de Chapultepec',
           direccion: 'Calle Roble #14',
           qrcodeToken: 'residente_mariana_token',
+          whatsapp: '+525512345678',
           accessUserId: 'usr-resd-demo-1',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),

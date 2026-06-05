@@ -7,7 +7,8 @@ import React, { useState, useEffect } from 'react';
 import QRCode from 'qrcode';
 import { 
   Plus, Search, Edit2, Trash2, QrCode, Download, Copy, Check, X, 
-  MapPin, User, Home, Shield, Smartphone, ExternalLink, Sparkles, RefreshCw
+  MapPin, User, Home, Shield, Smartphone, ExternalLink, Sparkles, RefreshCw,
+  MessageSquare, Share2
 } from 'lucide-react';
 import { dbService } from '../services/dbService';
 import { Residente, Residencia, AuthorizedUser, UserStatus } from '../types';
@@ -27,6 +28,7 @@ export default function ResidentesManager({ onRefresh }: ResidentesManagerProps)
   const [formNombre, setFormNombre] = useState<string>('');
   const [formResidenciaId, setFormResidenciaId] = useState<string>('');
   const [formDireccion, setFormDireccion] = useState<string>('');
+  const [formWhatsapp, setFormWhatsapp] = useState<string>('');
   const [formCreateQR, setFormCreateQR] = useState<boolean>(true); // Generar QR automáticamente
 
   // QR Modal Overlay
@@ -76,6 +78,7 @@ export default function ResidentesManager({ onRefresh }: ResidentesManagerProps)
     const activeRes = residencias.find(r => r.isActive);
     setFormResidenciaId(activeRes?.id || '');
     setFormDireccion('');
+    setFormWhatsapp('');
     setFormCreateQR(true);
     setIsFormOpen(true);
   };
@@ -85,6 +88,7 @@ export default function ResidentesManager({ onRefresh }: ResidentesManagerProps)
     setFormNombre(item.nombre);
     setFormResidenciaId(item.residenciaId);
     setFormDireccion(item.direccion);
+    setFormWhatsapp(item.whatsapp || '');
     setFormCreateQR(!!item.qrcodeToken);
     setIsFormOpen(true);
   };
@@ -159,6 +163,7 @@ export default function ResidentesManager({ onRefresh }: ResidentesManagerProps)
       residenciaNombre: matchedComplex.nombre,
       direccion: formDireccion.trim(),
       qrcodeToken: qrToken,
+      whatsapp: formWhatsapp.trim(),
       accessUserId: accessUserId,
       updatedAt: new Date().toISOString()
     };
@@ -202,6 +207,13 @@ export default function ResidentesManager({ onRefresh }: ResidentesManagerProps)
     navigator.clipboard.writeText(publicUrl);
     setCopiedToken(true);
     setTimeout(() => setCopiedToken(false), 2000);
+  };
+
+  const getWhatsAppShareUrl = (item: Residente) => {
+    const cleanPhone = item.whatsapp ? item.whatsapp.replace(/\D/g, '') : '';
+    const passUrl = `${window.location.origin}${window.location.pathname}?pass=${item.qrcodeToken}`;
+    const text = `¡Hola *${item.nombre}*!\n\nTe comparto tu *Pase QR de Acceso Permanente* para el fraccionamiento *${item.residenciaNombre}* (Domicilio: *${item.direccion}*).\n\nPresiona el siguiente enlace para abrir tu credencial QR de entrada:\n${passUrl}`;
+    return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
   };
 
   const filteredItems = residentes.filter(item => 
@@ -261,6 +273,7 @@ export default function ResidentesManager({ onRefresh }: ResidentesManagerProps)
                 <th className="py-4 px-6">Residente</th>
                 <th className="py-4 px-6">Ubicación / Fraccionamiento</th>
                 <th className="py-4 px-6">Dirección / Casa</th>
+                <th className="py-4 px-6 text-center">WhatsApp / Enviar</th>
                 <th className="py-4 px-6 text-center">Acceso QR</th>
                 <th className="py-4 px-6 text-right">Acciones</th>
               </tr>
@@ -268,7 +281,7 @@ export default function ResidentesManager({ onRefresh }: ResidentesManagerProps)
             <tbody className="divide-y divide-[#2e2e38] text-xs font-sans">
               {filteredItems.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-500 font-medium">
+                  <td colSpan={6} className="py-12 text-center text-slate-500 font-medium">
                     {searchTerm ? 'No se encontraron resultados para la búsqueda.' : 'No hay residentes registrados en este momento.'}
                   </td>
                 </tr>
@@ -297,6 +310,24 @@ export default function ResidentesManager({ onRefresh }: ResidentesManagerProps)
                         <MapPin className="w-3.5 h-3.5 text-slate-500" />
                         {item.direccion}
                       </div>
+                    </td>
+                    <td className="py-4 px-6 text-center">
+                      {item.whatsapp ? (
+                        <div className="flex flex-col items-center gap-1">
+                          <span className="text-slate-300 font-semibold font-mono text-[10px] break-all">{item.whatsapp}</span>
+                          <a
+                            href={getWhatsAppShareUrl(item)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-450 px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer border border-emerald-500/25"
+                            title="Compartir Pase por WhatsApp"
+                          >
+                            <MessageSquare className="w-3 h-3 text-emerald-400" /> Compartir
+                          </a>
+                        </div>
+                      ) : (
+                        <span className="text-slate-600 block text-[10px] italic">Sin WhatsApp</span>
+                      )}
                     </td>
                     <td className="py-4 px-6 text-center">
                       {item.qrcodeToken ? (
@@ -406,6 +437,22 @@ export default function ResidentesManager({ onRefresh }: ResidentesManagerProps)
                 />
               </div>
 
+              <div>
+                <label className="block text-[10.5px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                  Número de WhatsApp (Opcional)
+                </label>
+                <input
+                  type="tel"
+                  value={formWhatsapp}
+                  onChange={(e) => setFormWhatsapp(e.target.value)}
+                  placeholder="Ej. +525512345678"
+                  className="w-full bg-[#111115] border border-[#2e2e38] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-red-500 font-medium placeholder-slate-600 transition-all font-mono"
+                />
+                <p className="text-[10px] text-slate-500 mt-1">
+                  Incluya el código de país sin espacios (ej. +521... o +5255...).
+                </p>
+              </div>
+
               <div className="pt-2">
                 <label className="flex items-center gap-2.5 cursor-pointer select-none">
                   <input
@@ -505,8 +552,24 @@ export default function ResidentesManager({ onRefresh }: ResidentesManagerProps)
                     <span className="text-[10.5px] font-bold text-slate-350">{selectedResidentQR.direccion}</span>
                   </div>
                 </div>
+                {selectedResidentQR.whatsapp && (
+                  <div className="border-t border-slate-800/40 pt-2">
+                    <label className="block text-[8px] uppercase tracking-widest font-bold text-slate-500 font-mono">WhatsApp Registrado</label>
+                    <span className="text-[10.5px] font-bold text-emerald-400 font-mono">{selectedResidentQR.whatsapp}</span>
+                  </div>
+                )}
               </div>
             </div>
+
+            {/* Direct WhatsApp Share button inside card */}
+            <a
+              href={getWhatsAppShareUrl(selectedResidentQR)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs uppercase tracking-wider py-3 px-4 rounded-xl mt-4 transition-all shadow-lg hover:scale-[1.02] cursor-pointer"
+            >
+              <MessageSquare className="w-4 h-4" /> Compartir en WhatsApp
+            </a>
 
             {/* Wallet toolbar copy/download/close controls */}
             <div className="w-full grid grid-cols-3 gap-2 mt-4 font-sans">

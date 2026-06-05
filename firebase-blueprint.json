@@ -81,6 +81,7 @@
         "residenciaNombre": { "type": "string" },
         "direccion": { "type": "string" },
         "qrcodeToken": { "type": "string" },
+        "whatsapp": { "type": "string" },
         "accessUserId": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }

@@ -86,6 +86,7 @@ export interface Residente {
   residenciaNombre: string;
   direccion: string;
   qrcodeToken: string;
+  whatsapp?: string; // Optional WhatsApp phone number
   accessUserId?: string; // Optional linked AuthorizedUser id
   createdAt: string; // ISO DateTime
   updatedAt: string; // ISO DateTime

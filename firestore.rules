@@ -80,7 +80,8 @@ service cloud.firestore {
              data.residenciaId is string && data.residenciaId.size() > 0 &&
              data.residenciaNombre is string && data.residenciaNombre.size() > 0 &&
              data.direccion is string && data.direccion.size() > 0 && data.direccion.size() <= 500 &&
-             data.qrcodeToken is string && data.qrcodeToken.size() > 0;
+             data.qrcodeToken is string && data.qrcodeToken.size() > 0 &&
+             (!('whatsapp' in data) || data.whatsapp is string);
     }
 
     // 2. Collection Rules with Master Gates
