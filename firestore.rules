@@ -86,6 +86,14 @@ service cloud.firestore {
              (!('whatsapp' in data) || data.whatsapp is string);
     }
 
+    // Validation Blueprint for Caseta
+    function isValidCaseta(data) {
+      return data.nombre is string && data.nombre.size() > 0 && data.nombre.size() <= 200 &&
+             data.residenciaId is string && data.residenciaId.size() > 0 &&
+             data.residenciaNombre is string && data.residenciaNombre.size() > 0 &&
+             data.isActive is bool;
+    }
+
     // 2. Collection Rules with Master Gates
 
     // Collection: system_roles
@@ -148,6 +156,15 @@ service cloud.firestore {
       // Only admins can create, update, or delete resident credentials
       allow create, update: if isAdmin() && isValidId(residenteId) && isValidResidente(incoming());
       allow delete: if isAdmin() && isValidId(residenteId);
+    }
+
+    // Collection: casetas
+    match /casetas/{casetaId} {
+      // Guards and admins can query subdivisions
+      allow read: if isGuard();
+      // Only admins can create, update, or delete subdivision terminals
+      allow create, update: if isAdmin() && isValidId(casetaId) && isValidCaseta(incoming());
+      allow delete: if isAdmin() && isValidId(casetaId);
     }
   }
 }

@@ -26,6 +26,7 @@ import AuditLogs from './components/AuditLogs';
 import RolesManager from './components/RolesManager';
 import ResidenciasManager from './components/ResidenciasManager';
 import ResidentesManager from './components/ResidentesManager';
+import CasetasManager from './components/CasetasManager';
 import { generateQRWithLogo } from './utils/qrWithLogo';
 
 export default function App() {
@@ -127,7 +128,7 @@ export default function App() {
   const [accessLogs, setAccessLogs] = useState<AccessLog[]>([]);
   
   // Navigation tabs
-  const [activeTab, setActiveTab] = useState<'scan' | 'crud' | 'reports' | 'roles' | 'residencias' | 'residentes'>(() => {
+  const [activeTab, setActiveTab] = useState<'scan' | 'crud' | 'reports' | 'roles' | 'residencias' | 'residentes' | 'casetas'>(() => {
     return (localStorage.getItem('cnls_active_tab') as any) || 'scan';
   });
   const [hasSelectedRole, setHasSelectedRole] = useState<boolean>(() => {
@@ -444,6 +445,7 @@ export default function App() {
   const canManageRoles = isAdmin;
   const canManageResidences = isAdmin;
   const canManageResidents = isAdmin;
+  const canManageCasetas = isAdmin;
 
   // Gracefully redirect the user if they simulation-switch roles and lose tab privilege
   useEffect(() => {
@@ -462,12 +464,16 @@ export default function App() {
       if (canScan) setActiveTab('scan');
       else if (canCrud) setActiveTab('crud');
       else setActiveTab('reports');
-    } else if ((current === 'residencias' && !canManageResidences) || (current === 'residentes' && !canManageResidents)) {
+    } else if (
+      (current === 'residencias' && !canManageResidences) || 
+      (current === 'residentes' && !canManageResidents) ||
+      (current === 'casetas' && !canManageCasetas)
+    ) {
       if (canScan) setActiveTab('scan');
       else if (canCrud) setActiveTab('crud');
       else setActiveTab('reports');
     }
-  }, [userRole, activeTab, canScan, canCrud, canReports, canManageRoles, canManageResidences, canManageResidents]);
+  }, [userRole, activeTab, canScan, canCrud, canReports, canManageRoles, canManageResidences, canManageResidents, canManageCasetas]);
 
   // Render standalone high-fidelity mobile visitor passport card if opened with public URL
   if (visitorPassToken) {
@@ -762,6 +768,16 @@ export default function App() {
                         }`}
                       >
                         <Smartphone className="w-4 h-4" /> Registro de Residente
+                      </button>
+                    )}
+                    {canManageCasetas && (
+                      <button
+                        onClick={() => { setActiveTab('casetas'); setIsDrawerOpen(false); }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer ${
+                          activeTab === 'casetas' ? 'bg-red-650 text-white shadow-lg shadow-red-650/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
+                        }`}
+                      >
+                        <Shield className="w-4 h-4" /> Registro de Casetas
                       </button>
                     )}
                     {canManageRoles && (
@@ -1096,127 +1112,12 @@ export default function App() {
 
             </div>
 
-            {/* COLLAPSIBLE DEMO PLAYGROUND & CLIENT WALKTHROUGH BOX */}
-            {userRole?.role !== SystemUserRole.SUPERVISOR && (
-              <div id="demo-playground-panel" className="bg-[#2A2A2E] border border-[#3e3e42] rounded-3xl overflow-hidden shadow-2xl">
-                <button 
-                  onClick={() => setShowDemoGuide(!showDemoGuide)}
-                  className="w-full px-6 py-5 flex items-center justify-between text-left hover:bg-[#343438] transition cursor-pointer"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2.5 bg-red-500/10 text-red-505 rounded-xl border border-red-500/20">
-                      <Sparkles className="w-5 h-5 text-red-500" />
-                    </div>
-                    <div>
-                      <h2 className="text-sm font-extrabold text-white flex items-center gap-2">
-                        Consola de Pruebas &amp; Guía de Demostración
-                        <span className="text-[9px] bg-red-500/20 text-red-300 font-mono tracking-wider px-2 py-0.5 rounded-full uppercase">PILOTO DEMO ACTIVO</span>
-                      </h2>
-                      <p className="text-[11px] text-slate-400 mt-0.5">Utiliza este módulo de control para simular lecturas y validar accesos ante tu cliente en 1 clic.</p>
-                    </div>
-                  </div>
-                  <div className="text-slate-400 p-1.5 hover:text-white transition animate-fade-in">
-                    {showDemoGuide ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                  </div>
-                </button>
 
-                {showDemoGuide && (
-                  <div className="p-6 border-t border-[#3e3e42]/60 bg-[#1A1A1E] space-y-6">
-                    {/* Grid of instructions and quick-triggers */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 font-sans">
-                      
-                      {/* Column 1: Core Quick Info / Requisitos */}
-                      <div className="space-y-3 bg-[#2A2A2E]/50 p-4 border border-[#3e3e42]/45 rounded-2xl flex flex-col justify-between">
-                        <div>
-                          <div className="flex items-center gap-2 text-xs font-bold text-red-300 uppercase tracking-wider mb-2">
-                            <HelpCircle className="w-4 h-4 text-red-500" />
-                            <span>Requisitos de Cámara</span>
-                          </div>
-                          <p className="text-[11px] text-slate-404 leading-relaxed">
-                            Si tu cliente desea probar el escaneo usando su <strong>cámara web</strong> o <strong>cámara del celular</strong>, debe conceder accesos de cámara en el navegador. Las directivas ya están activas en <code className="bg-slate-950 px-1 py-0.5 rounded text-red-300 font-mono">metadata.json</code>.
-                          </p>
-                        </div>
-                        <div className="space-y-1.5 border-t border-[#3e3e42]/30 pt-3">
-                          <span className="flex items-center gap-2 text-[10.5px] text-slate-404">
-                            <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> Permisos Frame: camera (Activo)
-                          </span>
-                          <span className="flex items-center gap-2 text-[10.5px] text-slate-404">
-                            <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> Enlace móvil autogenerado
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Column 2: Seeder Triggers */}
-                      <div className="space-y-3 bg-[#2A2A2E]/50 p-4 border border-[#3e3e42]/45 rounded-2xl font-sans">
-                        <div className="flex items-center gap-2 text-xs font-bold text-teal-300 uppercase tracking-wider mb-2">
-                          <UserCircle className="w-4 h-4 text-teal-400" />
-                          <span>Paso 1: Generar Pases Rápidos</span>
-                        </div>
-                        <p className="text-[11px] text-slate-404 leading-relaxed mb-1.5 font-sans">
-                          Inyecta visitantes autorizados instantáneos con diferentes perfiles de seguridad para verificar las reglas en la caseta:
-                        </p>
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            onClick={() => handleCreateDemoPass('active')}
-                            className="px-2.5 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-xl text-[10px] font-bold text-center transition cursor-pointer"
-                          >
-                            🟢 Pase Activo (Andrés)
-                          </button>
-                          <button
-                            onClick={() => handleCreateDemoPass('expired')}
-                            className="px-2.5 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl text-[10px] font-bold text-center transition cursor-pointer"
-                          >
-                            🔴 Pase Vencido (Sonia)
-                          </button>
-                          <button
-                            onClick={() => handleCreateDemoPass('suspended')}
-                            className="px-2.5 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-xl text-[10px] font-bold text-center transition cursor-pointer"
-                          >
-                            🟡 Suspendido (Mariano)
-                          </button>
-                          <button
-                            onClick={() => handleCreateDemoPass('onetime_used')}
-                            className="px-2.5 py-2 bg-zinc-800 hover:bg-zinc-700 text-slate-350 border border-[#3e3e42] rounded-xl text-[10px] font-bold text-center transition cursor-pointer"
-                          >
-                            ⚫ Pase Único Usado
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Column 3: Simulated Scan Options */}
-                      <div className="space-y-3 bg-[#2A2A2E]/50 p-4 border border-[#3e3e42]/45 rounded-2xl font-sans">
-                        <div className="flex items-center gap-2 text-xs font-bold text-sky-305 uppercase tracking-wider mb-2">
-                          <Smartphone className="w-4 h-4 text-sky-400" />
-                          <span>Paso 2: Simulación de Celular</span>
-                        </div>
-                        <p className="text-[11px] text-slate-405 leading-relaxed mb-2 font-sans">
-                          Renderiza un teléfono inteligente directamente a un costado para reflejar la perspectiva del visitante y el guardia al unísono:
-                        </p>
-                        <button
-                          onClick={() => setShowVirtualPhone(!showVirtualPhone)}
-                          className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer shadow-lg ${
-                            showVirtualPhone 
-                              ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/10' 
-                              : 'bg-red-600 hover:bg-red-500 text-white shadow-red-650/20'
-                          }`}
-                        >
-                          <Smartphone className="w-4 h-4" /> 
-                          {showVirtualPhone ? 'Cerrar Celular de Prueba' : 'Abrir Celular de Prueba 📱'}
-                        </button>
-                      </div>
-
-                    </div>
-
-                    {/* Dynamic Feedback Banner */}
-                    {demoFeedback && (
-                      <div className="bg-red-950/20 border border-red-500/20 text-red-400 px-4 py-3 rounded-2xl text-xs flex items-center gap-2.5 animate-pulse font-sans">
-                        <Sparkles className="w-4 h-4 text-red-500 shrink-0" />
-                        <span className="font-semibold">{demoFeedback}</span>
-                      </div>
-                    )}
-
-                  </div>
-                )}
+            {/* Dynamic Feedback Banner */}
+            {demoFeedback && (
+              <div className="bg-[#ef4444]/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-2xl text-xs flex items-center gap-2.5 animate-pulse font-sans mb-6">
+                <Sparkles className="w-4 h-4 text-red-500 shrink-0" />
+                <span className="font-semibold">{demoFeedback}</span>
               </div>
             )}
 
@@ -1299,6 +1200,20 @@ export default function App() {
                       </button>
                     )}
 
+                    {canManageCasetas && (
+                      <button
+                        id="nav-tab-casetas"
+                        onClick={() => setActiveTab('casetas')}
+                        className={`flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
+                          activeTab === 'casetas'
+                            ? 'border-red-500 text-red-500 font-extrabold'
+                            : 'border-transparent text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        <Shield className="w-4 h-4" /> Registro de Casetas
+                      </button>
+                    )}
+
                     {canManageRoles && (
                       <button
                         id="nav-tab-roles"
@@ -1349,6 +1264,12 @@ export default function App() {
                     />
                   )}
 
+                  {activeTab === 'casetas' && canManageCasetas && (
+                    <CasetasManager 
+                      onRefresh={reloadAccessLogs}
+                    />
+                  )}
+
                   {activeTab === 'roles' && canManageRoles && (
                     <RolesManager 
                       onRolesUpdated={reloadAccessLogs} 
@@ -1363,151 +1284,6 @@ export default function App() {
                 </div>
 
               </div>
-
-              {/* Right column: Visitor Simulated Smartphone Pass */}
-              {showVirtualPhone && userRole?.role !== SystemUserRole.SUPERVISOR && (
-                <div id="phone-simulation-column" className="lg:col-span-4 animate-fade-in-right sticky top-6">
-                  <div className="w-full max-w-[325px] mx-auto bg-slate-900 border-4 border-slate-800 rounded-[2.5rem] shadow-2xl relative overflow-hidden flex flex-col items-center p-5 pt-10 pb-6 border-b-8">
-                    
-                    {/* Speaker notch / bezel top element */}
-                    <div className="absolute top-3 left-1/2 -translate-x-1/2 w-24 h-4.5 bg-slate-950 rounded-full flex items-center justify-center">
-                      <div className="w-1.5 h-1.5 rounded-full bg-slate-800 mr-2"></div>
-                      <div className="w-12 h-1 bg-slate-850 rounded"></div>
-                    </div>
-
-                    {/* App Bar title */}
-                    <div className="w-full text-center border-b border-slate-800/80 pb-3 mb-4">
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest font-mono">Simulador Visitante 📱</span>
-                      <h4 className="text-white text-xs font-bold mt-0.5">Wallet de Acceso Virtual</h4>
-                    </div>
-
-                    {/* Visitor selector within Virtual Phone */}
-                    <div className="w-full mb-4 font-sans">
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Pasaporte Digital de:</label>
-                      <select
-                        id="demo-visitor-wallet-select"
-                        value={virtualPhoneUser?.id || ''}
-                        onChange={(e) => {
-                          const found = visitorsList.find(v => v.id === e.target.value);
-                          if (found) setVirtualPhoneUser(found);
-                        }}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2 text-xs text-white focus:outline-none focus:border-red-500 font-medium"
-                      >
-                        {visitorsList.length === 0 ? (
-                          <option>Aun no hay códigos registrados</option>
-                        ) : (
-                          visitorsList.map(v => (
-                            <option key={v.id} value={v.id}>
-                              {v.name} ({v.status})
-                            </option>
-                          ))
-                        )}
-                      </select>
-                    </div>
-
-                    {/* Digital Smartphone screen contents */}
-                    {virtualPhoneUser ? (
-                      <div className="w-full bg-[#0b0f19] border border-slate-805/80 rounded-2xl p-4 flex flex-col items-center relative select-none">
-                        
-                        {/* Validation state header inside simulator */}
-                        <div className="w-full flex items-center justify-between mb-3 text-[9.5px]">
-                          <span className="text-slate-500 font-mono">Pase QR</span>
-                          <span className={`px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
-                            virtualPhoneUser.status === 'active' && (!virtualPhoneUser.oneTime || !virtualPhoneUser.used)
-                              ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
-                              : 'bg-rose-500/15 text-rose-400 border border-rose-500/20'
-                          }`}>
-                            {virtualPhoneUser.status === 'active' && (!virtualPhoneUser.oneTime || !virtualPhoneUser.used) ? 'VÁLIDO ✅' : 'INVÁLIDO 🚫'}
-                          </span>
-                        </div>
-
-                        <div className="w-10 h-10 bg-red-600/10 border border-red-500/20 rounded-full flex items-center justify-center mb-2.5">
-                          <UserCircle className="w-5 h-5 text-red-505" />
-                        </div>
-
-                        <h5 className="text-sm font-bold text-slate-200 mt-1 truncate max-w-full text-center leading-none">{virtualPhoneUser.name}</h5>
-                        <p className="text-[10px] text-slate-505 font-mono mt-1">ID: {virtualPhoneUser.documentId}</p>
-
-                        {/* Rendering QR card inside Phone screen overlay */}
-                        <div className="bg-white p-3 rounded-xl border border-slate-800 shadow-xl my-4">
-                          {virtualPhoneQR ? (
-                            <img 
-                              src={virtualPhoneQR} 
-                              alt="Smartphone Screen Pass" 
-                              className="w-36 h-36 block object-contain"
-                              referrerPolicy="referrer"
-                            />
-                          ) : (
-                            <div className="w-36 h-36 bg-slate-100 flex items-center justify-center animate-pulse text-slate-400 text-xs">Cargando...</div>
-                          )}
-                        </div>
-
-                        <div className="text-[9.5px] text-slate-500 font-mono bg-slate-950 px-2.5 py-1 rounded-md border border-slate-900/80 truncate w-full text-center">
-                          Token: {virtualPhoneUser.qrcodeToken}
-                        </div>
-
-                        {virtualPhoneUser.oneTime && (
-                          <div className={`mt-2 text-[8px] px-2 py-1 rounded w-full text-center font-bold uppercase ${
-                            virtualPhoneUser.used ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-amber-500/15 text-amber-300 border border-amber-500/20'
-                          }`}>
-                            {virtualPhoneUser.used ? '⚠️ Ya Canjeado' : '🔥 Pase de un solo uso'}
-                          </div>
-                        )}
-                        
-                        {/* Live time indicator */}
-                        <div className="mt-3.5 flex items-center gap-1 text-[9px] text-slate-500 font-mono">
-                          <ClockIcon className="w-3 h-3 text-slate-600 animate-pulse" />
-                          <span>Actualizado en tiempo real</span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center text-center p-10 bg-slate-950 rounded-2xl w-full border border-slate-800">
-                        <QrCode className="w-8 h-8 text-slate-705 animate-pulse mb-3" />
-                        <p className="text-[11px] text-slate-500 leading-relaxed">No hay visitantes de prueba inyectados aún.</p>
-                        <button
-                          onClick={() => handleCreateDemoPass('active')}
-                          className="mt-3 px-3 py-1.5 bg-red-600/20 text-red-400 text-[10px] uppercase tracking-wide font-bold rounded-lg hover:bg-red-650/35 transition cursor-pointer"
-                        >
-                          Crear Pase Activo
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Simulation Triggers inside phone screen bezel */}
-                    <div className="w-full mt-5 space-y-2 font-sans">
-                      <button
-                        id="btn-trigger-virtual-scan-feed"
-                        onClick={() => virtualPhoneUser && handleSimulateScanDirect(virtualPhoneUser.qrcodeToken)}
-                        disabled={!virtualPhoneUser}
-                        className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-lg shadow-red-600/20 transition cursor-pointer"
-                      >
-                        <ScanLine className="w-4 h-4" /> Simular Escaneo Residente
-                      </button>
-                      
-                      <button
-                        onClick={() => {
-                          if (virtualPhoneUser) {
-                            navigator.clipboard.writeText(`${window.location.origin}/?pass=${virtualPhoneUser.qrcodeToken}`);
-                            alert('¡Enlace móvil copiado! Ábrelo en otra pestaña de tu laptop para simularlo, o escanéalo con tu smartphone real apuntando a la pantalla.');
-                          }
-                        }}
-                        disabled={!virtualPhoneUser}
-                        className="w-full flex items-center justify-center gap-1.5 px-4 py-1.5 text-slate-400 hover:text-white transition rounded-lg text-[10px] font-bold uppercase tracking-wider cursor-pointer"
-                      >
-                        <ExternalLink className="w-3 h-3" /> Copiar Link de Celular
-                      </button>
-                    </div>
-
-                    <div className="mt-4 flex items-center justify-center gap-1.5">
-                      <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping"></span>
-                      <span className="text-[9px] text-slate-550 font-bold uppercase tracking-widest font-mono">Dispositivo Online</span>
-                    </div>
-
-                    {/* Bottom home sensor line */}
-                    <div className="w-16 h-1 bg-slate-800 rounded-full mt-4"></div>
-                  </div>
-                </div>
-              )}
 
             </div>
 

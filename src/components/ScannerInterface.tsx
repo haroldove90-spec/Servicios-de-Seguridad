@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import jsQR from 'jsqr';
-import { Camera, CheckCircle, XCircle, AlertTriangle, RefreshCw, Smartphone, Key, Users, HelpCircle, Search, Activity, ShieldAlert, FileText, Download } from 'lucide-react';
+import { Camera, CheckCircle, XCircle, AlertTriangle, RefreshCw, Smartphone, Key, Users, HelpCircle, Search, Activity, ShieldAlert, FileText, Download, Trash2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { dbService } from '../services/dbService';
 import { 
@@ -172,6 +172,19 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
       setRecentLogs(sorted);
     } catch (err) {
       console.warn('Error loading recent logs:', err);
+    }
+  };
+
+  const handleDeleteAccessLog = async (id: string) => {
+    if (window.confirm('¿Está seguro de que desea eliminar este registro de acceso de la bitácora?')) {
+      try {
+        await dbService.deleteAccessLog(id);
+        reloadRecentLogs();
+        reloadOnsitePeople();
+        onScanLogged();
+      } catch (err) {
+        console.error('Error al eliminar el registro de acceso:', err);
+      }
     }
   };
 
@@ -746,7 +759,22 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
         <div>
           <div className="flex items-center justify-between pb-4 border-b border-[#1e293b] mb-6">
             <h2 className="text-lg font-semibold text-slate-100 tracking-tight flex items-center gap-2">
-              <Camera className="w-5 h-5 text-slate-400" /> Interfaz de Validación (Escaneo)
+              <button
+                id="btn-click-icon-camera"
+                onClick={async () => {
+                  setScanResult(null);
+                  if (cameraPermission !== 'granted') {
+                    const ok = await requestCameraPermission();
+                    if (!ok) return;
+                  }
+                  setUseCamera(true);
+                }}
+                className="hover:scale-110 active:scale-95 transition-all p-1 bg-slate-900 border border-slate-800 rounded-lg text-slate-400 hover:text-red-500 hover:bg-slate-900 shadow-sm cursor-pointer mr-0.5 inline-flex items-center justify-center"
+                title="Haga clic aquí para iniciar el escáner de QR por cámara"
+              >
+                <Camera className="w-5 h-5" />
+              </button>
+              Interfaz de Validación (Escaneo)
             </h2>
             <div className="flex bg-[#020617] p-0.5 rounded-lg border border-[#1e293b]">
               <button
@@ -852,25 +880,44 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
                   </button>
                 )}
 
-                {/* Highly efficient File Scanner fallback tool */}
-                <div className="border border-slate-800/80 p-3 rounded-xl bg-slate-950/60 text-left mt-3">
-                  <div className="flex items-center gap-1.5 mb-1 bg-black/40 p-1.5 rounded-md">
-                    <span className="p-1 bg-red-500/15 rounded-md text-red-500"><Download className="w-3.5 h-3.5" /></span>
-                    <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider font-sans">Opción B: Decodificar Imagen QR</span>
+                {/* Robust Camera Capture Snapshot & File Scanner tool */}
+                <div className="border border-red-500/10 p-4 rounded-2xl bg-slate-950/40 text-left mt-5 mb-4">
+                  <div className="flex items-center gap-2 mb-2 bg-slate-950 p-2 rounded-xl">
+                    <span className="p-1.5 bg-red-600/10 rounded-lg text-red-100"><Camera className="w-4 h-4" /></span>
+                    <span className="text-[11px] font-extrabold text-slate-200 uppercase tracking-wider font-sans">Opción B: Tomar Foto / Cargar QR</span>
                   </div>
-                  <p className="text-[10px] text-slate-400 leading-relaxed mb-2.5">
-                    ¿No tienes cámara o estás en entorno simulado? Descarga el pase QR de un residente o visitante y cárgalo aquí:
+                  <p className="text-[11px] text-slate-400 leading-relaxed mb-3">
+                    Captura instantáneamente una foto del código QR físico con tu celular, o carga un archivo existente para validarlo de inmediato:
                   </p>
-                  <label className="block">
-                    <span className="sr-only">Seleccionar Archivo</span>
-                    <input
-                      id="qr-image-file-decoder"
-                      type="file"
-                      accept="image/*"
-                      onChange={handleQrFileSelected}
-                      className="block w-full text-[10px] text-slate-405 file:mr-3 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-[10px] file:font-bold file:bg-red-600/20 file:text-red-400 hover:file:bg-red-600/30 cursor-pointer"
-                    />
-                  </label>
+                  
+                  <div className="flex flex-col gap-3">
+                    {/* Native Snapshot Input */}
+                    <label className="flex flex-col items-center justify-center p-4 border border-dashed border-red-500/20 hover:border-red-500/40 rounded-xl hover:bg-red-600/5 transition cursor-pointer text-center group">
+                      <Camera className="w-6 h-6 text-red-500 group-hover:scale-110 transition mb-1.5" />
+                      <span className="text-xs font-bold text-slate-200">Arranque de Cámara Especial (Foto QR)</span>
+                      <span className="text-[10px] text-slate-500 mt-1 font-sans">Abre el obturador de cámara de fotos de tu smartphone</span>
+                      <input
+                        id="qr-camera-direct-snapshot"
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={handleQrFileSelected}
+                        className="hidden"
+                      />
+                    </label>
+
+                    {/* Standard File Upload */}
+                    <label className="block bg-[#020617] p-2.5 rounded-xl border border-slate-900">
+                      <span className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Buscar y cargar archivo QR de galería:</span>
+                      <input
+                        id="qr-image-file-decoder"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleQrFileSelected}
+                        className="block w-full text-[11px] text-slate-400 file:mr-3 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-[10px] file:font-semibold file:bg-zinc-800 file:text-slate-300 hover:file:bg-zinc-700 cursor-pointer"
+                      />
+                    </label>
+                  </div>
                   <div id="qr-file-scroller-temp-id" className="hidden"></div>
                 </div>
               </div>
@@ -1190,7 +1237,8 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
               <th className="py-3 px-4">DNI / Identificación</th>
               <th className="py-3 px-4">Tipo Movimiento</th>
               <th className="py-3 px-4">Estado</th>
-              <th className="py-3 px-4 text-right">Vigilante Responsable</th>
+              <th className="py-3 px-4">Vigilante Responsable</th>
+              <th className="py-3 px-4 text-center">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-900/60 font-sans">
@@ -1243,8 +1291,17 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
                         </span>
                       )}
                     </td>
-                    <td className="py-3 px-4 text-right text-slate-400 font-medium">
+                    <td className="py-3 px-4 text-slate-400 font-medium">
                       {log.guardName || 'Sistema'}
+                    </td>
+                    <td className="py-3 px-4 text-center">
+                      <button
+                        onClick={() => handleDeleteAccessLog(log.id)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-600/10 hover:bg-red-600 hover:text-white text-red-400 rounded-xl text-[10px] font-bold transition border border-red-500/20 cursor-pointer"
+                        title="Borrar de la bitácora"
+                      >
+                        <Trash2 className="w-3 h-3" /> Borrar
+                      </button>
                     </td>
                   </tr>
                 );
@@ -1255,7 +1312,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
                      log.documentId.toLowerCase().includes(recentSearch.toLowerCase());
             }).length === 0 && (
               <tr>
-                <td colSpan={6} className="py-10 text-center text-slate-500 font-medium">
+                <td colSpan={7} className="py-10 text-center text-slate-500 font-medium">
                   {recentSearch ? 'No se encontraron registros de accesos con esa descripción.' : 'No se registran accesos en la bitácora el día de hoy.'}
                 </td>
               </tr>

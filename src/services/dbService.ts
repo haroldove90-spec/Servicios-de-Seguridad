@@ -28,7 +28,8 @@ import {
   LogStatus, 
   OperationType,
   Residencia,
-  Residente
+  Residente,
+  Caseta
 } from '../types';
 import { supabase } from '../supabase';
 
@@ -38,6 +39,7 @@ const LS_LOGS_KEY = 'qr_access_logs';
 const LS_ROLES_KEY = 'qr_system_roles';
 const LS_RESIDENCIAS_KEY = 'qr_residencias';
 const LS_RESIDENTES_KEY = 'qr_residentes';
+const LS_CASETAS_KEY = 'qr_casetas';
 
 // Simple unique string generator
 function generateId(): string {
@@ -310,6 +312,39 @@ const LocalDB = {
 
   saveResidentes(residentes: Residente[]) {
     localStorage.setItem(LS_RESIDENTES_KEY, JSON.stringify(residentes));
+  },
+
+  getCasetas(): Caseta[] {
+    const data = localStorage.getItem(LS_CASETAS_KEY);
+    if (!data) {
+      const demoCasetas: Caseta[] = [
+        {
+          id: 'cas-demo-1',
+          nombre: 'Caseta Principal Norte',
+          residenciaId: 'res-demo-1',
+          residenciaNombre: 'Lomas de Chapultepec',
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        {
+          id: 'cas-demo-2',
+          nombre: 'Caseta Sur - Acceso 2',
+          residenciaId: 'res-demo-1',
+          residenciaNombre: 'Lomas de Chapultepec',
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }
+      ];
+      localStorage.setItem(LS_CASETAS_KEY, JSON.stringify(demoCasetas));
+      return demoCasetas;
+    }
+    return JSON.parse(data);
+  },
+
+  saveCasetas(casetas: Caseta[]) {
+    localStorage.setItem(LS_CASETAS_KEY, JSON.stringify(casetas));
   }
 };
 
@@ -664,6 +699,36 @@ export const dbService = {
     }
   },
 
+  async deleteAccessLog(id: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('access_logs')
+        .delete()
+        .eq('id', id);
+
+      if (!error) {
+        return;
+      }
+      console.warn('Supabase deleteAccessLog returned query error. Code:', error.code, 'Msg:', error.message);
+    } catch (err) {
+      console.warn('Supabase deleteAccessLog exception, using fallback:', err);
+    }
+
+    if (IS_FIREBASE_DUMMY) {
+      const logs = LocalDB.getLogs();
+      const filtered = logs.filter(l => l.id !== id);
+      LocalDB.saveLogs(filtered);
+      return;
+    }
+
+    try {
+      const docRef = doc(db, 'access_logs', id);
+      await deleteDoc(docRef);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, `access_logs/${id}`);
+    }
+  },
+
   // --------------------------------------------------
   // Residencias Management CRUD
   // --------------------------------------------------
@@ -937,6 +1002,144 @@ export const dbService = {
       await deleteDoc(docRef);
     } catch (err) {
       handleFirestoreError(err, OperationType.DELETE, `residentes/${id}`);
+    }
+  },
+
+  // --------------------------------------------------
+  // Casetas Management CRUD
+  // --------------------------------------------------
+  async getCasetas(): Promise<Caseta[]> {
+    try {
+      const { data, error } = await supabase
+        .from('casetas')
+        .select('*')
+        .order('createdAt', { ascending: false });
+
+      if (!error && data) {
+        return data as Caseta[];
+      }
+      if (error) {
+        console.warn('Supabase getCasetas returned query error. Code:', error.code, 'Msg:', error.message);
+      }
+    } catch (err) {
+      console.warn('Supabase getCasetas exception, using fallback:', err);
+    }
+
+    if (IS_FIREBASE_DUMMY) {
+      return LocalDB.getCasetas();
+    }
+
+    try {
+      const colRef = collection(db, 'casetas');
+      const q = query(colRef, orderBy('createdAt', 'desc'));
+      const snap = await getDocs(q);
+      const results: Caseta[] = [];
+      snap.forEach(d => {
+        results.push(d.data() as Caseta);
+      });
+      return results;
+    } catch (err) {
+      handleFirestoreError(err, OperationType.LIST, 'casetas');
+      return [];
+    }
+  },
+
+  async createCaseta(caseta: Omit<Caseta, 'id'>): Promise<Caseta> {
+    const id = 'cas_' + generateId();
+    const newCaseta: Caseta = { ...caseta, id };
+
+    try {
+      const { error } = await supabase
+        .from('casetas')
+        .insert(newCaseta);
+
+      if (!error) {
+        return newCaseta;
+      }
+      console.warn('Supabase createCaseta returned query error. Code:', error.code, 'Msg:', error.message);
+    } catch (err) {
+      console.warn('Supabase createCaseta exception, using fallback:', err);
+    }
+
+    if (IS_FIREBASE_DUMMY) {
+      const list = LocalDB.getCasetas();
+      list.unshift(newCaseta);
+      LocalDB.saveCasetas(list);
+      return newCaseta;
+    }
+
+    try {
+      const docRef = doc(db, 'casetas', id);
+      await setDoc(docRef, newCaseta);
+      return newCaseta;
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, `casetas/${id}`);
+      throw err;
+    }
+  },
+
+  async updateCaseta(id: string, updates: Partial<Caseta>): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('casetas')
+        .update({ ...updates, updatedAt: new Date().toISOString() })
+        .eq('id', id);
+
+      if (!error) {
+        return;
+      }
+      console.warn('Supabase updateCaseta returned query error. Code:', error.code, 'Msg:', error.message);
+    } catch (err) {
+      console.warn('Supabase updateCaseta exception, using fallback:', err);
+    }
+
+    if (IS_FIREBASE_DUMMY) {
+      const list = LocalDB.getCasetas();
+      const updated = list.map(item => {
+        if (item.id === id) {
+          return { ...item, ...updates, updatedAt: new Date().toISOString() };
+        }
+        return item;
+      });
+      LocalDB.saveCasetas(updated);
+      return;
+    }
+
+    try {
+      const docRef = doc(db, 'casetas', id);
+      await updateDoc(docRef, { ...updates, updatedAt: new Date().toISOString() });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `casetas/${id}`);
+    }
+  },
+
+  async deleteCaseta(id: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('casetas')
+        .delete()
+        .eq('id', id);
+
+      if (!error) {
+        return;
+      }
+      console.warn('Supabase deleteCaseta returned query error. Code:', error.code, 'Msg:', error.message);
+    } catch (err) {
+      console.warn('Supabase deleteCaseta exception, using fallback:', err);
+    }
+
+    if (IS_FIREBASE_DUMMY) {
+      const list = LocalDB.getCasetas();
+      const filtered = list.filter(item => item.id !== id);
+      LocalDB.saveCasetas(filtered);
+      return;
+    }
+
+    try {
+      const docRef = doc(db, 'casetas', id);
+      await deleteDoc(docRef);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, `casetas/${id}`);
     }
   }
 

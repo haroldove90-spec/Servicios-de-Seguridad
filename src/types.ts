@@ -95,6 +95,16 @@ export interface Residente {
   updatedAt: string; // ISO DateTime
 }
 
+export interface Caseta {
+  id: string;
+  nombre: string;
+  residenciaId: string;
+  residenciaNombre: string;
+  isActive: boolean;
+  createdAt: string; // ISO DateTime
+  updatedAt: string; // ISO DateTime
+}
+
 export enum OperationType {
   CREATE = 'create',
   UPDATE = 'update',

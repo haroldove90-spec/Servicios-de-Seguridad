@@ -89,6 +89,21 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["nombre", "residenciaId", "residenciaNombre", "direccion", "qrcodeToken", "createdAt", "updatedAt"]
+    },
+    "Caseta": {
+      "title": "Caseta",
+      "description": "A guard control point or guardhouse assigned to control a specific residence's access.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nombre": { "type": "string" },
+        "residenciaId": { "type": "string" },
+        "residenciaNombre": { "type": "string" },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["nombre", "residenciaId", "residenciaNombre", "isActive", "createdAt", "updatedAt"]
     }
   },
   "firestore": {
@@ -111,6 +126,10 @@
     "/residentes/{residenteId}": {
       "schema": "Residente",
       "description": "Authorized residents database linked to their corresponding QR code"
+    },
+    "/casetas/{casetaId}": {
+      "schema": "Caseta",
+      "description": "Guard control terminals list"
     }
   }
 }

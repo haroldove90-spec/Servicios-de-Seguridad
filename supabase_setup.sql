@@ -65,7 +65,18 @@ CREATE TABLE IF NOT EXISTS public.access_logs (
     "guardName" TEXT NOT NULL
 );
 
--- 5. Table for System Roles (RBAC Privilegios y Roles)
+-- 5. Table for Casetas de Vigilancia (Puntos de control asignados a residencias)
+CREATE TABLE IF NOT EXISTS public.casetas (
+    id TEXT PRIMARY KEY,
+    nombre TEXT NOT NULL,
+    "residenciaId" TEXT NOT NULL REFERENCES public.residencias(id) ON DELETE CASCADE,
+    "residenciaNombre" TEXT NOT NULL,
+    "isActive" BOOLEAN NOT NULL DEFAULT TRUE,
+    "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+-- 6. Table for System Roles (RBAC Privilegios y Roles)
 CREATE TABLE IF NOT EXISTS public.system_roles (
     uid TEXT PRIMARY KEY,
     email TEXT NOT NULL,
@@ -85,6 +96,7 @@ ALTER TABLE public.residentes DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.authorized_users DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.access_logs DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.system_roles DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.casetas DISABLE ROW LEVEL SECURITY;
 
 -- Optional dummy admin provision (using softwareai569@gmail.com)
 INSERT INTO public.system_roles (uid, email, name, role, "createdAt")
