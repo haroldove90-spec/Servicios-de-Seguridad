@@ -327,6 +327,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
 
   const handleQrFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    const targetInput = e.target;
     if (!file) return;
     
     setScanResult(null);
@@ -370,6 +371,10 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
         } catch (err: any) {
           console.warn('QR file scanning failed on both decoders:', err);
           setPermissionError('No se pudo decodificar el Código QR de la imagen. Asegúrate de que el archivo sea un código QR válido, nítido y bien enfocado o usa el panel de simulación rápida.');
+        } finally {
+          if (targetInput) {
+            targetInput.value = ''; // Reset input so same file can be selected/scanned again
+          }
         }
       };
       img.src = event.target.result as string;
@@ -379,6 +384,8 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
 
   const handleVerifyToken = async (token: string): Promise<boolean> => {
     if (!token) return false;
+    setPermissionError(null);
+    setScanResult(null);
     try {
       if (panicActiveRef.current) {
         setScanResult({
@@ -901,6 +908,10 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
                         type="file"
                         accept="image/*"
                         capture="environment"
+                        onClick={() => {
+                          setPermissionError(null);
+                          setScanResult(null);
+                        }}
                         onChange={handleQrFileSelected}
                         className="hidden"
                       />
@@ -913,6 +924,10 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
                         id="qr-image-file-decoder"
                         type="file"
                         accept="image/*"
+                        onClick={() => {
+                          setPermissionError(null);
+                          setScanResult(null);
+                        }}
                         onChange={handleQrFileSelected}
                         className="block w-full text-[11px] text-slate-400 file:mr-3 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-[10px] file:font-semibold file:bg-zinc-800 file:text-slate-300 hover:file:bg-zinc-700 cursor-pointer"
                       />
@@ -927,6 +942,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
                 id="btn-trigger-camera-opt"
                 onClick={async () => {
                   setScanResult(null);
+                  setPermissionError(null);
                   if (cameraPermission !== 'granted') {
                     const ok = await requestCameraPermission();
                     if (!ok) return; // Wait for explicit authorization
