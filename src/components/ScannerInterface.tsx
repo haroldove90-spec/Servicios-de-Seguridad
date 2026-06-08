@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
+import jsQR from 'jsqr';
 import { Camera, CheckCircle, XCircle, AlertTriangle, RefreshCw, Smartphone, Key, Users, HelpCircle, Search, Activity, ShieldAlert, FileText, Download } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { dbService } from '../services/dbService';
@@ -34,7 +35,29 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
   } | null>(null);
   const [validationType, setValidationType] = useState<LogType>(LogType.CHECK_IN);
   const [quickUsers, setQuickUsers] = useState<AuthorizedUser[]>([]);
+  const [panicActive, setPanicActive] = useState<boolean>(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
+
+  // Throttling refs to prevent double-scanning within 3 seconds
+  const lastScannedTokenRef = useRef<string>('');
+  const lastScanTimeRef = useRef<number>(0);
+
+  // Refs to prevent closure stale states
+  const validationTypeRef = useRef<LogType>(LogType.CHECK_IN);
+  const panicActiveRef = useRef<boolean>(false);
+  const currentGuardRef = useRef<typeof currentGuard>(null);
+
+  useEffect(() => {
+    validationTypeRef.current = validationType;
+  }, [validationType]);
+
+  useEffect(() => {
+    panicActiveRef.current = panicActive;
+  }, [panicActive]);
+
+  useEffect(() => {
+    currentGuardRef.current = currentGuard;
+  }, [currentGuard]);
 
   // States for live bitácora logs and testing filters
   const [recentLogs, setRecentLogs] = useState<AccessLog[]>([]);
@@ -44,7 +67,6 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
 
   // Advanced Security Modules States
   const [onsitePeople, setOnsitePeople] = useState<{ userId: string; name: string; document: string; time: string }[]>([]);
-  const [panicActive, setPanicActive] = useState<boolean>(false);
   const [votedFeatures, setVotedFeatures] = useState<string[]>([]);
   const [checklistFeedback, setChecklistFeedback] = useState<string>('');
 
@@ -175,7 +197,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
     return () => {
       window.removeEventListener('simulate-qr-scan', handleSimulatedScan);
     };
-  }, [panicActive, validationType, currentGuard]);
+  }, []); // No dependencies - uses refs inside handleVerifyToken
 
   // Handle actual QR scanning with auto-starting camera stream
   useEffect(() => {
@@ -196,13 +218,24 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
             qrbox: { width: 250, height: 250 },
             aspectRatio: 1.0,
           },
-          (decodedText) => {
+          async (decodedText) => {
             if (isMounted) {
-              handleVerifyToken(decodedText);
-              // Turn off camera on success
-              setUseCamera(false);
-              if (html5QrCode && html5QrCode.isScanning) {
-                html5QrCode.stop().catch(err => console.warn('Error stopping scanner:', err));
+              const now = Date.now();
+              if (decodedText === lastScannedTokenRef.current && now - lastScanTimeRef.current < 3000) {
+                // Throttled: do not scan/verify the same code within 3 seconds
+                return;
+              }
+              lastScannedTokenRef.current = decodedText;
+              lastScanTimeRef.current = now;
+
+              const isValid = await handleVerifyToken(decodedText);
+              if (isValid) {
+                setUseCamera(false);
+                if (html5QrCode && html5QrCode.isScanning) {
+                  html5QrCode.stop().catch(err => console.warn('Error stopping scanner:', err));
+                }
+              } else {
+                console.log('Keep scanning since token was invalid');
               }
             }
           },
@@ -221,12 +254,24 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
                 qrbox: { width: 250, height: 250 },
                 aspectRatio: 1.0,
               },
-              (decodedText) => {
+              async (decodedText) => {
                 if (isMounted) {
-                  handleVerifyToken(decodedText);
-                  setUseCamera(false);
-                  if (html5QrCode && html5QrCode.isScanning) {
-                    html5QrCode.stop().catch(e => console.warn('Error stopping fallback scanner:', e));
+                  const now = Date.now();
+                  if (decodedText === lastScannedTokenRef.current && now - lastScanTimeRef.current < 3000) {
+                    // Throttled: do not scan/verify the same code within 3 seconds
+                    return;
+                  }
+                  lastScannedTokenRef.current = decodedText;
+                  lastScanTimeRef.current = now;
+
+                  const isValid = await handleVerifyToken(decodedText);
+                  if (isValid) {
+                    setUseCamera(false);
+                    if (html5QrCode && html5QrCode.isScanning) {
+                      html5QrCode.stop().catch(e => console.warn('Error stopping fallback scanner:', e));
+                    }
+                  } else {
+                    console.log('Keep scanning since token was invalid');
                   }
                 }
               },
@@ -265,7 +310,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
         }
       }
     };
-  }, [useCamera, validationType]);
+  }, [useCamera]);
 
   const handleQrFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -274,53 +319,91 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
     setScanResult(null);
     setPermissionError(null);
     
-    try {
-      const html5Qr = new Html5Qrcode('qr-file-scroller-temp-id');
-      const decodedText = await html5Qr.scanFile(file, true);
-      handleVerifyToken(decodedText);
-    } catch (err: any) {
-      console.warn('QR file scanning failed:', err);
-      setPermissionError('No se pudo decodificar el Código QR de la imagen. Asegúrate de que el archivo sea un código QR válido, nítido y bien enfocado o usa el panel de simulación rápida.');
-    }
+    // Create a FileReader to read the file into an image
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      if (!event.target?.result) return;
+      
+      const img = new Image();
+      img.onload = async () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            throw new Error('No se pudo inicializar el contexto 2D de Canvas');
+          }
+          
+          canvas.width = img.width;
+          canvas.height = img.height;
+          ctx.drawImage(img, 0, 0);
+          
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          
+          // Use jsQR to scan the image pixel data
+          const code = jsQR(imageData.data, imageData.width, imageData.height, {
+            inversionAttempts: 'attemptBoth',
+          });
+          
+          if (code && code.data) {
+            console.log('Decoded successfully via jsQR:', code.data);
+            handleVerifyToken(code.data);
+          } else {
+            // Fallback: If jsQR fails, try Html5Qrcode.scanFile
+            console.warn('jsQR direct decoding failed, attempting html5-qrcode fallback...');
+            const html5Qr = new Html5Qrcode('qr-file-scroller-temp-id');
+            const decodedText = await html5Qr.scanFile(file, true);
+            handleVerifyToken(decodedText);
+          }
+        } catch (err: any) {
+          console.warn('QR file scanning failed on both decoders:', err);
+          setPermissionError('No se pudo decodificar el Código QR de la imagen. Asegúrate de que el archivo sea un código QR válido, nítido y bien enfocado o usa el panel de simulación rápida.');
+        }
+      };
+      img.src = event.target.result as string;
+    };
+    reader.readAsDataURL(file);
   };
 
-  const handleVerifyToken = async (token: string) => {
-    if (!token) return;
-    if (panicActive) {
+  const handleVerifyToken = async (token: string): Promise<boolean> => {
+    if (!token) return false;
+    if (panicActiveRef.current) {
       setScanResult({
         success: false,
         message: '⚠ SISTEMA EN CRISIS: Control de Acceso QR Bloqueado de forma permanente mientras la ALERTA DE PÁNICO permanezca activa.',
         status: LogStatus.REVOKED_USER
       });
-      return;
+      return false;
     }
     
     const tokenClean = token.trim();
     let tokenToQuery = tokenClean;
     
-    // Support URL parsing dynamically to extract 'pass' parameter if present
-    if (tokenClean.startsWith('http://') || tokenClean.startsWith('https://') || tokenClean.includes('?pass=')) {
+    // Support robust extraction of 'pass=' from URL or standard search string
+    if (tokenClean.includes('pass=')) {
+      const index = tokenClean.indexOf('pass=');
+      if (index !== -1) {
+        const afterPass = tokenClean.substring(index + 5);
+        const ampersandIndex = afterPass.indexOf('&');
+        if (ampersandIndex !== -1) {
+          tokenToQuery = afterPass.substring(0, ampersandIndex).trim();
+        } else {
+          tokenToQuery = afterPass.trim();
+        }
+      }
+    } else if (tokenClean.startsWith('http://') || tokenClean.startsWith('https://')) {
       try {
         const urlParams = new URL(tokenClean);
         const passParam = urlParams.searchParams.get('pass');
         if (passParam) {
           tokenToQuery = passParam.trim();
-        } else if (tokenClean.includes('?pass=')) {
-          const parts = tokenClean.split('?pass=');
-          if (parts[1]) {
-            tokenToQuery = parts[1].split('&')[0].trim();
-          }
         }
       } catch (urlErr) {
-        if (tokenClean.includes('?pass=')) {
-          const parts = tokenClean.split('?pass=');
-          if (parts[1]) {
-            tokenToQuery = parts[1].split('&')[0].trim();
-          }
-        }
+        console.warn('URL structure extraction fallback:', urlErr);
       }
     }
 
+    tokenToQuery = decodeURIComponent(tokenToQuery).trim();
+    
     const users = await dbService.getAuthorizedUsers();
     let matchedUser = users.find(u => u.qrcodeToken === tokenToQuery);
 
@@ -341,7 +424,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
           oneTime: false,
           used: false,
           validFrom: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-          validUntil: matchedRes.validUntil || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+          validUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
           days: [],
           startTime: '00:00',
           endTime: '23:59',
@@ -366,8 +449,8 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
       }
     }
 
-    const guardName = currentGuard?.name || 'Oficial de Seguridad';
-    const guardId = currentGuard?.uid || 'anonymous-guard';
+    const guardName = currentGuardRef.current?.name || 'Oficial de Seguridad';
+    const guardId = currentGuardRef.current?.uid || 'anonymous-guard';
 
     // 1. Check if token matches any visitor or registered resident
     if (!matchedUser) {
@@ -384,18 +467,18 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
         userName: 'Código Desconocido',
         documentId: 'N/A',
         timestamp: new Date().toISOString(),
-        type: validationType,
+        type: validationTypeRef.current,
         status: LogStatus.EXPIRED_TOKEN,
         guardId,
         guardName,
       });
       onScanLogged();
-      return;
+      return false;
     }
 
     // Determine resident and automatic transition rule
     const isResident = matchedUser.name.includes('(Residente)') || matchedUser.id.startsWith('usr_resd_');
-    let detectedType = validationType;
+    let detectedType = validationTypeRef.current;
 
     if (isResident) {
       const logsList = await dbService.getAccessLogs();
@@ -416,7 +499,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
         }
       } else {
         // Use vigilante's selection on first scan
-        detectedType = validationType;
+        detectedType = validationTypeRef.current;
       }
       
       // Sync the toggle state visually on screen
@@ -433,7 +516,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
       };
       setScanResult(result);
       logScan(matchedUser, LogStatus.REVOKED_USER, detectedType);
-      return;
+      return false;
     }
 
     if (matchedUser.status === UserStatus.EXPIRED) {
@@ -445,7 +528,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
       };
       setScanResult(result);
       logScan(matchedUser, LogStatus.EXPIRED_TOKEN, detectedType);
-      return;
+      return false;
     }
 
     // 3. Temporal Expiration Check (Dates)
@@ -462,7 +545,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
       };
       setScanResult(result);
       logScan(matchedUser, LogStatus.OUTSIDE_SCHEDULE, detectedType);
-      return;
+      return false;
     }
 
     if (now > validUntil) {
@@ -474,7 +557,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
       };
       setScanResult(result);
       logScan(matchedUser, LogStatus.EXPIRED_TOKEN, detectedType);
-      return;
+      return false;
     }
 
     // 4. Access Schedule constraints (Time & Days)
@@ -493,7 +576,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
       };
       setScanResult(result);
       logScan(matchedUser, LogStatus.OUTSIDE_SCHEDULE, detectedType);
-      return;
+      return false;
     }
 
     // Daily Hour check (startTime - endTime)
@@ -508,7 +591,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
         };
         setScanResult(result);
         logScan(matchedUser, LogStatus.OUTSIDE_SCHEDULE, detectedType);
-        return;
+        return false;
       }
     }
 
@@ -522,7 +605,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
       };
       setScanResult(result);
       logScan(matchedUser, LogStatus.ALREADY_USED, detectedType);
-      return;
+      return false;
     }
 
     // SUCCESS - VALID QR PASS!
@@ -565,6 +648,8 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
       spread: 70,
       origin: { y: 0.6 }
     });
+
+    return true;
   };
 
   const logScan = async (user: AuthorizedUser, status: LogStatus, customType?: LogType) => {
