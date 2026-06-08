@@ -258,6 +258,23 @@ export default function App() {
     return localStorage.getItem('cnls_has_selected_role') === 'true';
   });
 
+  const [residenciasList, setResidenciasList] = useState<any[]>([]);
+
+  const loadResidenciasForHome = async () => {
+    try {
+      const list = await dbService.getResidencias();
+      setResidenciasList(list || []);
+    } catch (e) {
+      console.warn("Failed fetching residencias for home screen selector:", e);
+    }
+  };
+
+  useEffect(() => {
+    if (!hasSelectedRole) {
+      loadResidenciasForHome();
+    }
+  }, [hasSelectedRole]);
+
   useEffect(() => {
     localStorage.setItem('cnls_active_tab', activeTab);
   }, [activeTab]);
@@ -296,7 +313,13 @@ export default function App() {
   }, [userRole]);
 
   // Helper to choose active dashboard role and set appropriate tab
-  const handleRoleSelection = (role: SystemUserRole, nameSimulated: string, defaultTab: 'scan' | 'crud' | 'reports' | 'roles' | 'residencias' | 'residentes') => {
+  const handleRoleSelection = (
+    role: SystemUserRole, 
+    nameSimulated: string, 
+    defaultTab: 'scan' | 'crud' | 'reports' | 'roles' | 'residencias' | 'residentes' | 'casetas',
+    residenciaId?: string,
+    residenciaNombre?: string
+  ) => {
     setDemoRole(role);
     setDemoName(nameSimulated);
     
@@ -306,7 +329,9 @@ export default function App() {
         name: nameSimulated,
         email: 'softwareai569@gmail.com',
         role: role,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        residenciaId,
+        residenciaNombre
       });
     } else if (user) {
       setUserRole({
@@ -314,7 +339,9 @@ export default function App() {
         name: user.displayName || nameSimulated,
         email: user.email || 'user@example.com',
         role: role,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        residenciaId,
+        residenciaNombre
       });
     }
     setActiveTab(defaultTab);
@@ -798,7 +825,7 @@ export default function App() {
                       }}
                       className="w-full text-left px-4 py-3 bg-[#1A1A1E] hover:bg-[#343438] text-white rounded-xl text-xs font-bold transition flex items-center gap-3 cursor-pointer border border-[#3e3e42] hover:border-red-500/20 animate-fade-in"
                     >
-                      <Shield className="w-4 h-4 text-red-500" /> Administración
+                      <Shield className="w-4 h-4 text-red-500" /> Administración General
                     </button>
                     <button 
                       onClick={() => {
@@ -807,7 +834,7 @@ export default function App() {
                       }}
                       className="w-full text-left px-4 py-3 bg-[#1A1A1E] hover:bg-[#343438] text-white rounded-xl text-xs font-bold transition flex items-center gap-3 cursor-pointer border border-[#3e3e42] hover:border-red-500/20"
                     >
-                      <Users className="w-4 h-4 text-red-500" /> Caseta
+                      <Users className="w-4 h-4 text-red-500" /> Caseta General
                     </button>
                   </div>
                 </div>
@@ -818,9 +845,9 @@ export default function App() {
                       <p className="text-[9px] uppercase font-bold text-slate-500 tracking-wider">Perfil Activo</p>
                       <p className="text-xs font-extrabold text-white truncate max-w-[140px] mt-0.5 uppercase">
                         {userRole?.role === SystemUserRole.ADMIN 
-                          ? 'Administración 🛡️' 
+                          ? (userRole?.residenciaNombre ? `Admin - ${userRole.residenciaNombre} 🛡️` : 'Admin Gral. 🛡️')
                           : userRole?.role === SystemUserRole.SUPERVISOR 
-                          ? 'Caseta ⚡' 
+                          ? (userRole?.residenciaNombre ? `Caseta - ${userRole.residenciaNombre} ⚡` : 'Caseta Gral. ⚡') 
                           : 'Residente: 🏡'}
                       </p>
                     </div>
@@ -1044,7 +1071,7 @@ export default function App() {
                     <Shield className="w-7 h-7 animate-pulse" />
                   </div>
                   <h3 className="text-xl font-extrabold text-white group-hover:text-red-400 transition">
-                    Administración
+                    Administración General
                   </h3>
                 </div>
 
@@ -1067,7 +1094,7 @@ export default function App() {
                     <Users className="w-7 h-7 text-red-500" />
                   </div>
                   <h3 className="text-xl font-extrabold text-white group-hover:text-red-400 transition">
-                    Caseta
+                    Caseta General
                   </h3>
                 </div>
 
@@ -1078,6 +1105,83 @@ export default function App() {
               </div>
 
             </div>
+
+            {/* Dynamic Subdivision Residences Bento Grid */}
+            {residenciasList && residenciasList.length > 0 && (
+              <div id="subdivisions-bento-section" className="mt-12 pt-8 border-t border-[#1e1e24] text-left max-w-4xl mx-auto">
+                <div className="flex items-center gap-2 mb-6 justify-center sm:justify-start">
+                  <div className="w-1.5 h-6 bg-red-650 rounded-full"></div>
+                  <h2 className="text-sm font-black uppercase tracking-widest text-[#94a3b8] font-mono">
+                    🏡 Accesos Directos por Subdivisiones ({residenciasList.length})
+                  </h2>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  {residenciasList.map((res: any) => (
+                    <div 
+                      key={res.id} 
+                      className="bg-[#18181c] border border-[#2e2e38] rounded-2.5xl p-5 hover:border-red-500/40 transition-all duration-300 relative group overflow-hidden shadow-lg shadow-black/40"
+                    >
+                      <div className="absolute top-0 right-0 w-24 h-24 bg-red-600/5 blur-2xl rounded-full"></div>
+                      
+                      <div className="flex items-start justify-between gap-2.5 mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-red-950/20 border border-red-500/20 flex items-center justify-center text-red-400 font-extrabold text-sm shadow-inner group-hover:scale-105 transition-transform">
+                            🏡
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-extrabold text-white leading-snug tracking-tight group-hover:text-red-400 transition-colors uppercase">
+                              {res.nombre}
+                            </h4>
+                            <p className="text-[10px] text-slate-400 mt-1 font-sans">
+                              Admin: <span className="text-slate-350 font-semibold">{res.administrador || 'Por asignar'}</span>
+                            </p>
+                          </div>
+                        </div>
+
+                        <span className={`text-[8.5px] font-black uppercase px-2 py-0.5 rounded-md ${
+                          res.isActive 
+                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                            : 'bg-zinc-550/10 text-zinc-400 border border-[#2e2e38]'
+                        }`}>
+                          {res.isActive ? 'Activo ✓' : 'Inactivo ✗'}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2.5 mt-4 pt-4 border-t border-zinc-800">
+                        <button
+                          onClick={() => handleRoleSelection(
+                            SystemUserRole.ADMIN, 
+                            `Admin - ${res.nombre}`, 
+                            'crud', 
+                            res.id, 
+                            res.nombre
+                          )}
+                          disabled={!res.isActive}
+                          className="flex items-center justify-center gap-1.5 py-2.5 px-3 bg-[#242429] hover:bg-red-950/25 text-[10.5px] font-bold text-slate-300 hover:text-white rounded-xl border border-[#2e2e38] hover:border-red-500/30 transition-all cursor-pointer disabled:opacity-40 disabled:pointer-events-none"
+                          title={`Ingresar como Administrador de ${res.nombre}`}
+                        >
+                          <Shield className="w-3.5 h-3.5 text-red-500 shrink-0" /> Admin
+                        </button>
+                        <button
+                          onClick={() => handleRoleSelection(
+                            SystemUserRole.SUPERVISOR, 
+                            `Oficial - ${res.nombre}`, 
+                            'scan', 
+                            res.id, 
+                            res.nombre
+                          )}
+                          disabled={!res.isActive}
+                          className="flex items-center justify-center gap-1.5 py-2.5 px-3 bg-[#242429] hover:bg-amber-950/25 text-[10.5px] font-bold text-slate-300 hover:text-white rounded-xl border border-[#2e2e38] hover:border-amber-500/30 transition-all cursor-pointer disabled:opacity-40 disabled:pointer-events-none"
+                          title={`Ingresar como Caseta de Seguridad de ${res.nombre}`}
+                        >
+                          <Smartphone className="w-3.5 h-3.5 text-amber-500 shrink-0" /> Caseta
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Signout of platform option (for real Firebase accounts) */}
             {!IS_FIREBASE_DUMMY && user && (
@@ -1120,9 +1224,9 @@ export default function App() {
                     <p className="text-xs font-bold text-slate-200 leading-none">{userRole?.name}</p>
                     <p className="text-[10px] text-slate-400 leading-none mt-1.5 uppercase font-semibold font-sans">
                       Rol: {userRole?.role === SystemUserRole.ADMIN 
-                        ? 'Administración 🛡️' 
+                        ? (userRole?.residenciaNombre ? `Admin - ${userRole.residenciaNombre} 🛡️` : 'Administración General 🛡️')
                         : userRole?.role === SystemUserRole.SUPERVISOR 
-                        ? 'Caseta ⚡' 
+                        ? (userRole?.residenciaNombre ? `Caseta - ${userRole.residenciaNombre} ⚡` : 'Caseta General ⚡') 
                         : 'Residente'}
                     </p>
                   </div>
