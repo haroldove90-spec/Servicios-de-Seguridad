@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
+import { motion, AnimatePresence } from 'motion/react';
 import jsQR from 'jsqr';
 import { Camera, CheckCircle, XCircle, AlertTriangle, RefreshCw, Smartphone, Key, Users, HelpCircle, Search, Activity, ShieldAlert, FileText, Download, Trash2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
@@ -73,6 +74,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
   // Camera & Mobile permissions manager hook
   const [cameraPermission, setCameraPermission] = useState<'prompt' | 'granted' | 'denied' | 'checking'>('checking');
   const [permissionError, setPermissionError] = useState<string | null>(null);
+  const [isScanningFile, setIsScanningFile] = useState<boolean>(false);
 
   const checkCameraPermission = async () => {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -332,11 +334,15 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
     
     setScanResult(null);
     setPermissionError(null);
+    setIsScanningFile(true);
     
     // Create a FileReader to read the file into an image
     const reader = new FileReader();
     reader.onload = async (event) => {
-      if (!event.target?.result) return;
+      if (!event.target?.result) {
+        setIsScanningFile(false);
+        return;
+      }
       
       const img = new Image();
       img.onload = async () => {
@@ -360,25 +366,38 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
           
           if (code && code.data) {
             console.log('Decoded successfully via jsQR:', code.data);
-            handleVerifyToken(code.data);
+            await handleVerifyToken(code.data);
           } else {
             // Fallback: If jsQR fails, try Html5Qrcode.scanFile
             console.warn('jsQR direct decoding failed, attempting html5-qrcode fallback...');
             const html5Qr = new Html5Qrcode('qr-file-scroller-temp-id');
             const decodedText = await html5Qr.scanFile(file, true);
-            handleVerifyToken(decodedText);
+            await handleVerifyToken(decodedText);
           }
         } catch (err: any) {
           console.warn('QR file scanning failed on both decoders:', err);
           setPermissionError('No se pudo decodificar el Código QR de la imagen. Asegúrate de que el archivo sea un código QR válido, nítido y bien enfocado o usa el panel de simulación rápida.');
         } finally {
+          setIsScanningFile(false);
           if (targetInput) {
             targetInput.value = ''; // Reset input so same file can be selected/scanned again
           }
         }
       };
+      
+      img.onerror = () => {
+        setPermissionError('No se pudo cargar la imagen seleccionada como archivo de imagen válido.');
+        setIsScanningFile(false);
+      };
+      
       img.src = event.target.result as string;
     };
+    
+    reader.onerror = () => {
+      setPermissionError('No se pudo leer el archivo seleccionado.');
+      setIsScanningFile(false);
+    };
+    
     reader.readAsDataURL(file);
   };
 
@@ -735,6 +754,52 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
 
   return (
     <div id="scanner-view-full-wrapper" className="space-y-8">
+      {/* Floating QR scanning modal indicator */}
+      <AnimatePresence>
+        {isScanningFile && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 350 }}
+              className="bg-slate-900 border border-slate-800 rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center space-y-6"
+            >
+              <div className="relative flex items-center justify-center py-4">
+                {/* Visual loading ripples */}
+                <div className="absolute w-24 h-24 bg-red-550/10 rounded-full animate-ping" />
+                <div className="absolute w-16 h-16 bg-red-550/20 rounded-full animate-pulse" />
+                
+                <div className="relative w-14 h-14 bg-red-650/20 rounded-full flex items-center justify-center border border-red-500/40">
+                  <RefreshCw className="w-6 h-6 text-red-500 animate-spin" />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <h3 className="text-base font-bold text-slate-100 tracking-tight">
+                  Leyendo código QR
+                </h3>
+                <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
+                  Por favor, espere un momento mientras procesamos la imagen y validamos el acceso...
+                </p>
+              </div>
+
+              <div className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-slate-950/60 rounded-xl border border-slate-800 w-fit mx-auto">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+                <span className="text-[10px] uppercase tracking-widest font-bold text-slate-400 font-mono">
+                  Procesando de foto
+                </span>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Panic Siren Top Alert when active */}
       {panicActive && (
         <div id="global-panic-beacon" className="bg-rose-600 border border-rose-500 rounded-2xl p-4 text-white animate-pulse flex items-center justify-between gap-4">
