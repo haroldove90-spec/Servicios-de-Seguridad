@@ -81,7 +81,8 @@ export default function ResidenciasManager({ onRefresh }: ResidenciasManagerProp
   // Update visitor QR code state when selected
   useEffect(() => {
     if (selectedVisitorQR) {
-      generateQRWithLogo(selectedVisitorQR.qrcodeToken)
+      const passUrl = `${window.location.origin}${window.location.pathname}?pass=${selectedVisitorQR.qrcodeToken}`;
+      generateQRWithLogo(passUrl)
         .then(url => setVisitorQRUrl(url))
         .catch(err => console.error('Error generating visitor QR URL', err));
     } else {

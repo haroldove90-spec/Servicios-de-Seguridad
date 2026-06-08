@@ -65,7 +65,8 @@ export default function ResidentesManager({ onRefresh }: ResidentesManagerProps)
   // Update QR code when resident is clicked
   useEffect(() => {
     if (selectedResidentQR) {
-      generateQRWithLogo(selectedResidentQR.qrcodeToken)
+      const passUrl = `${window.location.origin}${window.location.pathname}?pass=${selectedResidentQR.qrcodeToken}`;
+      generateQRWithLogo(passUrl)
         .then(url => setGeneratedQRUrl(url))
         .catch(err => console.error('Error generating QR', err));
     } else {

@@ -366,226 +366,181 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
 
   const handleVerifyToken = async (token: string): Promise<boolean> => {
     if (!token) return false;
-    if (panicActiveRef.current) {
-      setScanResult({
-        success: false,
-        message: '⚠ SISTEMA EN CRISIS: Control de Acceso QR Bloqueado de forma permanente mientras la ALERTA DE PÁNICO permanezca activa.',
-        status: LogStatus.REVOKED_USER
-      });
-      return false;
-    }
-    
-    const tokenClean = token.trim();
-    let tokenToQuery = tokenClean;
-    
-    // Support robust extraction of 'pass=' from URL or standard search string
-    if (tokenClean.includes('pass=')) {
-      const index = tokenClean.indexOf('pass=');
-      if (index !== -1) {
-        const afterPass = tokenClean.substring(index + 5);
-        const ampersandIndex = afterPass.indexOf('&');
-        if (ampersandIndex !== -1) {
-          tokenToQuery = afterPass.substring(0, ampersandIndex).trim();
-        } else {
-          tokenToQuery = afterPass.trim();
-        }
+    try {
+      if (panicActiveRef.current) {
+        setScanResult({
+          success: false,
+          message: '⚠ SISTEMA EN CRISIS: Control de Acceso QR Bloqueado de forma permanente mientras la ALERTA DE PÁNICO permanezca activa.',
+          status: LogStatus.REVOKED_USER
+        });
+        return false;
       }
-    } else if (tokenClean.startsWith('http://') || tokenClean.startsWith('https://')) {
-      try {
-        const urlParams = new URL(tokenClean);
-        const passParam = urlParams.searchParams.get('pass');
-        if (passParam) {
-          tokenToQuery = passParam.trim();
-        }
-      } catch (urlErr) {
-        console.warn('URL structure extraction fallback:', urlErr);
-      }
-    }
-
-    tokenToQuery = decodeURIComponent(tokenToQuery).trim();
-    
-    const users = await dbService.getAuthorizedUsers();
-    let matchedUser = users.find(u => u.qrcodeToken === tokenToQuery);
-
-    // Dynamic self-healing recovery for registered residents (like Sandra Santiago)
-    if (!matchedUser) {
-      const allResidents = await dbService.getResidentes();
-      const matchedRes = allResidents.find(r => r.qrcodeToken === tokenToQuery);
       
-      if (matchedRes) {
-        // Automatically provision missing authorized_users link
-        const autoPayload: Omit<AuthorizedUser, 'id'> = {
-          name: matchedRes.nombre + ' (Residente)',
-          documentId: 'RESID-AUTO-' + matchedRes.id.substring(0, 5).toUpperCase(),
-          email: 'residente@local.casa',
-          phone: matchedRes.whatsapp || '',
-          status: UserStatus.ACTIVE,
-          qrcodeToken: tokenToQuery,
-          oneTime: false,
-          used: false,
-          validFrom: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-          validUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-          days: [],
-          startTime: '00:00',
-          endTime: '23:59',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          createdBy: 'system-auto-recovery',
-          residenciaId: matchedRes.residenciaId,
-          residenciaNombre: matchedRes.residenciaNombre
-        };
-        
+      const tokenClean = token.trim();
+      let tokenToQuery = tokenClean;
+      
+      // Support robust extraction of 'pass=' from URL or standard search string
+      if (tokenClean.includes('pass=')) {
+        const index = tokenClean.indexOf('pass=');
+        if (index !== -1) {
+          const afterPass = tokenClean.substring(index + 5);
+          const ampersandIndex = afterPass.indexOf('&');
+          if (ampersandIndex !== -1) {
+            tokenToQuery = afterPass.substring(0, ampersandIndex).trim();
+          } else {
+            tokenToQuery = afterPass.trim();
+          }
+        }
+      } else if (tokenClean.startsWith('http://') || tokenClean.startsWith('https://')) {
         try {
-          const createdAuth = await dbService.createAuthorizedUser(autoPayload);
-          // Update resident to point to authorized_users entry
-          await dbService.updateResidente(matchedRes.id, {
-            ...matchedRes,
-            accessUserId: createdAuth.id
-          });
-          matchedUser = createdAuth;
-        } catch (err) {
-          console.error('Dynamic authorized_users recovery failed:', err);
+          const urlParams = new URL(tokenClean);
+          const passParam = urlParams.searchParams.get('pass');
+          if (passParam) {
+            tokenToQuery = passParam.trim();
+          }
+        } catch (urlErr) {
+          console.warn('URL structure extraction fallback:', urlErr);
         }
       }
-    }
 
-    const guardName = currentGuardRef.current?.name || 'Oficial de Seguridad';
-    const guardId = currentGuardRef.current?.uid || 'anonymous-guard';
-
-    // 1. Check if token matches any visitor or registered resident
-    if (!matchedUser) {
-      const failedResult = {
-        success: false,
-        message: 'Código QR no reconocido. Token no válido en la base de datos.',
-        status: LogStatus.EXPIRED_TOKEN
-      };
-      setScanResult(failedResult);
+      tokenToQuery = decodeURIComponent(tokenToQuery).trim();
       
-      // Log failed attempt
-      await dbService.createAccessLog({
-        userId: 'unregistered-qr',
-        userName: 'Código Desconocido',
-        documentId: 'N/A',
-        timestamp: new Date().toISOString(),
-        type: validationTypeRef.current,
-        status: LogStatus.EXPIRED_TOKEN,
-        guardId,
-        guardName,
-      });
-      onScanLogged();
-      return false;
-    }
+      const users = await dbService.getAuthorizedUsers();
+      let matchedUser = users.find(u => u.qrcodeToken === tokenToQuery);
 
-    // Determine resident and automatic transition rule
-    const isResident = matchedUser.name.includes('(Residente)') || matchedUser.id.startsWith('usr_resd_');
-    let detectedType = validationTypeRef.current;
+      // Dynamic self-healing recovery for registered residents (like Sandra Santiago)
+      if (!matchedUser) {
+        const allResidents = await dbService.getResidentes();
+        const matchedRes = allResidents.find(r => r.qrcodeToken === tokenToQuery);
+        
+        if (matchedRes) {
+          // Automatically provision missing authorized_users link
+          const autoPayload: Omit<AuthorizedUser, 'id'> = {
+            name: matchedRes.nombre + ' (Residente)',
+            documentId: 'RESID-AUTO-' + matchedRes.id.substring(0, 5).toUpperCase(),
+            email: 'residente@local.casa',
+            phone: matchedRes.whatsapp || '',
+            status: UserStatus.ACTIVE,
+            qrcodeToken: tokenToQuery,
+            oneTime: false,
+            used: false,
+            validFrom: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+            validUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+            days: [],
+            startTime: '00:00',
+            endTime: '23:59',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            createdBy: 'system-auto-recovery',
+            residenciaId: matchedRes.residenciaId,
+            residenciaNombre: matchedRes.residenciaNombre
+          };
+          
+          try {
+            const createdAuth = await dbService.createAuthorizedUser(autoPayload);
+            // Update resident to point to authorized_users entry
+            await dbService.updateResidente(matchedRes.id, {
+              ...matchedRes,
+              accessUserId: createdAuth.id
+            });
+            matchedUser = createdAuth;
+          } catch (err) {
+            console.error('Dynamic authorized_users recovery failed:', err);
+          }
+        }
+      }
 
-    if (isResident) {
-      const logsList = await dbService.getAccessLogs();
-      const successLogs = logsList
-        .filter(l => l.userId === matchedUser.id && l.status === LogStatus.SUCCESS);
+      const guardName = currentGuardRef.current?.name || 'Oficial de Seguridad';
+      const guardId = currentGuardRef.current?.uid || 'anonymous-guard';
 
-      if (successLogs.length > 0) {
-        // Sort oldest to newest to identify the very first scan choice selected by the guard
-        const sortedOldestFirst = [...successLogs].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-        const firstType = sortedOldestFirst[0].type;
-        const totalUserReads = successLogs.length;
+      // 1. Check if token matches any visitor or registered resident
+      if (!matchedUser) {
+        const failedResult = {
+          success: false,
+          message: 'Código QR no reconocido: El pase no se encuentra en el listado de residentes ni visitantes autorizados.',
+          status: LogStatus.EXPIRED_TOKEN
+        };
+        setScanResult(failedResult);
+        
+        // Log failed attempt
+        await dbService.createAccessLog({
+          userId: 'unregistered-qr',
+          userName: 'Código Desconocido',
+          documentId: 'N/A',
+          timestamp: new Date().toISOString(),
+          type: validationTypeRef.current,
+          status: LogStatus.EXPIRED_TOKEN,
+          guardId,
+          guardName,
+        });
+        onScanLogged();
+        return false;
+      }
 
-        // Determine next state using parity: if even, same as first; if odd, opposite direction
-        if (totalUserReads % 2 === 0) {
-          detectedType = firstType;
+      // Determine resident and automatic transition rule
+      const isResident = matchedUser.name.includes('(Residente)') || matchedUser.id.startsWith('usr_resd_');
+      let detectedType = validationTypeRef.current;
+
+      if (isResident) {
+        const logsList = await dbService.getAccessLogs();
+        const successLogs = logsList
+          .filter(l => l.userId === matchedUser.id && l.status === LogStatus.SUCCESS);
+
+        if (successLogs.length > 0) {
+          // Sort oldest to newest to identify the very first scan choice selected by the guard
+          const sortedOldestFirst = [...successLogs].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+          const firstType = sortedOldestFirst[0].type;
+          const totalUserReads = successLogs.length;
+
+          // Determine next state using parity: if even, same as first; if odd, opposite direction
+          if (totalUserReads % 2 === 0) {
+            detectedType = firstType;
+          } else {
+            detectedType = firstType === LogType.CHECK_IN ? LogType.CHECK_OUT : LogType.CHECK_IN;
+          }
         } else {
-          detectedType = firstType === LogType.CHECK_IN ? LogType.CHECK_OUT : LogType.CHECK_IN;
+          // Use vigilante's selection on first scan
+          detectedType = validationTypeRef.current;
         }
-      } else {
-        // Use vigilante's selection on first scan
-        detectedType = validationTypeRef.current;
+        
+        // Sync the toggle state visually on screen
+        setValidationType(detectedType);
       }
-      
-      // Sync the toggle state visually on screen
-      setValidationType(detectedType);
-    }
 
-    // 2. Check if account is suspended / expired in status
-    if (matchedUser.status === UserStatus.SUSPENDED) {
-      const result = {
-        success: false,
-        message: `Acceso Denegado: El pase de ${matchedUser.name} se encuentra SUSPENDIDO administrativamente.`,
-        user: matchedUser,
-        status: LogStatus.REVOKED_USER
-      };
-      setScanResult(result);
-      logScan(matchedUser, LogStatus.REVOKED_USER, detectedType);
-      return false;
-    }
-
-    if (matchedUser.status === UserStatus.EXPIRED) {
-      const result = {
-        success: false,
-        message: `Acceso Denegado: El pase de ${matchedUser.name} ha EXPIRADO permanentemente.`,
-        user: matchedUser,
-        status: LogStatus.EXPIRED_TOKEN
-      };
-      setScanResult(result);
-      logScan(matchedUser, LogStatus.EXPIRED_TOKEN, detectedType);
-      return false;
-    }
-
-    // 3. Temporal Expiration Check (Dates)
-    const now = new Date();
-    const validFrom = new Date(matchedUser.validFrom);
-    const validUntil = new Date(matchedUser.validUntil);
-
-    if (now < validFrom) {
-      const result = {
-        success: false,
-        message: `Acceso Denegado: El pase de ${matchedUser.name} no está activo aún (Válido desde: ${validFrom.toLocaleDateString()}).`,
-        user: matchedUser,
-        status: LogStatus.OUTSIDE_SCHEDULE
-      };
-      setScanResult(result);
-      logScan(matchedUser, LogStatus.OUTSIDE_SCHEDULE, detectedType);
-      return false;
-    }
-
-    if (now > validUntil) {
-      const result = {
-        success: false,
-        message: `Acceso Denegado: El pase expiró el ${validUntil.toLocaleDateString()} a las ${validUntil.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}.`,
-        user: matchedUser,
-        status: LogStatus.EXPIRED_TOKEN
-      };
-      setScanResult(result);
-      logScan(matchedUser, LogStatus.EXPIRED_TOKEN, detectedType);
-      return false;
-    }
-
-    // 4. Access Schedule constraints (Time & Days)
-    // Weekday check: JavaScript 0 is Sunday, 1 is Monday ... 6 is Saturday
-    const currentDay = now.getDay();
-    if (matchedUser.days && matchedUser.days.length > 0 && !matchedUser.days.includes(currentDay)) {
-      const daysTranslation: { [key: number]: string } = {
-        0: 'Domingos', 1: 'Lunes', 2: 'Martes', 3: 'Miércoles', 4: 'Jueves', 5: 'Viernes', 6: 'Sábados'
-      };
-      const allowedDaysStr = matchedUser.days.map(d => daysTranslation[d]).join(', ');
-      const result = {
-        success: false,
-        message: `Acceso Denegado: Día no autorizado. Días permitidos: ${allowedDaysStr}.`,
-        user: matchedUser,
-        status: LogStatus.OUTSIDE_SCHEDULE
-      };
-      setScanResult(result);
-      logScan(matchedUser, LogStatus.OUTSIDE_SCHEDULE, detectedType);
-      return false;
-    }
-
-    // Daily Hour check (startTime - endTime)
-    if (matchedUser.startTime && matchedUser.endTime) {
-      const currentHrsMins = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }); // e.g. "14:35"
-      if (currentHrsMins < matchedUser.startTime || currentHrsMins > matchedUser.endTime) {
+      // 2. Check if account is suspended / expired in status
+      if (matchedUser.status === UserStatus.SUSPENDED) {
         const result = {
           success: false,
-          message: `Acceso Denegado: Horario restringido. Permitido únicamente entre ${matchedUser.startTime} y ${matchedUser.endTime}.`,
+          message: `Acceso Denegado: El pase de ${matchedUser.name} se encuentra SUSPENDIDO administrativamente.`,
+          user: matchedUser,
+          status: LogStatus.REVOKED_USER
+        };
+        setScanResult(result);
+        logScan(matchedUser, LogStatus.REVOKED_USER, detectedType);
+        return false;
+      }
+
+      if (matchedUser.status === UserStatus.EXPIRED) {
+        const result = {
+          success: false,
+          message: `Acceso Denegado: El pase de ${matchedUser.name} ha EXPIRADO permanentemente.`,
+          user: matchedUser,
+          status: LogStatus.EXPIRED_TOKEN
+        };
+        setScanResult(result);
+        logScan(matchedUser, LogStatus.EXPIRED_TOKEN, detectedType);
+        return false;
+      }
+
+      // 3. Temporal Expiration Check (Dates)
+      const now = new Date();
+      const validFrom = new Date(matchedUser.validFrom);
+      const validUntil = new Date(matchedUser.validUntil);
+
+      if (now < validFrom) {
+        const result = {
+          success: false,
+          message: `Acceso Denegado: El pase de ${matchedUser.name} no está activo aún (Válido desde: ${validFrom.toLocaleDateString()}).`,
           user: matchedUser,
           status: LogStatus.OUTSIDE_SCHEDULE
         };
@@ -593,63 +548,118 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
         logScan(matchedUser, LogStatus.OUTSIDE_SCHEDULE, detectedType);
         return false;
       }
-    }
 
-    // 5. One-time access check
-    if (matchedUser.oneTime && matchedUser.used && detectedType === LogType.CHECK_IN) {
-      const result = {
-        success: false,
-        message: `Acceso Denegado: El pase de un solo uso ya ha sido UTILIZADO anteriormente y no se permite la re-entrada.`,
+      if (now > validUntil) {
+        const result = {
+          success: false,
+          message: `Acceso Denegado: El pase expiró el ${validUntil.toLocaleDateString()} a las ${validUntil.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}.`,
+          user: matchedUser,
+          status: LogStatus.EXPIRED_TOKEN
+        };
+        setScanResult(result);
+        logScan(matchedUser, LogStatus.EXPIRED_TOKEN, detectedType);
+        return false;
+      }
+
+      // 4. Access Schedule constraints (Time & Days)
+      // Weekday check: JavaScript 0 is Sunday, 1 is Monday ... 6 is Saturday
+      const currentDay = now.getDay();
+      if (matchedUser.days && matchedUser.days.length > 0 && !matchedUser.days.includes(currentDay)) {
+        const daysTranslation: { [key: number]: string } = {
+          0: 'Domingos', 1: 'Lunes', 2: 'Martes', 3: 'Miércoles', 4: 'Jueves', 5: 'Viernes', 6: 'Sábados'
+        };
+        const allowedDaysStr = matchedUser.days.map(d => daysTranslation[d]).join(', ');
+        const result = {
+          success: false,
+          message: `Acceso Denegado: Día no autorizado. Días permitidos: ${allowedDaysStr}.`,
+          user: matchedUser,
+          status: LogStatus.OUTSIDE_SCHEDULE
+        };
+        setScanResult(result);
+        logScan(matchedUser, LogStatus.OUTSIDE_SCHEDULE, detectedType);
+        return false;
+      }
+
+      // Daily Hour check (startTime - endTime)
+      if (matchedUser.startTime && matchedUser.endTime) {
+        const currentHrsMins = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }); // e.g. "14:35"
+        if (currentHrsMins < matchedUser.startTime || currentHrsMins > matchedUser.endTime) {
+          const result = {
+            success: false,
+            message: `Acceso Denegado: Horario restringido. Permitido únicamente entre ${matchedUser.startTime} y ${matchedUser.endTime}.`,
+            user: matchedUser,
+            status: LogStatus.OUTSIDE_SCHEDULE
+          };
+          setScanResult(result);
+          logScan(matchedUser, LogStatus.OUTSIDE_SCHEDULE, detectedType);
+          return false;
+        }
+      }
+
+      // 5. One-time access check
+      if (matchedUser.oneTime && matchedUser.used && detectedType === LogType.CHECK_IN) {
+        const result = {
+          success: false,
+          message: `Acceso Denegado: El pase de un solo uso ya ha sido UTILIZADO anteriormente y no se permite la re-entrada.`,
+          user: matchedUser,
+          status: LogStatus.ALREADY_USED
+        };
+        setScanResult(result);
+        logScan(matchedUser, LogStatus.ALREADY_USED, detectedType);
+        return false;
+      }
+
+      // SUCCESS - VALID QR PASS!
+      const displayResName = matchedUser.name.replace(' (Residente)', '');
+      let successMessage = `¡Pase VALIDADOR Autorizado! Bienvenido, ${matchedUser.name}.`;
+      
+      if (isResident) {
+        if (detectedType === LogType.CHECK_IN) {
+          successMessage = `🟢 ¡ENTRADA REGISTRADA Y AUTORIZADA! Bienvenido de vuelta, residente: ${displayResName}.`;
+        } else {
+          successMessage = `🔵 ¡SALIDA REGISTRADA Y AUTORIZADA! Buen viaje, residente: ${displayResName}.`;
+        }
+      } else {
+        if (detectedType === LogType.CHECK_IN) {
+          successMessage = `🟢 ¡ENTRADA AUTORIZADA! Bienvenido, visitante: ${matchedUser.name}.`;
+        } else {
+          successMessage = `🔵 ¡SALIDA AUTORIZADA! Buen viaje, visitante: ${matchedUser.name}.`;
+        }
+      }
+
+      const successResult = {
+        success: true,
+        message: successMessage,
         user: matchedUser,
-        status: LogStatus.ALREADY_USED
+        status: LogStatus.SUCCESS
       };
-      setScanResult(result);
-      logScan(matchedUser, LogStatus.ALREADY_USED, detectedType);
+      setScanResult(successResult);
+
+      // If one-time checkin, mark the user as used!
+      if (matchedUser.oneTime && detectedType === LogType.CHECK_IN) {
+        await dbService.updateAuthorizedUser(matchedUser.id, { used: true });
+      }
+
+      // Log the successful access audit trail
+      await logScan(matchedUser, LogStatus.SUCCESS, detectedType);
+
+      // Fire confetti for a high-craft delightful verification animation!
+      confetti({
+        particleCount: 120,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
+
+      return true;
+    } catch (err: any) {
+      console.error('Critical verification runtime error:', err);
+      setScanResult({
+        success: false,
+        message: `Error al procesar la verificación: ${err?.message || String(err)}`,
+        status: LogStatus.EXPIRED_TOKEN
+      });
       return false;
     }
-
-    // SUCCESS - VALID QR PASS!
-    const displayResName = matchedUser.name.replace(' (Residente)', '');
-    let successMessage = `¡Pase VALIDADOR Autorizado! Bienvenido, ${matchedUser.name}.`;
-    
-    if (isResident) {
-      if (detectedType === LogType.CHECK_IN) {
-        successMessage = `🟢 ¡ENTRADA REGISTRADA Y AUTORIZADA! Bienvenido de vuelta, residente: ${displayResName}.`;
-      } else {
-        successMessage = `🔵 ¡SALIDA REGISTRADA Y AUTORIZADA! Buen viaje, residente: ${displayResName}.`;
-      }
-    } else {
-      if (detectedType === LogType.CHECK_IN) {
-        successMessage = `🟢 ¡ENTRADA AUTORIZADA! Bienvenido, visitante: ${matchedUser.name}.`;
-      } else {
-        successMessage = `🔵 ¡SALIDA AUTORIZADA! Buen viaje, visitante: ${matchedUser.name}.`;
-      }
-    }
-
-    const successResult = {
-      success: true,
-      message: successMessage,
-      user: matchedUser,
-      status: LogStatus.SUCCESS
-    };
-    setScanResult(successResult);
-
-    // If one-time checkin, mark the user as used!
-    if (matchedUser.oneTime && detectedType === LogType.CHECK_IN) {
-      await dbService.updateAuthorizedUser(matchedUser.id, { used: true });
-    }
-
-    // Log the successful access audit trail
-    await logScan(matchedUser, LogStatus.SUCCESS, detectedType);
-
-    // Fire confetti for a high-craft delightful verification animation!
-    confetti({
-      particleCount: 120,
-      spread: 70,
-      origin: { y: 0.6 }
-    });
-
-    return true;
   };
 
   const logScan = async (user: AuthorizedUser, status: LogStatus, customType?: LogType) => {

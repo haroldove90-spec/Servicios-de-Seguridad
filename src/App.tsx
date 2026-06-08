@@ -282,7 +282,8 @@ export default function App() {
         if (found) {
           setVisitorPassUser(found);
           // Generate high quality QR code for public phone rendering
-          generateQRWithLogo(token).then(url => {
+          const passUrl = `${window.location.origin}${window.location.pathname}?pass=${token}`;
+          generateQRWithLogo(passUrl).then(url => {
             setVisitorPassQRUrl(url);
             setVisitorPassLoading(false);
           }).catch(err => {
@@ -313,7 +314,8 @@ export default function App() {
   // 3. Keep virtual phone QR updated
   useEffect(() => {
     if (virtualPhoneUser) {
-      generateQRWithLogo(virtualPhoneUser.qrcodeToken).then(url => {
+      const passUrl = `${window.location.origin}${window.location.pathname}?pass=${virtualPhoneUser.qrcodeToken}`;
+      generateQRWithLogo(passUrl).then(url => {
         setVirtualPhoneQR(url);
       }).catch(err => console.error(err));
     } else {

@@ -56,7 +56,8 @@ export default function AdminDashboard({ onUsersUpdated }: AdminDashboardProps) 
   // Sync QR generation when visitor is selected for QR popup
   useEffect(() => {
     if (selectedQRUser) {
-      generateQRWithLogo(selectedQRUser.qrcodeToken)
+      const passUrl = `${window.location.origin}${window.location.pathname}?pass=${selectedQRUser.qrcodeToken}`;
+      generateQRWithLogo(passUrl)
         .then(url => setGeneratedQRUrl(url))
         .catch(err => console.error('Fallo al generar imagen QR', err));
     } else {
