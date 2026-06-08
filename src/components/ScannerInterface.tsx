@@ -38,6 +38,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
   const [quickUsers, setQuickUsers] = useState<AuthorizedUser[]>([]);
   const [panicActive, setPanicActive] = useState<boolean>(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const fileScannerRef = useRef<Html5Qrcode | null>(null);
 
   // Throttling refs to prevent double-scanning within 3 seconds
   const lastScannedTokenRef = useRef<string>('');
@@ -327,10 +328,33 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
     };
   }, [useCamera]);
 
+  useEffect(() => {
+    if (useCamera) {
+      // Ensure the scanner container is fully initialized and rendered, then scroll to center it
+      const timer = setTimeout(() => {
+        const viewport = document.getElementById('camera-reader-viewport');
+        if (viewport) {
+          viewport.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 180);
+      return () => clearTimeout(timer);
+    }
+  }, [useCamera]);
+
   const handleQrFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     const targetInput = e.target;
     if (!file) return;
+
+    // Reset target input value instantly so that it can immediately trigger onChange 
+    // even if scanning of this same file gets interrupted, fails or retries
+    try {
+      if (targetInput) {
+        targetInput.value = '';
+      }
+    } catch (resetErr) {
+      console.warn('Non-blocking input reset error:', resetErr);
+    }
     
     setScanResult(null);
     setPermissionError(null);
@@ -353,9 +377,24 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
             throw new Error('No se pudo inicializar el contexto 2D de Canvas');
           }
           
-          canvas.width = img.width;
-          canvas.height = img.height;
-          ctx.drawImage(img, 0, 0);
+          // Downsizw extremely high-resolution camera photos safely to max 1200px 
+          // to dramatically increase processing speed, lower RAM spikes, and boost jsQR decoding reliability
+          let width = img.width;
+          let height = img.height;
+          const maxDim = 1200;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          ctx.drawImage(img, 0, 0, width, height);
           
           const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
           
@@ -370,8 +409,10 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
           } else {
             // Fallback: If jsQR fails, try Html5Qrcode.scanFile
             console.warn('jsQR direct decoding failed, attempting html5-qrcode fallback...');
-            const html5Qr = new Html5Qrcode('qr-file-scroller-temp-id');
-            const decodedText = await html5Qr.scanFile(file, true);
+            if (!fileScannerRef.current) {
+              fileScannerRef.current = new Html5Qrcode('qr-file-scroller-temp-id');
+            }
+            const decodedText = await fileScannerRef.current.scanFile(file, true);
             await handleVerifyToken(decodedText);
           }
         } catch (err: any) {
@@ -379,9 +420,6 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
           setPermissionError('No se pudo decodificar el Código QR de la imagen. Asegúrate de que el archivo sea un código QR válido, nítido y bien enfocado o usa el panel de simulación rápida.');
         } finally {
           setIsScanningFile(false);
-          if (targetInput) {
-            targetInput.value = ''; // Reset input so same file can be selected/scanned again
-          }
         }
       };
       
@@ -761,14 +799,14 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4"
+            className="fixed inset-0 z-[9999] w-full h-full flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 overflow-y-auto"
           >
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
               transition={{ type: "spring", damping: 25, stiffness: 350 }}
-              className="bg-slate-900 border border-slate-800 rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center space-y-6"
+              className="bg-slate-900 border border-slate-800 rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center space-y-6 mx-auto my-auto relative"
             >
               <div className="relative flex items-center justify-center py-4">
                 {/* Visual loading ripples */}
@@ -792,7 +830,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
               <div className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-slate-950/60 rounded-xl border border-slate-800 w-fit mx-auto">
                 <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
                 <span className="text-[10px] uppercase tracking-widest font-bold text-slate-400 font-mono">
-                  Procesando de foto
+                  Procesando foto
                 </span>
               </div>
             </motion.div>
