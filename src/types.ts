@@ -90,6 +90,7 @@ export interface Residente {
   qrcodeToken: string;
   whatsapp?: string; // Optional WhatsApp phone number
   accessUserId?: string; // Optional linked AuthorizedUser id
+  validUntil?: string; // Optional validity duration datetime
   createdAt: string; // ISO DateTime
   updatedAt: string; // ISO DateTime
 }

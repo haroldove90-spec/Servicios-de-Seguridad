@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS public.residentes (
     "qrcodeToken" TEXT NOT NULL,
     whatsapp TEXT,
     "accessUserId" TEXT,
+    "validUntil" TIMESTAMP WITH TIME ZONE,
     "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
@@ -94,3 +95,12 @@ VALUES (
     'admin', 
     NOW()
 ) ON CONFLICT (uid) DO NOTHING;
+
+-- ====================================================================
+-- REPAIR / MIGRATION SCRIPT FOR EXISTING DATABASES
+-- Runs safely even if columns already exist.
+-- ====================================================================
+ALTER TABLE public.authorized_users ADD COLUMN IF NOT EXISTS "residenciaId" TEXT REFERENCES public.residencias(id) ON DELETE SET NULL;
+ALTER TABLE public.authorized_users ADD COLUMN IF NOT EXISTS "residenciaNombre" TEXT;
+ALTER TABLE public.residentes ADD COLUMN IF NOT EXISTS "validUntil" TIMESTAMP WITH TIME ZONE;
+
