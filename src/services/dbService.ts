@@ -233,14 +233,20 @@ const LocalDB = {
           uid: 'admin-demo-uid',
           name: 'Software AI Admin',
           email: 'softwareai569@gmail.com',
+          username: 'admin',
           role: SystemUserRole.ADMIN,
+          isActive: true,
+          password: 'Admin_123',
           createdAt: new Date().toISOString(),
         },
         {
           uid: 'guard-demo-uid',
           name: 'Guardia Pérez',
           email: 'guardia@seguridad.local',
-          role: SystemUserRole.GUARD,
+          username: 'guardia',
+          role: SystemUserRole.SUPERVISOR, // set as supervisor for caseta
+          isActive: true,
+          password: 'Caseta_123',
           createdAt: new Date().toISOString(),
         }
       ];

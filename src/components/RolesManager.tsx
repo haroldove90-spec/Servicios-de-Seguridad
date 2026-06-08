@@ -41,10 +41,24 @@ export default function RolesManager({
   const [isFormOpen, setIsFormOpen] = useState<boolean>(false);
   const [formName, setFormName] = useState<string>('');
   const [formEmail, setFormEmail] = useState<string>('');
-  const [formRole, setFormRole] = useState<SystemUserRole>(SystemUserRole.ADMIN);
+  const [formRole, setFormRole] = useState<SystemUserRole>(SystemUserRole.SUPERVISOR);
   const [formPhone, setFormPhone] = useState<string>('');
   const [formPassword, setFormPassword] = useState<string>('');
   const [editingUid, setEditingUid] = useState<string | null>(null);
+  const [formUsername, setFormUsername] = useState<string>('');
+  const [formResidenciaId, setFormResidenciaId] = useState<string>('');
+  const [residencias, setResidencias] = useState<any[]>([]);
+
+  // Track newly registered operator credentials to display in "share" modal
+  const [newCreatedCreds, setNewCreatedCreds] = useState<{
+    nombre: string;
+    usuario: string;
+    correo: string;
+    contrasena: string;
+    rol: string;
+    residencia: string;
+    url: string;
+  } | null>(null);
 
   // Password visibility
   const [showPasswordMap, setShowPasswordMap] = useState<Record<string, boolean>>({});
@@ -70,6 +84,7 @@ export default function RolesManager({
             uid: 'supervisor-demo-uid',
             name: 'Elena Rostova (Seguridad)',
             email: 'elena@seguridad.local',
+            username: 'elena',
             role: SystemUserRole.SUPERVISOR,
             createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
             phone: '+525544332211',
@@ -80,6 +95,7 @@ export default function RolesManager({
             uid: 'auditor-demo-uid',
             name: 'Lic. Francisco Gómez',
             email: 'francisco@auditoria.local',
+            username: 'francisco',
             role: SystemUserRole.AUDITOR,
             createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
             phone: '+525599887766',
@@ -100,6 +116,11 @@ export default function RolesManager({
         setRoles(list);
       }
     });
+
+    // Also fetch residencias list
+    dbService.getResidencias().then((list) => {
+      setResidencias(list || []);
+    });
   };
 
   useEffect(() => {
@@ -119,9 +140,11 @@ export default function RolesManager({
     setEditingUid(null);
     setFormName('');
     setFormEmail('');
+    setFormUsername('');
     setFormRole(SystemUserRole.SUPERVISOR);
     setFormPhone('');
     setFormPassword('');
+    setFormResidenciaId('');
     setFormAlert('');
     setIsFormOpen(true);
   };
@@ -130,9 +153,11 @@ export default function RolesManager({
     setEditingUid(role.uid);
     setFormName(role.name);
     setFormEmail(role.email);
+    setFormUsername(role.username || '');
     setFormRole(role.role);
     setFormPhone(role.phone || '');
     setFormPassword(role.password || '');
+    setFormResidenciaId(role.residenciaId || '');
     setFormAlert('');
     setIsFormOpen(true);
   };
@@ -161,10 +186,25 @@ export default function RolesManager({
       return;
     }
 
+    const cleanedUsername = formUsername.trim().toLowerCase();
+    
+    // Check for username duplication if creating or if changing username
+    if (cleanedUsername) {
+      const duplicate = roles.find(r => r.uid !== editingUid && r.username?.toLowerCase() === cleanedUsername);
+      if (duplicate) {
+        setFormAlert(`El nombre de usuario "${formUsername}" ya está registrado por otro operador. Ingrese un usuario diferente.`);
+        return;
+      }
+    }
+
+    // Retrieve subdivision info
+    const matchedRes = residencias.find(res => res.id === formResidenciaId);
+
     const payload: SystemRole = {
       uid: editingUid || ('operator_' + Math.random().toString(36).substring(2, 9)),
       name: formName.trim(),
       email: formEmail.trim().toLowerCase(),
+      username: cleanedUsername || undefined,
       role: formRole,
       createdAt: editingUid 
         ? (roles.find(r => r.uid === editingUid)?.createdAt || new Date().toISOString())
@@ -173,19 +213,36 @@ export default function RolesManager({
       password: formPassword.trim(),
       isActive: editingUid 
         ? (roles.find(r => r.uid === editingUid)?.isActive !== false)
-        : true
+        : true,
+      residenciaId: formResidenciaId || undefined,
+      residenciaNombre: matchedRes ? matchedRes.nombre : undefined
     };
 
     await dbService.saveSystemRole(payload);
     loadRoles();
     onRolesUpdated();
     
+    // If a new employee is registered, trigger the exclusive credentials dialog
+    if (!editingUid) {
+      setNewCreatedCreds({
+        nombre: payload.name,
+        usuario: payload.username || '(Utilizar Correo)',
+        correo: payload.email,
+        contrasena: payload.password || '(Sin contraseña)',
+        rol: payload.role === SystemUserRole.ADMIN ? 'Director Administrador 🛡️' : 'Oficial de Seguridad / Caseta 👮',
+        residencia: payload.residenciaNombre || 'Administración / Caseta General 🏢',
+        url: 'https://servicios-de-seguridad.vercel.app/'
+      });
+    }
+
     // Clear & Feedback
     setFormName('');
     setFormEmail('');
-    setFormRole(SystemUserRole.ADMIN);
+    setFormUsername('');
+    setFormRole(SystemUserRole.SUPERVISOR);
     setFormPhone('');
     setFormPassword('');
+    setFormResidenciaId('');
     setEditingUid(null);
     setIsFormOpen(false);
     
@@ -284,6 +341,92 @@ export default function RolesManager({
   return (
     <div id="roles-manager-cabinet-root" className="space-y-6">
       
+      {/* EXCLUSIVE NEW OPERATOR CREDENTIALS DISPATCH MODAL */}
+      {newCreatedCreds && createPortal(
+        <div id="overlay-creds-share" className="fixed inset-0 bg-black/95 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in font-sans">
+          <div id="creds-share-modal-body" className="bg-[#2A2A2E] rounded-3xl border-2 border-emerald-500/35 shadow-2xl max-w-md w-full overflow-hidden text-slate-100">
+            {/* Header */}
+            <div className="p-6 bg-emerald-500/10 border-b border-[#3e3e42] text-center space-y-2">
+              <div className="w-12 h-12 bg-emerald-500/20 border border-emerald-500/40 rounded-full flex items-center justify-center mx-auto text-emerald-400">
+                <ShieldCheck className="w-6 h-6 animate-bounce" />
+              </div>
+              <h3 className="text-sm font-black uppercase tracking-wider text-emerald-400">
+                ¡Registro Exitoso de Personal!
+              </h3>
+              <p className="text-[11.5px] text-slate-300">
+                El operador ha sido ingresado en el padrón de accesos controlados de forma correcta.
+              </p>
+            </div>
+
+            {/* Data Table */}
+            <div className="p-6 space-y-4 text-xs text-left">
+              <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest text-center">Credenciales de Acceso Generadas</p>
+              
+              <div className="bg-[#1A1A1E] rounded-2xl border border-[#3e3e42] p-4.5 space-y-2.5 font-mono">
+                <div className="flex justify-between border-b border-zinc-800/60 pb-1.5">
+                  <span className="text-zinc-500 text-[10px]">Nombre:</span>
+                  <span className="text-white font-bold">{newCreatedCreds.nombre}</span>
+                </div>
+                <div className="flex justify-between border-b border-zinc-800/60 pb-1.5">
+                  <span className="text-zinc-500 text-[10px]">Usuario Login:</span>
+                  <span className="text-amber-400 font-bold">{newCreatedCreds.usuario}</span>
+                </div>
+                <div className="flex justify-between border-b border-zinc-800/60 pb-1.5 font-sans">
+                  <span className="text-zinc-500 text-[10px]">Correo:</span>
+                  <span className="text-white">{newCreatedCreds.correo}</span>
+                </div>
+                <div className="flex justify-between border-b border-zinc-800/60 pb-1.5">
+                  <span className="text-zinc-500 text-[10px]">Contraseña:</span>
+                  <span className="text-red-400 font-bold bg-zinc-950 px-2 py-0.5 rounded font-mono">{newCreatedCreds.contrasena}</span>
+                </div>
+                <div className="flex justify-between border-b border-zinc-800/60 pb-1.5 font-sans">
+                  <span className="text-zinc-500 text-[10px]">Rol / Puesto:</span>
+                  <span className="text-zinc-300 font-sans">{newCreatedCreds.rol}</span>
+                </div>
+                <div className="flex justify-between border-b border-zinc-800/60 pb-1.5 font-sans">
+                  <span className="text-zinc-500 text-[10px]">Residencial:</span>
+                  <span className="text-zinc-300 font-sans">{newCreatedCreds.residencia}</span>
+                </div>
+                <div className="flex justify-between pt-1">
+                  <span className="text-zinc-500 text-[10px]">Link Panel:</span>
+                  <span className="text-blue-400 underline">{newCreatedCreds.url}</span>
+                </div>
+              </div>
+
+              <div className="p-3.5 bg-yellow-500/10 border border-yellow-500/20 rounded-2xl flex gap-2">
+                <HelpCircle className="w-4 h-4 text-yellow-500 shrink-0 mt-0.5" />
+                <p className="text-[10px] text-zinc-300 leading-normal font-sans">
+                  Copie el mensaje de credenciales y envíelo al operador por correo electrónico o WhatsApp, para que ingrese desde el formulario del portal.
+                </p>
+              </div>
+            </div>
+
+            {/* Actions Footer */}
+            <div className="p-5 border-t border-[#3e3e42] bg-[#1d1d21] flex flex-col sm:flex-row gap-2">
+              <button
+                id="btn-copy-creds-template"
+                onClick={() => {
+                  const templateMsg = `🔐 *SISTEMA DE SEGURIDAD DIGITAL - CONTROL DE ACCESOS*\n\nHola *${newCreatedCreds.nombre}*,\nTe damos la bienvenida al panel oficial de control de accesos. Tus credenciales de ingreso son:\n\n👤 *Usuario*: ${newCreatedCreds.usuario}\n✉️ *Correo*: ${newCreatedCreds.correo}\n🔑 *Contraseña asignada*: ${newCreatedCreds.contrasena}\n🏠 *Asignación*: ${newCreatedCreds.residencia}\n\n🔗 *Link de acceso directo al Panel*:\n${newCreatedCreds.url}\n\nFavor de resguardar esta información de forma confidencial.`;
+                  navigator.clipboard.writeText(templateMsg);
+                  alert("📄 Mensaje con credenciales copiado al Portapapeles con éxito.");
+                }}
+                className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold transition flex items-center justify-center gap-2 cursor-pointer text-xs"
+              >
+                <Clipboard className="w-3.5 h-3.5" /> Copiar Mensaje Compartible
+              </button>
+              <button
+                id="btn-dismiss-creds-success"
+                onClick={() => setNewCreatedCreds(null)}
+                className="flex-1 py-1.5 bg-[#2A2A2E] hover:bg-zinc-800 text-white border border-[#3e3e42] rounded-xl font-bold transition cursor-pointer text-xs"
+              >
+                Entendido y Cerrar
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+      
       {/* Informative panel about roles and modules activation */}
       <div id="roles-intro-alert-box" className="bg-[#2A2A2E] border border-[#3e3e42] rounded-2xl p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 font-sans">
         <div className="space-y-1">
@@ -376,6 +519,20 @@ export default function RolesManager({
                     </div>
                     
                     <p className="text-[10px] text-slate-300 font-mono truncate">{r.email}</p>
+                    
+                    {r.username && (
+                      <p className="text-[10px] text-slate-300 font-mono">
+                        <span>Usuario login: </span>
+                        <span className="text-amber-400 font-bold">{r.username}</span>
+                      </p>
+                    )}
+
+                    {r.residenciaNombre && (
+                      <p className="text-[10px] text-rose-400 font-semibold flex items-center gap-1">
+                        <span>🏡 Residencial:</span>
+                        <span className="uppercase text-rose-300">{r.residenciaNombre}</span>
+                      </p>
+                    )}
                     
                     {/* Phone field */}
                     {r.phone && (
@@ -586,18 +743,31 @@ export default function RolesManager({
                 />
               </div>
 
-              <div>
-                <label className="block text-[10px] font-bold text-white uppercase tracking-widest mb-1.5">Correo Electrónico Institucional / Condominal *</label>
-                <input
-                  id="input-operator-email"
-                  type="email"
-                  required
-                  placeholder="Ej. claudio@seguridad.local"
-                  value={formEmail}
-                  onChange={(e) => setFormEmail(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#1A1A1E] border border-[#3e3e42] text-white rounded-xl focus:border-red-500 focus:outline-hidden"
-                />
-                <p className="text-[10px] text-white mt-1 font-sans font-medium">Se requiere para el enlace de sesión único por Google SSO o Portal.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-white uppercase tracking-widest mb-1.5">Nombre de Usuario (Login) *</label>
+                  <input
+                    id="input-operator-username"
+                    type="text"
+                    required
+                    placeholder="Ej. cbarrientos"
+                    value={formUsername}
+                    onChange={(e) => setFormUsername(e.target.value)}
+                    className="w-full px-3 py-2 bg-[#1A1A1E] border border-[#3e3e42] text-white rounded-xl focus:border-red-500 focus:outline-hidden font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-white uppercase tracking-widest mb-1.5">Correo Electrónico *</label>
+                  <input
+                    id="input-operator-email"
+                    type="email"
+                    required
+                    placeholder="Ej. claudio@seguridad.local"
+                    value={formEmail}
+                    onChange={(e) => setFormEmail(e.target.value)}
+                    className="w-full px-3 py-2 bg-[#1A1A1E] border border-[#3e3e42] text-white rounded-xl focus:border-red-500 focus:outline-hidden"
+                  />
+                </div>
               </div>
 
                {/* New Phone / WhatsApp Input */}
@@ -631,10 +801,9 @@ export default function RolesManager({
                      onClick={handleGeneratePassword}
                      className="px-3 py-2 bg-slate-900 border border-[#3e3e42] text-white hover:bg-slate-800 transition text-[9.5px] rounded-xl font-bold uppercase tracking-wider shrink-0 cursor-pointer"
                    >
-                     Generar Clave Segura
+                     Generar
                    </button>
                  </div>
-                 <p className="text-[9.5px] text-white mt-1 font-sans">Se recomienda generar una combinación segura de caracteres alfanuméricos.</p>
                </div>
 
               <div>
@@ -648,6 +817,24 @@ export default function RolesManager({
                    <option value={SystemUserRole.SUPERVISOR} className="bg-[#1A1A1E]" >👮 Seguridad / Control de Accesos (Lector QR, Bitácora)</option>
                    <option value={SystemUserRole.ADMIN} className="bg-[#1A1A1E]" >🛡️ Director Administrador (Control Total Maestro)</option>
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-white uppercase tracking-widest mb-1.5">Residencia / Subdivisión Asignada (Auto-Detección)</label>
+                <select
+                  id="select-operator-residencia"
+                  value={formResidenciaId}
+                  onChange={(e) => setFormResidenciaId(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#1A1A1E] border border-[#3e3e42] text-white rounded-xl focus:border-red-500 focus:outline-hidden cursor-pointer"
+                >
+                  <option value="" className="bg-[#1A1A1E]">🏢 Administración / Caseta General (Todas)</option>
+                  {residencias.map((res: any) => (
+                    <option key={res.id} value={res.id} className="bg-[#1A1A1E]">
+                      🏡 {res.nombre}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[9.5px] text-slate-400 mt-1">El sistema asignará el usuario exclusivamente a este fraccionamiento al iniciar sesión de forma automática.</p>
               </div>
 
               <div className="p-3 bg-red-500/10 border border-red-500/15 rounded-xl flex gap-2">

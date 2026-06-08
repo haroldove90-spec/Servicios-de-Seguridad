@@ -74,6 +74,8 @@ export interface SystemRole {
   isActive?: boolean;
   residenciaId?: string;
   residenciaNombre?: string;
+  username?: string;
+  avatar?: string;
 }
 
 export interface Residencia {
