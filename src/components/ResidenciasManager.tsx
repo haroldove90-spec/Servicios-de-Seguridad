@@ -10,7 +10,7 @@ import {
   Sparkles, MessageSquare, QrCode, Download, Copy, ExternalLink, RefreshCw, Smartphone
 } from 'lucide-react';
 import { dbService } from '../services/dbService';
-import { Residencia, Residente, AuthorizedUser, UserStatus } from '../types';
+import { Residencia, Residente, AuthorizedUser, UserStatus, SystemUserRole } from '../types';
 import { generateQRWithLogo } from '../utils/qrWithLogo';
 
 interface ResidenciasManagerProps {
@@ -58,6 +58,17 @@ export default function ResidenciasManager({ onRefresh }: ResidenciasManagerProp
   const [selectedVisitorQR, setSelectedVisitorQR] = useState<AuthorizedUser | null>(null);
   const [visitorQRUrl, setVisitorQRUrl] = useState<string>('');
   const [copiedVisitorToken, setCopiedVisitorToken] = useState<boolean>(false);
+
+  // Automatically created roles credentials view state
+  const [createdCredentials, setCreatedCredentials] = useState<{
+    residenciaNombre: string;
+    adminName: string;
+    adminEmail: string;
+    adminPass: string;
+    casetaName: string;
+    casetaEmail: string;
+    casetaPass: string;
+  } | null>(null);
 
   const loadData = async () => {
     try {
@@ -127,9 +138,73 @@ export default function ResidenciasManager({ onRefresh }: ResidenciasManagerProp
       if (editingId) {
         await dbService.updateResidencia(editingId, payload);
       } else {
-        await dbService.createResidencia({
+        const newRes = await dbService.createResidencia({
           ...payload,
           createdAt: new Date().toISOString()
+        });
+
+        // Generate clean normalized name for emails
+        const cleanResName = formNombre.trim().toLowerCase()
+          .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // remove accents
+          .replace(/[^a-z0-9]/g, ''); // alphanumeric only
+        
+        const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+        
+        // 1. Create Admin Role for this Residence
+        const adminName = `${formAdministrador.trim()} (Admin - ${formNombre.trim()})`;
+        const adminEmail = `admin.${cleanResName || 'resd'}@control.local`;
+        const adminPass = `Admin_${randomSuffix}`;
+        const adminUid = 'operator_adm_' + Math.random().toString(36).substring(2, 9);
+        await dbService.saveSystemRole({
+          uid: adminUid,
+          name: adminName,
+          email: adminEmail,
+          role: SystemUserRole.ADMIN,
+          phone: '+52 55 ' + Math.floor(10000000 + Math.random() * 90000000),
+          password: adminPass,
+          createdAt: new Date().toISOString(),
+          isActive: true,
+          residenciaId: newRes.id,
+          residenciaNombre: newRes.nombre
+        });
+
+        // 2. Create Caseta / Supervisor Role for this Residence
+        const casetaName = `Oficial de Seguridad (${formNombre.trim()})`;
+        const casetaEmail = `caseta.${cleanResName || 'resd'}@control.local`;
+        const casetaPass = `Caseta_${randomSuffix}`;
+        const casetaUid = 'operator_cas_' + Math.random().toString(36).substring(2, 9);
+        await dbService.saveSystemRole({
+          uid: casetaUid,
+          name: casetaName,
+          email: casetaEmail,
+          role: SystemUserRole.SUPERVISOR,
+          phone: '+52 55 ' + Math.floor(10000000 + Math.random() * 90000000),
+          password: casetaPass,
+          createdAt: new Date().toISOString(),
+          isActive: true,
+          residenciaId: newRes.id,
+          residenciaNombre: newRes.nombre
+        });
+
+        // 3. Create default Caseta entry in Casetas collection
+        await dbService.createCaseta({
+          nombre: `Caseta Principal (${formNombre.trim()})`,
+          residenciaId: newRes.id,
+          residenciaNombre: newRes.nombre,
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+
+        // Store details to exhibit in success modal
+        setCreatedCredentials({
+          residenciaNombre: formNombre.trim(),
+          adminName,
+          adminEmail,
+          adminPass,
+          casetaName,
+          casetaEmail,
+          casetaPass
         });
       }
       setIsFormOpen(false);
@@ -931,6 +1006,101 @@ export default function ResidenciasManager({ onRefresh }: ResidenciasManagerProp
               >
                 <X className="w-4 h-4 text-slate-500" /> Cerrar
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal: Automatically Created Credentials info */}
+      {createdCredentials && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-55 flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-[#18181c] border border-emerald-500/30 rounded-2.5xl shadow-2xl overflow-hidden animate-scale-in">
+            <div className="flex items-center gap-3 px-6 py-4.5 bg-[#1a2e26] border-b border-emerald-500/20 text-emerald-400">
+              <div className="w-9 h-9 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                <CheckCircle className="w-5 h-5 text-emerald-400" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold uppercase tracking-wider text-emerald-400">¡Residencia y Roles Creados con Éxito!</h3>
+                <span className="text-[10px] text-emerald-300/80">Proceso automatizado ejecutado perfectamente.</span>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-5 font-sans">
+              <div className="bg-[#111115] border border-[#2e2e38] p-4 rounded-xl space-y-1 text-left">
+                <span className="text-[8.5px] font-bold text-slate-500 uppercase tracking-widest font-mono">Residencia Registrada</span>
+                <p className="text-base font-extrabold text-white">🏡 {createdCredentials.residenciaNombre}</p>
+                <p className="text-xs text-slate-400 mt-1">Se han generado las siguientes credenciales de acceso para esta subdivisión:</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* 1. Admin Role Credentials */}
+                <div className="bg-[#1e1e24]/40 border border-[#2e2e38] p-4 rounded-xl space-y-2 relative text-left">
+                  <div className="absolute top-3.5 right-3.5 px-2 py-0.5 rounded text-[8px] font-black uppercase bg-red-500/10 text-red-400 border border-red-500/20">
+                    Director Admin
+                  </div>
+                  <h4 className="text-xs font-bold text-white flex items-center gap-1.5 pt-0.5">
+                    <Shield className="w-3.5 h-3.5 text-red-500" /> {createdCredentials.adminName.split(' (Admin')[0]}
+                  </h4>
+                  <div className="space-y-1 text-xs">
+                    <div>
+                      <span className="text-[9px] text-slate-500 block">Usuario / Correo:</span>
+                      <code className="text-red-300 font-mono text-[11px] block select-all bg-black/30 px-2 py-1 rounded mt-0.5 border border-zinc-800">{createdCredentials.adminEmail}</code>
+                    </div>
+                    <div>
+                      <span className="text-[9px] text-slate-500 block">Contraseña de acceso:</span>
+                      <code className="text-emerald-400 font-mono text-[11px] font-bold block select-all bg-black/30 px-2 py-1 rounded mt-0.5 border border-zinc-800">{createdCredentials.adminPass}</code>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Guard / Caseta Credentials */}
+                <div className="bg-[#1e1e24]/40 border border-[#2e2e38] p-4 rounded-xl space-y-2 relative text-left">
+                  <div className="absolute top-3.5 right-3.5 px-2 py-0.5 rounded text-[8px] font-black uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                    Caseta / Guardia
+                  </div>
+                  <h4 className="text-xs font-bold text-white flex items-center gap-1.5 pt-0.5">
+                    <Smartphone className="w-3.5 h-3.5 text-amber-500" /> {createdCredentials.casetaName}
+                  </h4>
+                  <div className="space-y-1 text-xs">
+                    <div>
+                      <span className="text-[9px] text-slate-500 block">Usuario / Correo:</span>
+                      <code className="text-amber-300 font-mono text-[11px] block select-all bg-black/30 px-2 py-1 rounded mt-0.5 border border-zinc-800">{createdCredentials.casetaEmail}</code>
+                    </div>
+                    <div>
+                      <span className="text-[9px] text-slate-500 block">Contraseña de acceso:</span>
+                      <code className="text-emerald-400 font-mono text-[11px] font-bold block select-all bg-black/30 px-2 py-1 rounded mt-0.5 border border-zinc-800">{createdCredentials.casetaPass}</code>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-emerald-500/5 border border-emerald-500/10 p-3.5 rounded-xl flex items-start gap-2.5 text-left">
+                <Info className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <p className="text-[10px] text-slate-400 leading-relaxed">
+                  Estas credenciales han sido dadas de alta en el servidor central. Estos operadores ya pueden iniciar sesión de forma independiente en la pantalla de bienvenida seleccionando sus respectivos roles y usando estas contraseñas de seguridad.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#2e2e38]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const textToCopy = `Residencia: ${createdCredentials.residenciaNombre}\n\n1. ROL DIRECTOR ADMINISTRADOR:\nUsuario: ${createdCredentials.adminEmail}\nContraseña: ${createdCredentials.adminPass}\n\n2. ROL VIGILANCIA / CASETA:\nUsuario: ${createdCredentials.casetaEmail}\nContraseña: ${createdCredentials.casetaPass}`;
+                    navigator.clipboard.writeText(textToCopy);
+                    alert('¡Credenciales copiadas al portapapeles!');
+                  }}
+                  className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-[#1d1d23] hover:bg-slate-800 text-slate-300 hover:text-white rounded-xl text-xs font-semibold cursor-pointer border border-[#2e2e38] transition"
+                >
+                  <Copy className="w-4 h-4" /> Copiar Todo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCreatedCredentials(null)}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wide px-5 py-2.5 rounded-xl transition cursor-pointer shadow-lg shadow-emerald-500/10"
+                >
+                  Entendido y Guardado ✓
+                </button>
+              </div>
             </div>
           </div>
         </div>
