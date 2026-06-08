@@ -30,6 +30,7 @@ import {
   Residencia,
   Residente
 } from '../types';
+import { supabase } from '../supabase';
 
 // Storage keys for the high-performance LocalStorage engine fallback
 const LS_USERS_KEY = 'qr_authorized_users';
@@ -313,7 +314,7 @@ const LocalDB = {
 };
 
 // ----------------------------------------------------
-// UNIFIED DB SERVICE
+// UNIFIED DB SERVICE (SUPABASE-FIRST WITH LOCAL FALLBACK)
 // ----------------------------------------------------
 export const dbService = {
 
@@ -321,6 +322,23 @@ export const dbService = {
   // System Roles Management (RBAC)
   // --------------------------------------------------
   async getSystemRole(uid: string): Promise<SystemRole | null> {
+    try {
+      const { data, error } = await supabase
+        .from('system_roles')
+        .select('*')
+        .eq('uid', uid)
+        .maybeSingle();
+
+      if (!error && data) {
+        return data as SystemRole;
+      }
+      if (error) {
+        console.warn('Supabase getSystemRole returned query error. Code:', error.code, 'Msg:', error.message);
+      }
+    } catch (err) {
+      console.warn('Supabase getSystemRole critical exception, using fallback:', err);
+    }
+
     if (IS_FIREBASE_DUMMY) {
       const roles = LocalDB.getRoles();
       return roles.find(r => r.uid === uid) || null;
@@ -340,6 +358,19 @@ export const dbService = {
   },
 
   async saveSystemRole(role: SystemRole): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('system_roles')
+        .upsert(role);
+
+      if (!error) {
+        return;
+      }
+      console.warn('Supabase saveSystemRole returned query error. Code:', error.code, 'Msg:', error.message);
+    } catch (err) {
+      console.warn('Supabase saveSystemRole critical exception, using fallback:', err);
+    }
+
     if (IS_FIREBASE_DUMMY) {
       const roles = LocalDB.getRoles();
       const filtered = roles.filter(r => r.uid !== role.uid);
@@ -357,6 +388,22 @@ export const dbService = {
   },
 
   async getAllSystemRoles(): Promise<SystemRole[]> {
+    try {
+      const { data, error } = await supabase
+        .from('system_roles')
+        .select('*')
+        .order('createdAt', { ascending: false });
+
+      if (!error && data) {
+        return data as SystemRole[];
+      }
+      if (error) {
+        console.warn('Supabase getAllSystemRoles returned query error. Code:', error.code, 'Msg:', error.message);
+      }
+    } catch (err) {
+      console.warn('Supabase getAllSystemRoles critical exception, using fallback:', err);
+    }
+
     if (IS_FIREBASE_DUMMY) {
       return LocalDB.getRoles();
     }
@@ -377,6 +424,20 @@ export const dbService = {
   },
 
   async deleteSystemRole(uid: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('system_roles')
+        .delete()
+        .eq('uid', uid);
+
+      if (!error) {
+        return;
+      }
+      console.warn('Supabase deleteSystemRole returned query error. Code:', error.code, 'Msg:', error.message);
+    } catch (err) {
+      console.warn('Supabase deleteSystemRole critical exception, using fallback:', err);
+    }
+
     if (IS_FIREBASE_DUMMY) {
       const roles = LocalDB.getRoles();
       const filtered = roles.filter(r => r.uid !== uid);
@@ -396,6 +457,22 @@ export const dbService = {
   // Authorized Users CRUD (Visitors List)
   // --------------------------------------------------
   async getAuthorizedUsers(): Promise<AuthorizedUser[]> {
+    try {
+      const { data, error } = await supabase
+        .from('authorized_users')
+        .select('*')
+        .order('createdAt', { ascending: false });
+
+      if (!error && data) {
+        return data as AuthorizedUser[];
+      }
+      if (error) {
+        console.warn('Supabase getAuthorizedUsers returned query error. Code:', error.code, 'Msg:', error.message);
+      }
+    } catch (err) {
+      console.warn('Supabase getAuthorizedUsers critical exception, using fallback:', err);
+    }
+
     if (IS_FIREBASE_DUMMY) {
       return LocalDB.getUsers();
     }
@@ -419,6 +496,19 @@ export const dbService = {
     const id = 'usr_' + generateId();
     const newUser: AuthorizedUser = { ...user, id };
 
+    try {
+      const { error } = await supabase
+        .from('authorized_users')
+        .insert(newUser);
+
+      if (!error) {
+        return newUser;
+      }
+      console.warn('Supabase createAuthorizedUser returned query error. Code:', error.code, 'Msg:', error.message);
+    } catch (err) {
+      console.warn('Supabase createAuthorizedUser exception, using fallback:', err);
+    }
+
     if (IS_FIREBASE_DUMMY) {
       const users = LocalDB.getUsers();
       users.unshift(newUser);
@@ -437,6 +527,20 @@ export const dbService = {
   },
 
   async updateAuthorizedUser(id: string, updates: Partial<AuthorizedUser>): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('authorized_users')
+        .update({ ...updates, updatedAt: new Date().toISOString() })
+        .eq('id', id);
+
+      if (!error) {
+        return;
+      }
+      console.warn('Supabase updateAuthorizedUser returned query error. Code:', error.code, 'Msg:', error.message);
+    } catch (err) {
+      console.warn('Supabase updateAuthorizedUser exception, using fallback:', err);
+    }
+
     if (IS_FIREBASE_DUMMY) {
       const users = LocalDB.getUsers();
       const updated = users.map(u => {
@@ -458,6 +562,20 @@ export const dbService = {
   },
 
   async deleteAuthorizedUser(id: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('authorized_users')
+        .delete()
+        .eq('id', id);
+
+      if (!error) {
+        return;
+      }
+      console.warn('Supabase deleteAuthorizedUser returned query error. Code:', error.code, 'Msg:', error.message);
+    } catch (err) {
+      console.warn('Supabase deleteAuthorizedUser exception, using fallback:', err);
+    }
+
     if (IS_FIREBASE_DUMMY) {
       const users = LocalDB.getUsers();
       const filtered = users.filter(u => u.id !== id);
@@ -477,6 +595,22 @@ export const dbService = {
   // Access Logs Management (Check-in / Check-out Audits)
   // --------------------------------------------------
   async getAccessLogs(): Promise<AccessLog[]> {
+    try {
+      const { data, error } = await supabase
+        .from('access_logs')
+        .select('*')
+        .order('timestamp', { ascending: false });
+
+      if (!error && data) {
+        return data as AccessLog[];
+      }
+      if (error) {
+        console.warn('Supabase getAccessLogs returned query error. Code:', error.code, 'Msg:', error.message);
+      }
+    } catch (err) {
+      console.warn('Supabase getAccessLogs exception, using fallback:', err);
+    }
+
     if (IS_FIREBASE_DUMMY) {
       return LocalDB.getLogs().sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     }
@@ -500,6 +634,19 @@ export const dbService = {
     const id = 'log_' + generateId();
     const newLog: AccessLog = { ...log, id };
 
+    try {
+      const { error } = await supabase
+        .from('access_logs')
+        .insert(newLog);
+
+      if (!error) {
+        return newLog;
+      }
+      console.warn('Supabase createAccessLog returned query error. Code:', error.code, 'Msg:', error.message);
+    } catch (err) {
+      console.warn('Supabase createAccessLog exception, using fallback:', err);
+    }
+
     if (IS_FIREBASE_DUMMY) {
       const logs = LocalDB.getLogs();
       logs.unshift(newLog);
@@ -521,6 +668,22 @@ export const dbService = {
   // Residencias Management CRUD
   // --------------------------------------------------
   async getResidencias(): Promise<Residencia[]> {
+    try {
+      const { data, error } = await supabase
+        .from('residencias')
+        .select('*')
+        .order('createdAt', { ascending: false });
+
+      if (!error && data) {
+        return data as Residencia[];
+      }
+      if (error) {
+        console.warn('Supabase getResidencias returned query error. Code:', error.code, 'Msg:', error.message);
+      }
+    } catch (err) {
+      console.warn('Supabase getResidencias exception, using fallback:', err);
+    }
+
     if (IS_FIREBASE_DUMMY) {
       return LocalDB.getResidencias();
     }
@@ -544,6 +707,19 @@ export const dbService = {
     const id = 'res_' + generateId();
     const newResidencia: Residencia = { ...residencia, id };
 
+    try {
+      const { error } = await supabase
+        .from('residencias')
+        .insert(newResidencia);
+
+      if (!error) {
+        return newResidencia;
+      }
+      console.warn('Supabase createResidencia returned query error. Code:', error.code, 'Msg:', error.message);
+    } catch (err) {
+      console.warn('Supabase createResidencia exception, using fallback:', err);
+    }
+
     if (IS_FIREBASE_DUMMY) {
       const list = LocalDB.getResidencias();
       list.unshift(newResidencia);
@@ -562,6 +738,20 @@ export const dbService = {
   },
 
   async updateResidencia(id: string, updates: Partial<Residencia>): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('residencias')
+        .update({ ...updates, updatedAt: new Date().toISOString() })
+        .eq('id', id);
+
+      if (!error) {
+        return;
+      }
+      console.warn('Supabase updateResidencia returned query error. Code:', error.code, 'Msg:', error.message);
+    } catch (err) {
+      console.warn('Supabase updateResidencia exception, using fallback:', err);
+    }
+
     if (IS_FIREBASE_DUMMY) {
       const list = LocalDB.getResidencias();
       const updated = list.map(item => {
@@ -583,6 +773,20 @@ export const dbService = {
   },
 
   async deleteResidencia(id: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('residencias')
+        .delete()
+        .eq('id', id);
+
+      if (!error) {
+        return;
+      }
+      console.warn('Supabase deleteResidencia returned query error. Code:', error.code, 'Msg:', error.message);
+    } catch (err) {
+      console.warn('Supabase deleteResidencia exception, using fallback:', err);
+    }
+
     if (IS_FIREBASE_DUMMY) {
       const list = LocalDB.getResidencias();
       const filtered = list.filter(item => item.id !== id);
@@ -602,6 +806,22 @@ export const dbService = {
   // Residentes Management CRUD
   // --------------------------------------------------
   async getResidentes(): Promise<Residente[]> {
+    try {
+      const { data, error } = await supabase
+        .from('residentes')
+        .select('*')
+        .order('createdAt', { ascending: false });
+
+      if (!error && data) {
+        return data as Residente[];
+      }
+      if (error) {
+        console.warn('Supabase getResidentes returned query error. Code:', error.code, 'Msg:', error.message);
+      }
+    } catch (err) {
+      console.warn('Supabase getResidentes exception, using fallback:', err);
+    }
+
     if (IS_FIREBASE_DUMMY) {
       return LocalDB.getResidentes();
     }
@@ -625,6 +845,19 @@ export const dbService = {
     const id = 'resd_' + generateId();
     const newResidente: Residente = { ...residente, id };
 
+    try {
+      const { error } = await supabase
+        .from('residentes')
+        .insert(newResidente);
+
+      if (!error) {
+        return newResidente;
+      }
+      console.warn('Supabase createResidente returned query error. Code:', error.code, 'Msg:', error.message);
+    } catch (err) {
+      console.warn('Supabase createResidente exception, using fallback:', err);
+    }
+
     if (IS_FIREBASE_DUMMY) {
       const list = LocalDB.getResidentes();
       list.unshift(newResidente);
@@ -643,6 +876,20 @@ export const dbService = {
   },
 
   async updateResidente(id: string, updates: Partial<Residente>): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('residentes')
+        .update({ ...updates, updatedAt: new Date().toISOString() })
+        .eq('id', id);
+
+      if (!error) {
+        return;
+      }
+      console.warn('Supabase updateResidente returned query error. Code:', error.code, 'Msg:', error.message);
+    } catch (err) {
+      console.warn('Supabase updateResidente exception, using fallback:', err);
+    }
+
     if (IS_FIREBASE_DUMMY) {
       const list = LocalDB.getResidentes();
       const updated = list.map(item => {
@@ -664,6 +911,20 @@ export const dbService = {
   },
 
   async deleteResidente(id: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('residentes')
+        .delete()
+        .eq('id', id);
+
+      if (!error) {
+        return;
+      }
+      console.warn('Supabase deleteResidente returned query error. Code:', error.code, 'Msg:', error.message);
+    } catch (err) {
+      console.warn('Supabase deleteResidente exception, using fallback:', err);
+    }
+
     if (IS_FIREBASE_DUMMY) {
       const list = LocalDB.getResidentes();
       const filtered = list.filter(item => item.id !== id);
