@@ -1001,7 +1001,6 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
                   </p>
                   
                   <div className="flex flex-col gap-3">
-                    {/* Native Snapshot Input */}
                     <label className="flex flex-col items-center justify-center p-4 border border-dashed border-red-500/20 hover:border-red-500/40 rounded-xl hover:bg-red-600/5 transition cursor-pointer text-center group">
                       <Camera className="w-6 h-6 text-red-500 group-hover:scale-110 transition mb-1.5" />
                       <span className="text-xs font-bold text-slate-200">Arranque de Cámara Especial (Foto QR)</span>
@@ -1011,9 +1010,10 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
                         type="file"
                         accept="image/*"
                         capture="environment"
-                        onClick={() => {
+                        onClick={(e) => {
                           setPermissionError(null);
                           setScanResult(null);
+                          (e.target as HTMLInputElement).value = '';
                         }}
                         onChange={handleQrFileSelected}
                         className="hidden"
@@ -1027,9 +1027,10 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
                         id="qr-image-file-decoder"
                         type="file"
                         accept="image/*"
-                        onClick={() => {
+                        onClick={(e) => {
                           setPermissionError(null);
                           setScanResult(null);
+                          (e.target as HTMLInputElement).value = '';
                         }}
                         onChange={handleQrFileSelected}
                         className="block w-full text-[11px] text-slate-400 file:mr-3 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-[10px] file:font-semibold file:bg-zinc-800 file:text-slate-300 hover:file:bg-zinc-700 cursor-pointer"
@@ -1061,9 +1062,9 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
         </div>
 
         {/* Sandbox Simulation Frame for instant testing */}
-        {currentGuard?.role !== SystemUserRole.SUPERVISOR && (
+        {true && (
           <div id="simulation-sandbox-tray" className="mt-8 border-t border-zinc-900 pt-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <div className="flex items-center gap-2">
               <span className="flex h-2 w-2 relative">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>

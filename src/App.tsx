@@ -675,28 +675,16 @@ export default function App() {
                       }}
                       className="w-full text-left px-4 py-3 bg-[#1A1A1E] hover:bg-[#343438] text-white rounded-xl text-xs font-bold transition flex items-center gap-3 cursor-pointer border border-[#3e3e42] hover:border-red-500/20 animate-fade-in"
                     >
-                      <Shield className="w-4 h-4 text-red-500" /> Administrador del Condominio
+                      <Shield className="w-4 h-4 text-red-500" /> Administración
                     </button>
-                     <button 
+                    <button 
                       onClick={() => {
                         handleRoleSelection(SystemUserRole.SUPERVISOR, 'Oficial de Seguridad (Simulado)', 'scan');
                         setIsDrawerOpen(false);
                       }}
                       className="w-full text-left px-4 py-3 bg-[#1A1A1E] hover:bg-[#343438] text-white rounded-xl text-xs font-bold transition flex items-center gap-3 cursor-pointer border border-[#3e3e42] hover:border-red-500/20"
                     >
-                      <Users className="w-4 h-4 text-red-500" /> Seguridad / Control Acceso
-                    </button>
-                    <button 
-                      className="w-full text-left px-4 py-3 bg-[#1A1A1E] text-slate-550 rounded-xl text-xs font-bold flex items-center gap-3 cursor-not-allowed border border-[#3e3e42] opacity-50 font-sans"
-                      disabled
-                    >
-                      <ScanLine className="w-4 h-4 text-slate-550" /> Residente (Desactivado)
-                    </button>
-                    <button 
-                      className="w-full text-left px-4 py-3 bg-[#1A1A1E] text-slate-550 rounded-xl text-xs font-bold flex items-center gap-3 cursor-not-allowed border border-[#3e3e42] opacity-50 font-sans"
-                      disabled
-                    >
-                      <FileBarChart2 className="w-4 h-4 text-slate-550" /> Auditor (Desactivado)
+                      <Users className="w-4 h-4 text-red-500" /> Caseta
                     </button>
                   </div>
                 </div>
@@ -707,11 +695,9 @@ export default function App() {
                       <p className="text-[9px] uppercase font-bold text-slate-500 tracking-wider">Perfil Activo</p>
                       <p className="text-xs font-extrabold text-white truncate max-w-[140px] mt-0.5 uppercase">
                         {userRole?.role === SystemUserRole.ADMIN 
-                          ? 'Director Admin 🛡️' 
+                          ? 'Administración 🛡️' 
                           : userRole?.role === SystemUserRole.SUPERVISOR 
-                          ? 'Seguridad 🛡️' 
-                          : userRole?.role === SystemUserRole.AUDITOR 
-                          ? 'Auditor Comité 🔍' 
+                          ? 'Caseta ⚡' 
                           : 'Residente: 🏡'}
                       </p>
                     </div>
@@ -920,7 +906,7 @@ export default function App() {
             </p>
 
             {/* Roles Grid Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left max-w-2xl mx-auto">
               
               {/* CARD 1: ADMIN */}
               <div 
@@ -930,25 +916,22 @@ export default function App() {
               >
                 <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 blur-3xl rounded-full group-hover:bg-red-500/10 transition"></div>
                 
-                <div>
-                  <div className="w-12 h-12 bg-red-550/15 text-red-500 border border-red-500/25 rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 transition shrink-0">
-                    <Shield className="w-6 h-6 animate-pulse" />
+                <div className="flex flex-col items-center justify-center text-center py-6">
+                  <div className="w-14 h-14 bg-red-550/15 text-red-500 border border-red-500/25 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition shrink-0">
+                    <Shield className="w-7 h-7 animate-pulse" />
                   </div>
-                  <h3 className="text-lg font-extrabold text-white group-hover:text-red-400 transition">
-                    Administrador del Fraccionamiento
+                  <h3 className="text-xl font-extrabold text-white group-hover:text-red-400 transition">
+                    Administración
                   </h3>
-                  <p className="text-xs text-slate-400 leading-relaxed mt-2.5">
-                    Módulo de administración principal. Permite dar de alta a residentes, administrar lotes y viviendas, gestionar o suspender credenciales, emitir pases públicos o restrictivos, configurar privilegios de residentes y auditar logs completos de ingresos.
-                  </p>
                 </div>
 
-                <div className="mt-6 pt-5 border-t border-[#3e3e42] flex items-center justify-between font-sans">
+                <div className="mt-4 pt-4 border-t border-[#3e3e42] flex items-center justify-between font-sans">
                   <span className="text-[10px] font-bold text-red-405 tracking-wider uppercase group-hover:translate-x-1 transition-all">Acceder al Panel Admin →</span>
                   <span className="text-[10px] bg-red-650/20 text-red-400 font-mono px-2.5 py-0.5 rounded-full uppercase font-bold">Control Total</span>
                 </div>
               </div>
 
-              {/* CARD 2: SEGURIDAD */}
+              {/* CARD 2: SEGURIDAD / CASETA */}
               <div 
                 id="role-gateway-card-supervisor"
                 onClick={() => handleRoleSelection(SystemUserRole.SUPERVISOR, 'Oficial de Seguridad (Simulado)', 'scan')}
@@ -956,81 +939,21 @@ export default function App() {
               >
                 <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 blur-3xl rounded-full group-hover:bg-red-500/10 transition"></div>
                 
-                <div>
-                  <div className="w-12 h-12 bg-red-550/15 text-red-500 border border-red-500/25 rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 transition shrink-0">
-                    <Users className="w-6 h-6 text-red-500" />
+                <div className="flex flex-col items-center justify-center text-center py-6">
+                  <div className="w-14 h-14 bg-red-550/15 text-red-500 border border-red-500/25 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition shrink-0">
+                    <Users className="w-7 h-7 text-red-500" />
                   </div>
-                  <h3 className="text-lg font-extrabold text-white group-hover:text-red-400 transition">
-                    Módulo de Seguridad / Caseta
+                  <h3 className="text-xl font-extrabold text-white group-hover:text-red-400 transition">
+                    Caseta
                   </h3>
-                  <p className="text-xs text-slate-400 leading-relaxed mt-2.5">
-                    Módulo operativo para el personal de vigilancia. Permite escanear y validar códigos QR desde la cámara o de forma computalizada, visualizar visitas en el recinto y consultar electrónicamente la bitácora de ingresos del día.
-                  </p>
                 </div>
 
-                <div className="mt-6 pt-5 border-t border-[#3e3e42] flex items-center justify-between font-sans">
+                <div className="mt-4 pt-4 border-t border-[#3e3e42] flex items-center justify-between font-sans">
                   <span className="text-[10px] font-bold text-red-405 tracking-wider uppercase group-hover:translate-x-1 transition-all">Ingresar al Módulo Seguridad →</span>
                   <span className="text-[10px] bg-red-650/20 text-red-400 font-mono px-2.5 py-0.5 rounded-full uppercase font-bold">Activo</span>
                 </div>
               </div>
 
-              {/* CARD 3: GUARD / RESIDENTE */}
-              <div 
-                id="role-gateway-card-guard"
-                className="relative bg-[#2A2A2E] border border-[#3e3e42] rounded-3xl p-6 shadow-xl opacity-45 cursor-not-allowed flex flex-col justify-between overflow-hidden"
-              >
-                <div>
-                  <div className="w-12 h-12 bg-slate-800 text-slate-550 border border-[#3e3e42] rounded-2xl flex items-center justify-center mb-5 shrink-0">
-                    <ScanLine className="w-6 h-6" />
-                  </div>
-                  <h3 className="text-lg font-extrabold text-slate-400">
-                    Residente: Autogestión &amp; Escáner QR
-                  </h3>
-                  <p className="text-xs text-slate-500 leading-relaxed mt-2.5">
-                    Módulo interactivo para residentes autorizados de las propiedades. Permite visualizar credenciales residenciales, autogestionar pases de sus visitas o utilizar la cámara frontal/trasera para validar pases desde su propio dispositivo al recibir invitados.
-                  </p>
-                </div>
-
-                <div className="mt-6 pt-5 border-t border-[#3e3e42] flex items-center justify-between font-sans">
-                  <span className="text-[10px] font-bold text-red-500 tracking-wider uppercase font-mono">Desactivado temporalmente</span>
-                  <span className="text-[10px] bg-[#1e1e24] text-slate-400 font-mono px-2.5 py-0.5 rounded-full uppercase font-bold">Inactivo</span>
-                </div>
-              </div>
-
-              {/* CARD 4: AUDITOR */}
-              <div 
-                id="role-gateway-card-auditor"
-                className="relative bg-[#2A2A2E] border border-[#3e3e42] rounded-3xl p-6 shadow-xl opacity-45 cursor-not-allowed flex flex-col justify-between overflow-hidden"
-              >
-                <div>
-                  <div className="w-12 h-12 bg-slate-800 text-slate-550 border border-[#3e3e42] rounded-2xl flex items-center justify-center mb-5 shrink-0">
-                    <FileBarChart2 className="w-6 h-6" />
-                  </div>
-                  <h3 className="text-lg font-extrabold text-slate-400">
-                    Auditor de Cumplimiento / Comité
-                  </h3>
-                  <p className="text-xs text-slate-500 leading-relaxed mt-2.5">
-                    Módulo de control para el comité de colonos u auditores del fraccionamiento. Otorga visibilidad completa a la bitácora de auditoría histórica, exportación certificada de accesos a formatos PDF/CSV y análisis de flujo vehicular.
-                  </p>
-                </div>
-
-                <div className="mt-6 pt-5 border-t border-[#3e3e42] flex items-center justify-between font-sans">
-                  <span className="text-[10px] font-bold text-red-500 tracking-wider uppercase font-mono">Desactivado temporalmente</span>
-                  <span className="text-[10px] bg-[#1e1e24] text-slate-400 font-mono px-2.5 py-0.5 rounded-full uppercase font-bold">Inactivo</span>
-                </div>
-              </div>
-
-            </div>
-
-            {/* Quick Helper Info */}
-            <div className="mt-16 p-6 bg-[#2A2A2E] rounded-2xl border border-[#3e3e42] max-w-2xl mx-auto text-left flex items-start gap-4 font-sans">
-              <Sparkles className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-              <div>
-                <h4 className="text-xs font-extrabold text-white uppercase tracking-wider">¿Cómo funciona la simulación?</h4>
-                <p className="text-xs text-slate-400 leading-relaxed mt-1">
-                  Esta pantalla representa la separación de dashboards según el perfil de seguridad del usuario. Al presionar una opción, la plataforma adoptará temporalmente dicho perfil de privilegios y adaptará los menús correspondientes. Puedes presionar <strong>"Cambiar de Rol"</strong> dentro de la plataforma para volver a esta pantalla principal en cualquier momento.
-                </p>
-              </div>
             </div>
 
             {/* Signout of platform option (for real Firebase accounts) */}
@@ -1056,11 +979,9 @@ export default function App() {
                 <div className="flex items-center gap-2 text-[11px] font-bold text-red-500 uppercase tracking-widest font-sans">
                   <ShieldCheck className="w-4 h-4 shrink-0 text-red-500" />
                   <span>CNLS — ACCESO RESIDENCIAL {userRole?.role === SystemUserRole.ADMIN 
-                    ? 'ADMINISTRATOR' 
+                    ? 'ADMINISTRACIÓN' 
                     : userRole?.role === SystemUserRole.SUPERVISOR 
-                    ? 'SUPERVISOR' 
-                    : userRole?.role === SystemUserRole.AUDITOR 
-                    ? 'AUDITOR CUMPLIMIENTO' 
+                    ? 'CASETA' 
                     : 'RESIDENTE'}</span>
                 </div>
                 <h1 className="text-2xl font-extrabold text-white tracking-tight mt-1">Control de Acceso Residencial</h1>
@@ -1076,12 +997,10 @@ export default function App() {
                     <p className="text-xs font-bold text-slate-200 leading-none">{userRole?.name}</p>
                     <p className="text-[10px] text-slate-400 leading-none mt-1.5 uppercase font-semibold font-sans">
                       Rol: {userRole?.role === SystemUserRole.ADMIN 
-                        ? 'Administrador 🛡️' 
+                        ? 'Administración 🛡️' 
                         : userRole?.role === SystemUserRole.SUPERVISOR 
-                        ? 'Supervisor Turno ⚡' 
-                        : userRole?.role === SystemUserRole.AUDITOR 
-                        ? 'Comité Auditor 🔍' 
-                        : 'Residente: 🏡'}
+                        ? 'Caseta ⚡' 
+                        : 'Residente'}
                     </p>
                   </div>
                   
