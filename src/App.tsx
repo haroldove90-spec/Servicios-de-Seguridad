@@ -27,6 +27,7 @@ import RolesManager from './components/RolesManager';
 import ResidenciasManager from './components/ResidenciasManager';
 import ResidentesManager from './components/ResidentesManager';
 import CasetasManager from './components/CasetasManager';
+import { ProfileManager } from './components/ProfileManager';
 import { generateQRWithLogo } from './utils/qrWithLogo';
 
 // Global panic audio state managers
@@ -250,8 +251,8 @@ export default function App() {
     };
   }, [globalPanicActive]);
   
-  // Navigation tabs
-  const [activeTab, setActiveTab] = useState<'scan' | 'crud' | 'reports' | 'roles' | 'residencias' | 'residentes' | 'casetas'>(() => {
+  // Navigation tabs - activated with profile view as well
+  const [activeTab, setActiveTab] = useState<'scan' | 'crud' | 'reports' | 'roles' | 'residencias' | 'residentes' | 'casetas' | 'perfil'>(() => {
     return (localStorage.getItem('cnls_active_tab') as any) || 'scan';
   });
   const [hasSelectedRole, setHasSelectedRole] = useState<boolean>(() => {
@@ -267,6 +268,107 @@ export default function App() {
     } catch (e) {
       console.warn("Failed fetching residencias for home screen selector:", e);
     }
+  };
+
+  // Guarded credential login system states
+  const [selectedLoginTarget, setSelectedLoginTarget] = useState<{
+    role: SystemUserRole;
+    label: string;
+    defaultTab: 'scan' | 'crud' | 'reports' | 'roles' | 'residencias' | 'residentes' | 'casetas' | 'perfil';
+    residenciaId?: string;
+    residenciaNombre?: string;
+  } | null>(null);
+
+  const [loginUsername, setLoginUsername] = useState<string>('');
+  const [loginPassword, setLoginPassword] = useState<string>('');
+  const [loginError, setLoginError] = useState<string>('');
+
+  const handleCredentialLoginSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError('');
+
+    if (!loginUsername.trim() || !loginPassword.trim()) {
+      setLoginError('Por favor ingrese tanto el usuario como su contraseña.');
+      return;
+    }
+
+    try {
+      // Fetch all system roles/employees
+      const registeredRoles = await dbService.getAllSystemRoles();
+      
+      // Match on username OR email, checking password exactly
+      const matched = registeredRoles.find(r => {
+        const inputStr = loginUsername.trim().toLowerCase();
+        const rEmail = r.email?.toLowerCase();
+        const rUsername = r.username?.toLowerCase();
+        
+        let isUsernameOrEmailMatch = (rUsername === inputStr || rEmail === inputStr);
+        
+        // Handle physical email typo gracefully mapping haroldo90/haroldo90@hotmail.com to haroldo980@hotmail.com
+        if (inputStr === 'haroldo90@hotmail.com' || inputStr === 'haroldo90') {
+          if (rEmail === 'haroldo980@hotmail.com' || rUsername === 'haroldo980') {
+            isUsernameOrEmailMatch = true;
+          }
+        }
+        
+        return isUsernameOrEmailMatch && r.password === loginPassword.trim();
+      });
+
+      if (!matched) {
+        setLoginError('Usuario o contraseña incorrectos. Verifica tus credenciales o solicita acceso al administrador.');
+        return;
+      }
+
+      // Automatically determine user role and assign active values
+      setDemoRole(matched.role);
+      setDemoName(matched.name);
+
+      setUserRole({
+        ...matched,
+        uid: matched.uid,
+        name: matched.name,
+        email: matched.email,
+        role: matched.role,
+        residenciaId: matched.residenciaId,
+        residenciaNombre: matched.residenciaNombre
+      });
+
+      // Reset login form fields
+      setLoginUsername('');
+      setLoginPassword('');
+      setLoginError('');
+      setSelectedLoginTarget(null);
+
+      // Instantly route based on matched role
+      if (matched.role === SystemUserRole.ADMIN) {
+        setActiveTab('crud');
+      } else {
+        setActiveTab('scan');
+      }
+      setHasSelectedRole(true);
+
+    } catch (err) {
+      console.error('Error on dynamic login handler:', err);
+      setLoginError('Error crítico con la base de datos de seguridad residencial.');
+    }
+  };
+
+  const handleBypassLogin = () => {
+    if (!selectedLoginTarget) return;
+    
+    // Fallback sandbox direct connection for simulation walkthroughs
+    handleRoleSelection(
+      selectedLoginTarget.role,
+      selectedLoginTarget.label,
+      selectedLoginTarget.defaultTab as any,
+      selectedLoginTarget.residenciaId,
+      selectedLoginTarget.residenciaNombre
+    );
+    
+    setLoginUsername('');
+    setLoginPassword('');
+    setLoginError('');
+    setSelectedLoginTarget(null);
   };
 
   useEffect(() => {
@@ -574,11 +676,22 @@ export default function App() {
 
   // User Signs Out
   const handleSignOut = async () => {
-    if (IS_FIREBASE_DUMMY) return;
     try {
-      await signOut(auth);
+      if (!IS_FIREBASE_DUMMY) {
+        await signOut(auth);
+      }
     } catch (err) {
       console.error('Signout Error: ', err);
+    } finally {
+      // Clean up cached selections and redirect to the landing selector
+      setHasSelectedRole(false);
+      setUserRole(null);
+      setSelectedLoginTarget(null);
+      setLoginUsername('');
+      setLoginPassword('');
+      setLoginError('');
+      localStorage.removeItem('cnls_user_role');
+      localStorage.setItem('cnls_has_selected_role', 'false');
     }
   };
 
@@ -926,6 +1039,14 @@ export default function App() {
                         <Shield className="w-4 h-4" /> Privilegios y Roles
                       </button>
                     )}
+                    <button
+                      onClick={() => { setActiveTab('perfil'); setIsDrawerOpen(false); }}
+                      className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer ${
+                        activeTab === 'perfil' ? 'bg-red-650 text-white shadow-lg shadow-red-650/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
+                      }`}
+                    >
+                      <UserCircle className="w-4 h-4 text-emerald-400" /> Mi Perfil de Acceso
+                    </button>
                   </div>
                 </div>
               )}
@@ -1023,7 +1144,7 @@ export default function App() {
             
             <div className="border-t border-[#1e293b] pt-6 mt-8 flex items-center justify-center gap-2 text-[10.5px] text-slate-500">
               <Laptop className="w-4 h-4 text-slate-600" />
-              <span>Sincronizado con Firebase</span>
+              <span>Acceso Administrador Autorizado</span>
             </div>
           </div>
         )}
@@ -1042,156 +1163,264 @@ export default function App() {
               />
             </div>
 
-            {/* Header / Subdued upper banner */}
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-red-600/10 border border-red-500/20 rounded-full text-red-400 text-[11px] font-mono font-bold uppercase tracking-widest mb-6">
-              <ShieldCheck className="w-4 h-4 text-red-500 shrink-0" />
-              <span>SISTEMA DE CONTROL DE ACCESO RESIDENCIAL — CNLS</span>
-            </div>
-
-            <h1 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight leading-none mb-4 animate-fade-in">
-              Acceso Residencial CNLS
-            </h1>
-            <p className="text-sm sm:text-base text-slate-400 max-w-2xl mx-auto leading-relaxed mb-12 animate-fade-in">
-              Gestión inteligente de condominios, pases de visitantes y control ágil en caseta. Selecciona el módulo de tu perfil para ingresar.
-            </p>
-
-            {/* Roles Grid Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left max-w-2xl mx-auto">
-              
-              {/* CARD 1: ADMIN */}
-              <div 
-                id="role-gateway-card-admin"
-                onClick={() => handleRoleSelection(SystemUserRole.ADMIN, 'Administrador CNLS', 'crud')}
-                className="group relative bg-[#2A2A2E] hover:bg-[#343438] border border-[#3e3e42] hover:border-red-500 rounded-3xl p-6 shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden"
-              >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 blur-3xl rounded-full group-hover:bg-red-500/10 transition"></div>
+            {selectedLoginTarget ? (
+              /* High fidelity credentials login validation dialog requested by user */
+              <div className="max-w-md mx-auto bg-[#2A2A2E] border border-[#3e3e42] hover:border-red-500/40 rounded-[2.5rem] p-6 sm:p-8 text-left shadow-2xl relative overflow-hidden animate-fade-in-up">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-red-650/5 blur-3xl rounded-full pointer-events-none"></div>
                 
-                <div className="flex flex-col items-center justify-center text-center py-6">
-                  <div className="w-14 h-14 bg-red-550/15 text-red-500 border border-red-500/25 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition shrink-0">
-                    <Shield className="w-7 h-7 animate-pulse" />
+                <div className="inline-flex items-center gap-1.5 bg-red-500/10 border border-red-500/15 rounded-lg px-2.5 py-1 text-red-400 text-[10px] font-bold uppercase tracking-widest mb-6">
+                  <ShieldCheck className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                  Iniciar Sesión de Seguridad
+                </div>
+
+                <h3 className="text-xl font-bold text-white tracking-tight leading-snug">
+                  Acceso al Panel Residencial
+                </h3>
+                <p className="text-xs text-slate-400 mt-2">
+                  Destino: <span className="text-amber-500 uppercase font-black tracking-wide bg-[#1e1e24] px-2.5 py-1 rounded-lg ml-1 inline-block text-[11px] font-mono border border-amber-500/15">{selectedLoginTarget.label}</span>
+                </p>
+
+                {loginError && (
+                  <div className="mt-4 p-3 bg-red-550/10 border border-red-500/25 text-red-400 text-xs font-semibold rounded-2xl flex items-center gap-2.5 animate-pulse">
+                    <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+                    <span>{loginError}</span>
                   </div>
-                  <h3 className="text-xl font-extrabold text-white group-hover:text-red-400 transition">
-                    Administración General
-                  </h3>
-                </div>
+                )}
 
-                <div className="mt-4 pt-4 border-t border-[#3e3e42] flex items-center justify-between font-sans">
-                  <span className="text-[10px] font-bold text-red-405 tracking-wider uppercase group-hover:translate-x-1 transition-all">Acceder al Panel Admin →</span>
-                  <span className="text-[10px] bg-red-650/20 text-red-400 font-mono px-2.5 py-0.5 rounded-full uppercase font-bold">Control Total</span>
-                </div>
-              </div>
-
-              {/* CARD 2: SEGURIDAD / CASETA */}
-              <div 
-                id="role-gateway-card-supervisor"
-                onClick={() => handleRoleSelection(SystemUserRole.SUPERVISOR, 'Oficial de Seguridad', 'scan')}
-                className="group relative bg-[#2A2A2E] hover:bg-[#343438] border border-[#3e3e42] hover:border-red-500 rounded-3xl p-6 shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden"
-              >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 blur-3xl rounded-full group-hover:bg-red-500/10 transition"></div>
-                
-                <div className="flex flex-col items-center justify-center text-center py-6">
-                  <div className="w-14 h-14 bg-red-550/15 text-red-500 border border-red-500/25 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition shrink-0">
-                    <Users className="w-7 h-7 text-red-500" />
+                <form onSubmit={handleCredentialLoginSubmit} className="space-y-4 py-2 mt-4">
+                  <div>
+                    <label htmlFor="login-username-input" className="block text-[10px] font-black uppercase tracking-wider text-slate-350 mb-1.5 leading-none">
+                      Nombre de Usuario o Email (Login)
+                    </label>
+                    <div className="relative">
+                      <UserCircle className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                      <input
+                        id="login-username-input"
+                        type="text"
+                        required
+                        placeholder="Ej. guardia o cbarrientos"
+                        value={loginUsername}
+                        onChange={(e) => setLoginUsername(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2.5 bg-[#1A1A1E] border border-[#3e3e42] text-white text-sm rounded-xl focus:border-red-500 focus:outline-hidden font-mono"
+                      />
+                    </div>
                   </div>
-                  <h3 className="text-xl font-extrabold text-white group-hover:text-red-400 transition">
-                    Caseta General
-                  </h3>
-                </div>
 
-                <div className="mt-4 pt-4 border-t border-[#3e3e42] flex items-center justify-between font-sans">
-                  <span className="text-[10px] font-bold text-red-405 tracking-wider uppercase group-hover:translate-x-1 transition-all">Ingresar al Módulo Seguridad →</span>
-                  <span className="text-[10px] bg-red-650/20 text-red-400 font-mono px-2.5 py-0.5 rounded-full uppercase font-bold">Activo</span>
-                </div>
-              </div>
+                  <div>
+                    <label htmlFor="login-password-input" className="block text-[10px] font-black uppercase tracking-wider text-slate-350 mb-1.5 leading-none">
+                      Contraseña de Acceso
+                    </label>
+                    <div className="relative">
+                      <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                      <input
+                        id="login-password-input"
+                        type="password"
+                        required
+                        placeholder="••••••••"
+                        value={loginPassword}
+                        onChange={(e) => setLoginPassword(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2.5 bg-[#1A1A1E] border border-[#3e3e42] text-white text-sm rounded-xl focus:border-red-500 focus:outline-hidden font-mono"
+                      />
+                    </div>
+                  </div>
 
-            </div>
-
-            {/* Dynamic Subdivision Residences Bento Grid */}
-            {residenciasList && residenciasList.length > 0 && (
-              <div id="subdivisions-bento-section" className="mt-12 pt-8 border-t border-[#1e1e24] text-left max-w-4xl mx-auto">
-                <div className="flex items-center gap-2 mb-6 justify-center sm:justify-start">
-                  <div className="w-1.5 h-6 bg-red-650 rounded-full"></div>
-                  <h2 className="text-sm font-black uppercase tracking-widest text-[#94a3b8] font-mono">
-                    🏡 Accesos Directos por Subdivisiones ({residenciasList.length})
-                  </h2>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  {residenciasList.map((res: any) => (
-                    <div 
-                      key={res.id} 
-                      className="bg-[#18181c] border border-[#2e2e38] rounded-2.5xl p-5 hover:border-red-500/40 transition-all duration-300 relative group overflow-hidden shadow-lg shadow-black/40"
+                  <div className="pt-2.5 flex flex-col gap-2.5">
+                    <button
+                      id="submit-login-real-btn"
+                      type="submit"
+                      className="w-full py-3 bg-red-650 hover:bg-red-600 text-white font-bold rounded-xl transition cursor-pointer text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-red-950/20 uppercase"
                     >
-                      <div className="absolute top-0 right-0 w-24 h-24 bg-red-600/5 blur-2xl rounded-full"></div>
-                      
-                      <div className="flex items-start justify-between gap-2.5 mb-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-red-950/20 border border-red-500/20 flex items-center justify-center text-red-400 font-extrabold text-sm shadow-inner group-hover:scale-105 transition-transform">
-                            🏡
+                      <Shield className="w-4 h-4" /> Ingresar con Credenciales
+                    </button>
+
+                    <button
+                      id="bypass-login-sandbox-btn"
+                      type="button"
+                      onClick={handleBypassLogin}
+                      className="w-full py-3 bg-slate-800 hover:bg-slate-700 hover:text-white text-slate-300 font-bold rounded-xl transition cursor-pointer text-xs flex items-center justify-center gap-1.5 uppercase"
+                    >
+                      <Sparkles className="w-4 h-4 text-amber-500 animate-pulse" /> Omitir Clave (Acceder Modo Sandbox)
+                    </button>
+
+                    <button
+                      id="cancel-login-btn"
+                      type="button"
+                      onClick={() => {
+                        setSelectedLoginTarget(null);
+                        setLoginUsername('');
+                        setLoginPassword('');
+                        setLoginError('');
+                      }}
+                      className="w-full text-center text-slate-500 hover:text-slate-300 transition text-[10px] font-bold py-2 mt-1 cursor-pointer"
+                    >
+                      ← VOLVER AL SELECTOR DE ROLES
+                    </button>
+                  </div>
+                </form>
+
+                <div className="mt-6 pt-5 border-t border-[#3e3e42] text-[9.5px] text-slate-500 leading-normal bg-black/15 p-3.5 rounded-2xl">
+                  <p className="font-extrabold text-slate-400 mb-1 text-[10px] uppercase tracking-wider">Credenciales de Pruebas Rápidas:</p>
+                  <p className="font-mono mt-0.5">• Para Director General: user <b className="text-zinc-300 text-[10px]">admin</b> / pass <b className="text-red-400 text-[10px]">Admin_123</b></p>
+                  <p className="font-mono mt-0.5">• Para Guardia Caseta: user <b className="text-zinc-300 text-[10px]">guardia</b> / pass <b className="text-red-400 text-[10px]">Caseta_123</b></p>
+                  <p className="font-sans text-[8.5px] text-zinc-500 inline-block mt-2 font-medium">Nota: Puedes dar de alta más empleados en el módulo de Administración General para que ingresen auto-detectados.</p>
+                </div>
+
+              </div>
+            ) : (
+              /* Existing roles and subdivisions selectors */
+              <>
+                {/* Header / Subdued upper banner */}
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-red-650/10 border border-red-500/20 rounded-full text-red-400 text-[11px] font-mono font-bold uppercase tracking-widest mb-6">
+                  <ShieldCheck className="w-4 h-4 text-red-500 shrink-0" />
+                  <span>SISTEMA DE CONTROL DE ACCESO RESIDENCIAL — CNLS</span>
+                </div>
+
+                <h1 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight leading-none mb-4 animate-fade-in">
+                  Acceso Residencial CNLS
+                </h1>
+                <p className="text-sm sm:text-base text-slate-400 max-w-2xl mx-auto leading-relaxed mb-12 animate-fade-in">
+                  Gestión inteligente de condominios, pases de visitantes y control ágil en caseta. Selecciona el módulo de tu perfil para ingresar.
+                </p>
+
+                {/* Roles Grid Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left max-w-2xl mx-auto">
+                  
+                  {/* CARD 1: ADMIN */}
+                  <div 
+                    id="role-gateway-card-admin"
+                    onClick={() => setSelectedLoginTarget({ role: SystemUserRole.ADMIN, label: 'Panel Administración General', defaultTab: 'crud' })}
+                    className="group relative bg-[#2A2A2E] hover:bg-[#343438] border border-[#3e3e42] hover:border-red-500 rounded-3xl p-6 shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden"
+                  >
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 blur-3xl rounded-full group-hover:bg-red-500/10 transition"></div>
+                    
+                    <div className="flex flex-col items-center justify-center text-center py-6">
+                      <div className="w-14 h-14 bg-red-550/15 text-red-500 border border-red-500/25 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition shrink-0">
+                        <Shield className="w-7 h-7 animate-pulse" />
+                      </div>
+                      <h3 className="text-xl font-extrabold text-white group-hover:text-red-400 transition" id="lbl-admin-general-role">
+                        Administración General
+                      </h3>
+                    </div>
+
+                    <div className="mt-4 pt-4 border-t border-[#3e3e42] flex items-center justify-between font-sans">
+                      <span className="text-[10px] font-bold text-red-405 tracking-wider uppercase group-hover:translate-x-1 transition-all">Acceder al Panel Admin →</span>
+                      <span className="text-[10px] bg-red-650/20 text-red-400 font-mono px-2.5 py-0.5 rounded-full uppercase font-bold">Control Total</span>
+                    </div>
+                  </div>
+
+                  {/* CARD 2: SEGURIDAD / CASETA */}
+                  <div 
+                    id="role-gateway-card-supervisor"
+                    onClick={() => setSelectedLoginTarget({ role: SystemUserRole.SUPERVISOR, label: 'Panel Caseta de Guardias', defaultTab: 'scan' })}
+                    className="group relative bg-[#2A2A2E] hover:bg-[#343438] border border-[#3e3e42] hover:border-red-500 rounded-3xl p-6 shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden"
+                  >
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 blur-3xl rounded-full group-hover:bg-red-500/10 transition"></div>
+                    
+                    <div className="flex flex-col items-center justify-center text-center py-6">
+                      <div className="w-14 h-14 bg-red-550/15 text-red-500 border border-red-500/25 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition shrink-0">
+                        <Users className="w-7 h-7 text-red-500" />
+                      </div>
+                      <h3 className="text-xl font-extrabold text-white group-hover:text-red-400 transition" id="lbl-caseta-general-role">
+                        Caseta General
+                      </h3>
+                    </div>
+
+                    <div className="mt-4 pt-4 border-t border-[#3e3e42] flex items-center justify-between font-sans">
+                      <span className="text-[10px] font-bold text-red-405 tracking-wider uppercase group-hover:translate-x-1 transition-all">Ingresar al Módulo Seguridad →</span>
+                      <span className="text-[10px] bg-red-650/20 text-red-400 font-mono px-2.5 py-0.5 rounded-full uppercase font-bold">Activo</span>
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* Dynamic Subdivision Residences Bento Grid */}
+                {residenciasList && residenciasList.length > 0 && (
+                  <div id="subdivisions-bento-section" className="mt-12 pt-8 border-t border-[#1e1e24] text-left max-w-4xl mx-auto">
+                    <div className="flex items-center gap-2 mb-6 justify-center sm:justify-start">
+                      <div className="w-1.5 h-6 bg-red-650 rounded-full"></div>
+                      <h2 className="text-sm font-black uppercase tracking-widest text-[#94a3b8] font-mono">
+                        🏡 Accesos Directos por Subdivisiones ({residenciasList.length})
+                      </h2>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                      {residenciasList.map((res: any) => (
+                        <div 
+                          key={res.id} 
+                          className="bg-[#18181c] border border-[#2e2e38] rounded-2.5xl p-5 hover:border-red-500/40 transition-all duration-300 relative group overflow-hidden shadow-lg shadow-black/40"
+                        >
+                          <div className="absolute top-0 right-0 w-24 h-24 bg-red-600/5 blur-2xl rounded-full"></div>
+                          
+                          <div className="flex items-start justify-between gap-2.5 mb-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl bg-red-950/20 border border-red-500/20 flex items-center justify-center text-red-300 font-extrabold text-sm shadow-inner group-hover:scale-105 transition-transform">
+                                🏡
+                              </div>
+                              <div>
+                                <h4 className="text-sm font-extrabold text-white leading-snug tracking-tight group-hover:text-red-400 transition-colors uppercase">
+                                  {res.nombre}
+                                </h4>
+                                <p className="text-[10px] text-slate-400 mt-1 font-sans">
+                                  Admin: <span className="text-slate-350 font-semibold">{res.administrador || 'Por asignar'}</span>
+                                </p>
+                              </div>
+                            </div>
+
+                            <span className={`text-[8.5px] font-black uppercase px-2 py-0.5 rounded-md ${
+                              res.isActive 
+                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                                : 'bg-zinc-550/10 text-zinc-400 border border-[#2e2e38]'
+                            }`}>
+                              {res.isActive ? 'Activo ✓' : 'Inactivo ✗'}
+                            </span>
                           </div>
-                          <div>
-                            <h4 className="text-sm font-extrabold text-white leading-snug tracking-tight group-hover:text-red-400 transition-colors uppercase">
-                              {res.nombre}
-                            </h4>
-                            <p className="text-[10px] text-slate-400 mt-1 font-sans">
-                              Admin: <span className="text-slate-350 font-semibold">{res.administrador || 'Por asignar'}</span>
-                            </p>
+
+                          <div className="grid grid-cols-2 gap-2.5 mt-4 pt-4 border-t border-zinc-800">
+                            <button
+                              onClick={() => setSelectedLoginTarget({
+                                role: SystemUserRole.ADMIN, 
+                                label: `Admin - ${res.nombre}`, 
+                                defaultTab: 'crud', 
+                                residenciaId: res.id, 
+                                residenciaNombre: res.nombre
+                              })}
+                              disabled={!res.isActive}
+                              className="flex items-center justify-center gap-1.5 py-2.5 px-3 bg-[#242429] hover:bg-red-950/25 text-[10.5px] font-bold text-slate-300 hover:text-white rounded-xl border border-[#2e2e38] hover:border-red-500/30 transition-all cursor-pointer disabled:opacity-40 disabled:pointer-events-none"
+                              title={`Ingresar como Administrador de ${res.nombre}`}
+                            >
+                              <Shield className="w-3.5 h-3.5 text-red-500 shrink-0" /> Admin
+                            </button>
+                            <button
+                              onClick={() => setSelectedLoginTarget({
+                                role: SystemUserRole.SUPERVISOR, 
+                                label: `Caseta - ${res.nombre}`, 
+                                defaultTab: 'scan', 
+                                residenciaId: res.id, 
+                                residenciaNombre: res.nombre
+                              })}
+                              disabled={!res.isActive}
+                              className="flex items-center justify-center gap-1.5 py-2.5 px-3 bg-[#242429] hover:bg-amber-950/25 text-[10.5px] font-bold text-slate-300 hover:text-white rounded-xl border border-[#2e2e38] hover:border-amber-500/30 transition-all cursor-pointer disabled:opacity-40 disabled:pointer-events-none"
+                              title={`Ingresar como Caseta de Seguridad de ${res.nombre}`}
+                            >
+                              <Smartphone className="w-3.5 h-3.5 text-amber-500 shrink-0" /> Caseta
+                            </button>
                           </div>
                         </div>
-
-                        <span className={`text-[8.5px] font-black uppercase px-2 py-0.5 rounded-md ${
-                          res.isActive 
-                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
-                            : 'bg-zinc-550/10 text-zinc-400 border border-[#2e2e38]'
-                        }`}>
-                          {res.isActive ? 'Activo ✓' : 'Inactivo ✗'}
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2.5 mt-4 pt-4 border-t border-zinc-800">
-                        <button
-                          onClick={() => handleRoleSelection(
-                            SystemUserRole.ADMIN, 
-                            `Admin - ${res.nombre}`, 
-                            'crud', 
-                            res.id, 
-                            res.nombre
-                          )}
-                          disabled={!res.isActive}
-                          className="flex items-center justify-center gap-1.5 py-2.5 px-3 bg-[#242429] hover:bg-red-950/25 text-[10.5px] font-bold text-slate-300 hover:text-white rounded-xl border border-[#2e2e38] hover:border-red-500/30 transition-all cursor-pointer disabled:opacity-40 disabled:pointer-events-none"
-                          title={`Ingresar como Administrador de ${res.nombre}`}
-                        >
-                          <Shield className="w-3.5 h-3.5 text-red-500 shrink-0" /> Admin
-                        </button>
-                        <button
-                          onClick={() => handleRoleSelection(
-                            SystemUserRole.SUPERVISOR, 
-                            `Oficial - ${res.nombre}`, 
-                            'scan', 
-                            res.id, 
-                            res.nombre
-                          )}
-                          disabled={!res.isActive}
-                          className="flex items-center justify-center gap-1.5 py-2.5 px-3 bg-[#242429] hover:bg-amber-950/25 text-[10.5px] font-bold text-slate-300 hover:text-white rounded-xl border border-[#2e2e38] hover:border-amber-500/30 transition-all cursor-pointer disabled:opacity-40 disabled:pointer-events-none"
-                          title={`Ingresar como Caseta de Seguridad de ${res.nombre}`}
-                        >
-                          <Smartphone className="w-3.5 h-3.5 text-amber-500 shrink-0" /> Caseta
-                        </button>
-                      </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
+                  </div>
+                )}
 
-            {/* Signout of platform option (for real Firebase accounts) */}
-            {!IS_FIREBASE_DUMMY && user && (
-              <button
-                id="home-selector-signout-google"
-                onClick={handleSignOut}
-                className="mt-8 inline-flex items-center gap-2 text-xs text-slate-500 hover:text-white transition duration-200 cursor-pointer"
-              >
-                <LogOut className="w-4 h-4" /> Desconectarte de la cuenta Google ({user.email})
-              </button>
+                {/* Signout of platform option (for real Firebase accounts) */}
+                {!IS_FIREBASE_DUMMY && user && (
+                  <button
+                    id="home-selector-signout-google"
+                    onClick={handleSignOut}
+                    className="mt-8 inline-flex items-center gap-2 text-xs text-slate-500 hover:text-white transition duration-200 cursor-pointer"
+                  >
+                    <LogOut className="w-4 h-4" /> Desconectarte de la cuenta Google ({user.email})
+                  </button>
+                )}
+              </>
             )}
 
           </div>
@@ -1247,12 +1476,12 @@ export default function App() {
                 {/* Switch / Change Role dashboard exit trigger requested by user */}
                 <button
                   id="btn-logout-role-to-home"
-                  onClick={() => setHasSelectedRole(false)}
+                  onClick={handleSignOut}
                   className="flex items-center gap-1.5 bg-rose-950/45 hover:bg-rose-900/60 text-rose-300 hover:text-rose-100 border border-rose-500/25 px-4 py-2.5 rounded-2xl text-xs font-bold transition duration-200 cursor-pointer shadow-lg shadow-black/30 font-sans"
-                  title="Salir de esta vista y volver al portal de roles"
+                  title="Cerrar la sesión actual de la plataforma de seguridad"
                 >
-                  <LogOut className="w-4 h-4 text-rose-455" />
-                  <span>Cerrar Módulo / Salir</span>
+                  <LogOut className="w-4 h-4 text-rose-400" />
+                  <span>Cerrar Sesión</span>
                 </button>
               </div>
 
@@ -1322,6 +1551,18 @@ export default function App() {
                         setDemoName(name);
                       }}
                       activeSimulatedRole={demoRole}
+                    />
+                  )}
+
+                  {activeTab === 'perfil' && (
+                    <ProfileManager 
+                      currentUser={userRole}
+                      onProfileUpdated={(updated) => {
+                        setUserRole(updated);
+                        setDemoName(updated.name);
+                        setDemoFeedback('✓ Perfil de usuario actualizado exitosamente.');
+                        setTimeout(() => setDemoFeedback(''), 4500);
+                      }}
                     />
                   )}
                 </div>
