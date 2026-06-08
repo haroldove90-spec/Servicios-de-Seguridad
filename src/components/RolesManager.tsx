@@ -58,6 +58,8 @@ export default function RolesManager({
     rol: string;
     residencia: string;
     url: string;
+    whatsappUrl?: string;
+    phone?: string;
   } | null>(null);
 
   // Password visibility
@@ -224,6 +226,11 @@ export default function RolesManager({
     
     // If a new employee is registered, trigger the exclusive credentials dialog
     if (!editingUid) {
+      const appUrl = window.location.origin || 'https://servicios-de-seguridad.vercel.app/';
+      const cleanPhone = payload.phone ? payload.phone.replace(/[^0-9]/g, '') : '';
+      const templateMsg = `🔐 *SISTEMA DE SEGURIDAD DIGITAL - CONTROL DE ACCESOS*\n\nHola *${payload.name}*,\nTe damos la bienvenida al panel oficial de control de accesos. Tus credenciales de ingreso son:\n\n👤 *Usuario*: ${payload.username || '(Utilizar Correo)'}\n✉️ *Correo*: ${payload.email}\n🔑 *Contraseña asignada*: ${payload.password || '(Sin contraseña)'}\n🏠 *Asignación*: ${payload.residenciaNombre || 'Administración / Caseta General 🏢'}\n\n🔗 *Link de acceso directo al Panel*:\n${appUrl}\n\nFavor de resguardar esta información de forma confidencial.`;
+      const whatsappUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(templateMsg)}` : '';
+
       setNewCreatedCreds({
         nombre: payload.name,
         usuario: payload.username || '(Utilizar Correo)',
@@ -231,8 +238,19 @@ export default function RolesManager({
         contrasena: payload.password || '(Sin contraseña)',
         rol: payload.role === SystemUserRole.ADMIN ? 'Director Administrador 🛡️' : 'Oficial de Seguridad / Caseta 👮',
         residencia: payload.residenciaNombre || 'Administración / Caseta General 🏢',
-        url: 'https://servicios-de-seguridad.vercel.app/'
+        url: appUrl,
+        whatsappUrl: whatsappUrl,
+        phone: payload.phone || ''
       });
+
+      // Automatically open WhatsApp link
+      if (whatsappUrl) {
+        try {
+          window.open(whatsappUrl, '_blank');
+        } catch (err) {
+          console.warn('Browser blocked automatic WhatsApp redirection under iframe rules:', err);
+        }
+      }
     }
 
     // Clear & Feedback
@@ -393,16 +411,37 @@ export default function RolesManager({
                 </div>
               </div>
 
-              <div className="p-3.5 bg-yellow-500/10 border border-yellow-500/20 rounded-2xl flex gap-2">
-                <HelpCircle className="w-4 h-4 text-yellow-500 shrink-0 mt-0.5" />
-                <p className="text-[10px] text-zinc-300 leading-normal font-sans">
-                  Copie el mensaje de credenciales y envíelo al operador por correo electrónico o WhatsApp, para que ingrese desde el formulario del portal.
-                </p>
+              <div className="p-3.5 bg-yellow-500/10 border border-yellow-500/20 rounded-2xl flex flex-col gap-1.5">
+                <div className="flex gap-2">
+                  <HelpCircle className="w-4 h-4 text-yellow-500 shrink-0 mt-0.5" />
+                  <div className="text-[10px] text-zinc-300 leading-normal font-sans">
+                    {newCreatedCreds.phone ? (
+                      <p>
+                        Hemos intentado abrir WhatsApp automáticamente para enviar las credenciales al número <span className="text-emerald-400 font-extrabold">{newCreatedCreds.phone}</span>. Si tu navegador bloqueó el popup, pulsa el botón verde <strong>"Enviar por WhatsApp 💬"</strong> de abajo para hacerlo de forma directa.
+                      </p>
+                    ) : (
+                      <p>
+                        Copie el mensaje de credenciales y envíelo al operador por correo electrónico o WhatsApp, para que ingrese desde el formulario del portal.
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
 
             {/* Actions Footer */}
             <div className="p-5 border-t border-[#3e3e42] bg-[#1d1d21] flex flex-col sm:flex-row gap-2">
+              {newCreatedCreds.whatsappUrl && (
+                <a
+                  id="btn-send-whatsapp-manual"
+                  href={newCreatedCreds.whatsappUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold transition flex items-center justify-center gap-2 cursor-pointer text-xs"
+                >
+                  <span>Enviar por WhatsApp 💬</span>
+                </a>
+              )}
               <button
                 id="btn-copy-creds-template"
                 onClick={() => {
@@ -410,16 +449,16 @@ export default function RolesManager({
                   navigator.clipboard.writeText(templateMsg);
                   alert("📄 Mensaje con credenciales copiado al Portapapeles con éxito.");
                 }}
-                className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold transition flex items-center justify-center gap-2 cursor-pointer text-xs"
+                className="flex-1 py-1.5 bg-[#2A2A2E] hover:bg-zinc-800 text-slate-300 hover:text-white border border-[#3e3e42] rounded-xl font-bold transition flex items-center justify-center gap-2 cursor-pointer text-xs"
               >
-                <Clipboard className="w-3.5 h-3.5" /> Copiar Mensaje Compartible
+                <Clipboard className="w-3.5 h-3.5" /> Copiar Mensaje
               </button>
               <button
                 id="btn-dismiss-creds-success"
                 onClick={() => setNewCreatedCreds(null)}
-                className="flex-1 py-1.5 bg-[#2A2A2E] hover:bg-zinc-800 text-white border border-[#3e3e42] rounded-xl font-bold transition cursor-pointer text-xs"
+                className="flex-1 py-1.5 bg-[#2A2A2E] hover:bg-zinc-850 text-white border border-[#3e3e42] rounded-xl font-bold transition cursor-pointer text-xs"
               >
-                Entendido y Cerrar
+                Cerrar
               </button>
             </div>
           </div>
