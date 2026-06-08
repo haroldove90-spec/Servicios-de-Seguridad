@@ -69,6 +69,9 @@ export interface SystemRole {
   name: string;
   role: SystemUserRole;
   createdAt: string; // ISO DateTime
+  phone?: string;
+  password?: string;
+  isActive?: boolean;
 }
 
 export interface Residencia {

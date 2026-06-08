@@ -7,7 +7,8 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   Shield, ShieldCheck, UserPlus, Trash2, Check, X, ShieldAlert, Key, 
-  Search, Eye, HelpCircle, Users, Settings, Smartphone, Clipboard, FileText, AlertTriangle 
+  Search, Eye, EyeOff, HelpCircle, Users, Settings, Smartphone, Clipboard, FileText, AlertTriangle,
+  Edit2, Phone, UserX, UserCheck
 } from 'lucide-react';
 import { dbService } from '../services/dbService';
 import { SystemRole, SystemUserRole } from '../types';
@@ -41,6 +42,19 @@ export default function RolesManager({
   const [formName, setFormName] = useState<string>('');
   const [formEmail, setFormEmail] = useState<string>('');
   const [formRole, setFormRole] = useState<SystemUserRole>(SystemUserRole.ADMIN);
+  const [formPhone, setFormPhone] = useState<string>('');
+  const [formPassword, setFormPassword] = useState<string>('');
+  const [editingUid, setEditingUid] = useState<string | null>(null);
+
+  // Password visibility
+  const [showPasswordMap, setShowPasswordMap] = useState<Record<string, boolean>>({});
+
+  // Confirm Overlay states
+  const [deleteConfirmUid, setDeleteConfirmUid] = useState<string | null>(null);
+  const [deleteConfirmName, setDeleteConfirmName] = useState<string>('');
+
+  // Info Alerts inside operational form
+  const [formAlert, setFormAlert] = useState<string>('');
 
   // Success message feedback
   const [successMsg, setSuccessMsg] = useState<string>('');
@@ -57,14 +71,20 @@ export default function RolesManager({
             name: 'Elena Rostova (Seguridad)',
             email: 'elena@seguridad.local',
             role: SystemUserRole.SUPERVISOR,
-            createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
+            createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+            phone: '+525544332211',
+            password: 'ElenaSecurePass2026',
+            isActive: true
           },
           {
             uid: 'auditor-demo-uid',
             name: 'Lic. Francisco Gómez',
             email: 'francisco@auditoria.local',
             role: SystemUserRole.AUDITOR,
-            createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString()
+            createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+            phone: '+525599887766',
+            password: 'FranciscoPass_998',
+            isActive: true
           }
         ];
         
@@ -86,20 +106,74 @@ export default function RolesManager({
     loadRoles();
   }, []);
 
+  const handleGeneratePassword = () => {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
+    let generated = "";
+    for (let i = 0; i < 14; i++) {
+      generated += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setFormPassword(generated);
+  };
+
+  const handleOpenCreateForm = () => {
+    setEditingUid(null);
+    setFormName('');
+    setFormEmail('');
+    setFormRole(SystemUserRole.SUPERVISOR);
+    setFormPhone('');
+    setFormPassword('');
+    setFormAlert('');
+    setIsFormOpen(true);
+  };
+
+  const handleEditRole = (role: SystemRole) => {
+    setEditingUid(role.uid);
+    setFormName(role.name);
+    setFormEmail(role.email);
+    setFormRole(role.role);
+    setFormPhone(role.phone || '');
+    setFormPassword(role.password || '');
+    setFormAlert('');
+    setIsFormOpen(true);
+  };
+
+  const handleToggleActive = async (role: SystemRole) => {
+    if (role.uid === 'admin-demo-uid') {
+      alert('Operación Bloqueada: No se puede desactivar al Administrador Principal del Sistema.');
+      return;
+    }
+    const currentActive = role.isActive !== false;
+    const updatedRole: SystemRole = {
+      ...role,
+      isActive: !currentActive
+    };
+    await dbService.saveSystemRole(updatedRole);
+    loadRoles();
+    onRolesUpdated();
+    setSuccessMsg(`Estado de "${role.name}" actualizado a: ${!currentActive ? 'ACTIVO' : 'INACTIVO'}.`);
+    setTimeout(() => setSuccessMsg(''), 5000);
+  };
+
   const handleCreateRole = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName || !formEmail) {
-      alert('Por favor complete los campos obligatorios: Nombre completo y Correo institucional.');
+      setFormAlert('Por favor complete los campos obligatorios: Nombre completo y Correo institucional.');
       return;
     }
 
-    const newUid = 'operator_' + Math.random().toString(36).substring(2, 9);
     const payload: SystemRole = {
-      uid: newUid,
+      uid: editingUid || ('operator_' + Math.random().toString(36).substring(2, 9)),
       name: formName.trim(),
       email: formEmail.trim().toLowerCase(),
       role: formRole,
-      createdAt: new Date().toISOString()
+      createdAt: editingUid 
+        ? (roles.find(r => r.uid === editingUid)?.createdAt || new Date().toISOString())
+        : new Date().toISOString(),
+      phone: formPhone.trim(),
+      password: formPassword.trim(),
+      isActive: editingUid 
+        ? (roles.find(r => r.uid === editingUid)?.isActive !== false)
+        : true
     };
 
     await dbService.saveSystemRole(payload);
@@ -110,23 +184,34 @@ export default function RolesManager({
     setFormName('');
     setFormEmail('');
     setFormRole(SystemUserRole.ADMIN);
+    setFormPhone('');
+    setFormPassword('');
+    setEditingUid(null);
     setIsFormOpen(false);
     
-    setSuccessMsg(`Operador "${payload.name}" agregado con éxito como ${getRoleLabel(payload.role)}.`);
+    const actionText = editingUid ? 'actualizado' : 'agregado';
+    setSuccessMsg(`Operador "${payload.name}" ${actionText} con éxito.`);
     setTimeout(() => setSuccessMsg(''), 5000);
   };
 
-  const handleDeleteRole = async (uid: string, name: string) => {
+  const handleDeleteRole = (uid: string, name: string) => {
     if (uid === 'admin-demo-uid') {
       alert('Operación Bloqueada: No se puede eliminar al Administrador Principal del Sistema.');
       return;
     }
-    if (window.confirm(`¿Está seguro de revocar y eliminar de forma inmediata todas las credenciales del sistema para: "${name}"?`)) {
-      await dbService.deleteSystemRole(uid);
+    setDeleteConfirmUid(uid);
+    setDeleteConfirmName(name);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (deleteConfirmUid) {
+      await dbService.deleteSystemRole(deleteConfirmUid);
       loadRoles();
       onRolesUpdated();
-      setSuccessMsg(`Se revocaron los permisos para "${name}".`);
+      setSuccessMsg(`Se revocaron los permisos para "${deleteConfirmName}".`);
       setTimeout(() => setSuccessMsg(''), 5000);
+      setDeleteConfirmUid(null);
+      setDeleteConfirmName('');
     }
   };
 
@@ -213,7 +298,7 @@ export default function RolesManager({
         </div>
         <button
           id="btn-register-new-role-trigger"
-          onClick={() => setIsFormOpen(true)}
+          onClick={handleOpenCreateForm}
           className="inline-flex items-center gap-2 justify-center px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-xl transition cursor-pointer shrink-0"
         >
           <UserPlus className="w-3.5 h-3.5" /> Registrar Personal
@@ -256,53 +341,126 @@ export default function RolesManager({
           <div id="operators-reactive-list" className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
             {filteredRoles.map(r => {
               const isSimulatingThis = activeSimulatedRole === r.role;
+              const isDeactivated = r.isActive === false;
+              const isMainAdmin = r.uid === 'admin-demo-uid';
+              const showPass = !!showPasswordMap[r.uid];
+              const toggleShowPass = () => setShowPasswordMap(prev => ({ ...prev, [r.uid]: !prev[r.uid] }));
+
               return (
                 <div 
                   key={r.uid} 
                   id={`operator-card-${r.uid}`}
-                  className={`p-3.5 rounded-xl border transition-all flex items-center justify-between gap-3 ${
-                    isSimulatingThis 
-                      ? 'bg-red-950/20 border-red-500/30 shadow-inner' 
-                      : 'bg-[#1A1A1E] border-[#3e3e42] hover:border-slate-650'
+                  className={`p-3.5 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                    isDeactivated
+                      ? 'bg-[#151518] border-red-900/20 opacity-70'
+                      : isSimulatingThis 
+                        ? 'bg-red-950/20 border-red-500/30 shadow-inner' 
+                        : 'bg-[#1A1A1E] border-[#3e3e42] hover:border-slate-650'
                   }`}
                 >
-                  <div className="space-y-1">
+                  <div className="space-y-1.5 flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-bold text-slate-200">{r.name}</span>
+                      <span className="text-xs font-bold text-slate-100 truncate">{r.name}</span>
                       <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border uppercase tracking-wider ${getRoleBadgeStyle(r.role)}`}>
                         {getRoleLabel(r.role)}
                       </span>
+                      {isDeactivated ? (
+                        <span className="px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wider bg-red-950/40 text-red-400 border border-red-900/30 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-ping"></span> Inactivo
+                        </span>
+                      ) : (
+                        <span className="px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wider bg-emerald-950/40 text-emerald-400 border border-emerald-900/30 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span> Activo
+                        </span>
+                      )}
                     </div>
-                    <p className="text-[10px] text-slate-400 font-mono mt-0.5">{r.email}</p>
+                    
+                    <p className="text-[10px] text-slate-300 font-mono truncate">{r.email}</p>
+                    
+                    {/* Phone field */}
+                    {r.phone && (
+                      <p className="text-[10px] text-slate-300 font-mono flex items-center gap-1.5">
+                        <Phone className="w-3 h-3 text-slate-500" />
+                        <span>Tel/WhatsApp: {r.phone}</span>
+                      </p>
+                    )}
+
+                    {/* Password field */}
+                    {r.password && (
+                      <div className="flex items-center gap-1 text-[10px] text-slate-300 font-mono">
+                        <Key className="w-3 h-3 text-slate-500" />
+                        <span>Clave:</span>
+                        <span className="bg-[#111115] px-1.5 py-0.5 rounded text-red-400 tracking-wide">
+                          {showPass ? r.password : '••••••••••••'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={toggleShowPass}
+                          className="p-1 hover:bg-[#2e2e38] rounded text-slate-400 hover:text-white transition cursor-pointer"
+                          title={showPass ? "Ocultar Contraseña" : "Mostrar Contraseña"}
+                        >
+                          {showPass ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                        </button>
+                      </div>
+                    )}
+
                     <p className="text-[9px] text-slate-500 font-mono">Alta: {new Date(r.createdAt).toLocaleDateString()}</p>
                   </div>
 
-                  <div className="flex items-center gap-1.5">
-                    {onSimulateRole && (
+                  <div className="flex items-center gap-1.5 justify-end shrink-0">
+                    {onSimulateRole && !isDeactivated && (
                       <button
                         id={`btn-simulate-${r.uid}`}
                         onClick={() => onSimulateRole(r.role, r.name)}
-                        className={`px-2 py-1 text-[10px] font-bold rounded-lg transition-all border ${
+                        className={`px-2 py-1 text-[10px] font-bold rounded-lg transition-all border cursor-pointer ${
                           isSimulatingThis 
                             ? 'bg-red-600 text-white border-red-500' 
-                            : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white hover:bg-slate-900'
+                            : 'bg-slate-950 text-slate-400 border-slate-850 hover:text-white hover:bg-slate-900'
                         }`}
                         title="Probar comportamiento del sistema con este rol"
                       >
-                        {isSimulatingThis ? '🛒 Simulado' : '🔌 Probar Módulos'}
+                        {isSimulatingThis ? '🛒 Simulado' : '🔌 Probar'}
                       </button>
                     )}
 
+                    {/* Edit button */}
+                    <button
+                      id={`btn-edit-role-${r.uid}`}
+                      onClick={() => handleEditRole(r)}
+                      className="p-1.5 text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 transition border border-transparent rounded-lg cursor-pointer"
+                      title="Editar Operador"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+
+                    {/* Active/Inactive toggle button */}
+                    <button
+                      id={`btn-toggle-active-role-${r.uid}`}
+                      onClick={() => handleToggleActive(r)}
+                      disabled={isMainAdmin}
+                      className={`p-1.5 transition border border-transparent rounded-lg cursor-pointer ${
+                        isMainAdmin
+                          ? 'text-slate-700 cursor-not-allowed'
+                          : isDeactivated
+                            ? 'text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10'
+                            : 'text-rose-500 hover:text-rose-405 hover:bg-rose-500/10'
+                      }`}
+                      title={isMainAdmin ? 'Administrador Maestro' : isDeactivated ? 'Activar Operador' : 'Desactivar Operador'}
+                    >
+                      {isDeactivated ? <UserCheck className="w-3.5 h-3.5" /> : <UserX className="w-3.5 h-3.5" />}
+                    </button>
+
+                    {/* Delete button */}
                     <button
                       id={`btn-delete-role-${r.uid}`}
                       onClick={() => handleDeleteRole(r.uid, r.name)}
-                      disabled={r.uid === 'admin-demo-uid'}
-                      className={`p-1.5 transition rounded-lg border border-transparent ${
-                        r.uid === 'admin-demo-uid' 
+                      disabled={isMainAdmin}
+                      className={`p-1.5 transition rounded-lg border border-transparent cursor-pointer ${
+                        isMainAdmin 
                           ? 'text-slate-700 cursor-not-allowed' 
-                          : 'text-slate-400 hover:text-rose-400 hover:bg-rose-500/10'
+                          : 'text-slate-400 hover:text-rose-450 hover:bg-rose-500/10'
                       }`}
-                      title={r.uid === 'admin-demo-uid' ? 'Administrador Maestro' : 'Eliminar Operador'}
+                      title={isMainAdmin ? 'Administrador Maestro' : 'Eliminar Operador'}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -310,6 +468,7 @@ export default function RolesManager({
                 </div>
               );
             })}
+          </div>
 
             {filteredRoles.length === 0 && (
               <div id="no-role-operators-empty" className="text-center py-8 text-slate-500">
@@ -318,7 +477,6 @@ export default function RolesManager({
               </div>
             )}
           </div>
-        </div>
 
         {/* Right pane: Module Matrix capabilities list */}
         <div id="roles-cap-matrix-col" className="lg:col-span-5 bg-[#2A2A2E] border border-[#3e3e42] rounded-2xl p-5 space-y-4 font-sans">
@@ -393,24 +551,30 @@ export default function RolesManager({
 
       {/* FORM REGISTRATION OVERLAY DIALOG */}
       {isFormOpen && createPortal(
-        <div id="overlay-operator-crud" className="fixed inset-0 bg-black/85 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+        <div id="overlay-operator-crud" className="fixed inset-0 bg-black/85 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in font-sans">
           <div id="operator-form-modal-body" className="bg-[#2A2A2E] rounded-2xl border border-[#3e3e42] shadow-2xl max-w-md w-full overflow-hidden">
             <div className="p-5 border-b border-[#3e3e42] flex items-center justify-between bg-[#2A2A2E]/50">
               <h3 className="text-xs font-extrabold text-slate-100 uppercase tracking-widest flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-red-500" /> Registrar Credencial Residente / Administrativa
+                <ShieldCheck className="w-4 h-4 text-red-500" /> {editingUid ? 'Editar Credenciales del Personal' : 'Registrar Credencial Residente / Administrativa'}
               </h3>
-              <button 
-                id="btn-close-operator-form"
-                onClick={() => setIsFormOpen(false)}
-                className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-zinc-800 transition"
-              >
-                <X className="w-4 h-4" />
-              </button>
+               <button 
+                 id="btn-close-operator-form"
+                 onClick={() => setIsFormOpen(false)}
+                 className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-zinc-800 transition cursor-pointer"
+               >
+                 <X className="w-4 h-4" />
+               </button>
             </div>
 
-            <form onSubmit={handleCreateRole} className="p-5 space-y-4 text-xs font-sans">
+            <form onSubmit={handleCreateRole} className="p-5 space-y-4 text-xs">
+               {formAlert && (
+                 <div className="p-3 bg-rose-500/10 border border-rose-500/25 rounded-xl text-[11px] text-rose-300">
+                   ⚠️ {formAlert}
+                 </div>
+               )}
+
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Nombre Completo del Operador / Residente *</label>
+                <label className="block text-[10px] font-bold text-white uppercase tracking-widest mb-1.5">Nombre Completo del Operador / Residente *</label>
                 <input
                   id="input-operator-name"
                   type="text"
@@ -418,12 +582,12 @@ export default function RolesManager({
                   placeholder="Ej. Sgto. Claudio Barrientos"
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#1A1A1E] border border-[#3e3e42] text-slate-100 rounded-xl focus:border-red-500 focus:outline-hidden"
+                  className="w-full px-3 py-2 bg-[#1A1A1E] border border-[#3e3e42] text-white rounded-xl focus:border-red-500 focus:outline-hidden"
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Correo Electrónico Institucional / Condominal *</label>
+                <label className="block text-[10px] font-bold text-white uppercase tracking-widest mb-1.5">Correo Electrónico Institucional / Condominal *</label>
                 <input
                   id="input-operator-email"
                   type="email"
@@ -431,29 +595,64 @@ export default function RolesManager({
                   placeholder="Ej. claudio@seguridad.local"
                   value={formEmail}
                   onChange={(e) => setFormEmail(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#111115] border border-[#3e3e42] text-slate-100 rounded-xl focus:border-red-500 focus:outline-hidden"
+                  className="w-full px-3 py-2 bg-[#1A1A1E] border border-[#3e3e42] text-white rounded-xl focus:border-red-500 focus:outline-hidden"
                 />
-                <p className="text-[9px] text-slate-550 mt-1 font-sans">Se requiere para el enlace de sesión único por Google SSO o Portal.</p>
+                <p className="text-[10px] text-white mt-1 font-sans font-medium">Se requiere para el enlace de sesión único por Google SSO o Portal.</p>
               </div>
 
+               {/* New Phone / WhatsApp Input */}
+               <div>
+                 <label className="block text-[10px] font-bold text-white uppercase tracking-widest mb-1.5">Teléfono / WhatsApp *</label>
+                 <input
+                   id="input-operator-phone"
+                   type="text"
+                   placeholder="Ej. +52 55 1234 5678"
+                   value={formPhone}
+                   onChange={(e) => setFormPhone(e.target.value)}
+                   className="w-full px-3 py-2 bg-[#1A1A1E] border border-[#3e3e42] text-white rounded-xl focus:border-red-500 focus:outline-hidden"
+                 />
+               </div>
+
+               {/* New Password & Secure password generator input */}
+               <div>
+                 <label className="block text-[10px] font-bold text-white uppercase tracking-widest mb-1.5">Contraseña de Acceso Directo *</label>
+                 <div className="flex gap-2">
+                   <input
+                     id="input-operator-password"
+                     type="text"
+                     placeholder="Clave del operador"
+                     value={formPassword}
+                     onChange={(e) => setFormPassword(e.target.value)}
+                     className="flex-1 px-3 py-2 bg-[#1A1A1E] border border-[#3e3e42] text-white rounded-xl focus:border-red-500 focus:outline-hidden font-mono"
+                   />
+                   <button
+                     id="btn-generate-secure-password"
+                     type="button"
+                     onClick={handleGeneratePassword}
+                     className="px-3 py-2 bg-slate-900 border border-[#3e3e42] text-white hover:bg-slate-800 transition text-[9.5px] rounded-xl font-bold uppercase tracking-wider shrink-0 cursor-pointer"
+                   >
+                     Generar Clave Segura
+                   </button>
+                 </div>
+                 <p className="text-[9.5px] text-white mt-1 font-sans">Se recomienda generar una combinación segura de caracteres alfanuméricos.</p>
+               </div>
+
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Asignar Rol Funcional</label>
+                <label className="block text-[10px] font-bold text-white uppercase tracking-widest mb-1.5">Asignar Rol Funcional</label>
                 <select
                   id="select-operator-role"
                   value={formRole}
                   onChange={(e) => setFormRole(e.target.value as SystemUserRole)}
-                  className="w-full px-3 py-2 bg-[#1A1A1E] border border-[#3e3e42] text-slate-200 rounded-xl focus:border-red-500 focus:outline-hidden cursor-pointer"
+                  className="w-full px-3 py-2 bg-[#1A1A1E] border border-[#3e3e42] text-white rounded-xl focus:border-red-500 focus:outline-hidden cursor-pointer"
                 >
-                  <option value={SystemUserRole.GUARD} className="bg-[#1A1A1E]" disabled>✓ Residente En Condominio (Desactivado temporalmente)</option>
-                  <option value={SystemUserRole.SUPERVISOR} className="bg-[#1A1A1E]" >👮 Seguridad / Control de Accesos (Lector QR, Bitácora)</option>
-                  <option value={SystemUserRole.AUDITOR} className="bg-[#1A1A1E]" disabled>🔍 Auditor de Cumplimiento (Desactivado temporalmente)</option>
-                  <option value={SystemUserRole.ADMIN} className="bg-[#1A1A1E]" >🛡️ Director Administrador (Control Total Maestro)</option>
+                   <option value={SystemUserRole.SUPERVISOR} className="bg-[#1A1A1E]" >👮 Seguridad / Control de Accesos (Lector QR, Bitácora)</option>
+                   <option value={SystemUserRole.ADMIN} className="bg-[#1A1A1E]" >🛡️ Director Administrador (Control Total Maestro)</option>
                 </select>
               </div>
 
               <div className="p-3 bg-red-500/10 border border-red-500/15 rounded-xl flex gap-2">
                 <Key className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-                <p className="text-[9.5px] text-red-350 leading-normal">
+                 <p className="text-[9.5px] text-white leading-normal font-sans">
                   Los privilegios se propagan instantáneamente a los tokens de sesión. En el entorno real, el operador utilizará Google Auth vinculando este email.
                 </p>
               </div>
@@ -463,16 +662,16 @@ export default function RolesManager({
                   id="btn-cancel-operator-action"
                   type="button"
                   onClick={() => setIsFormOpen(false)}
-                  className="px-4 py-2 bg-[#1A1A1E] hover:bg-zinc-800 text-slate-350 border border-[#3e3e42] rounded-xl transition font-semibold cursor-pointer"
+                   className="px-4 py-2 bg-[#1A1A1E] hover:bg-zinc-800 text-white border border-[#3e3e42] rounded-xl transition font-semibold cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   id="btn-save-operator-submit"
                   type="submit"
-                  className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl transition font-semibold cursor-pointer"
+                   className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl transition font-semibold cursor-pointer"
                 >
-                  Registrar Rol
+                   {editingUid ? 'Actualizar Datos' : 'Registrar Rol'}
                 </button>
               </div>
             </form>
@@ -480,6 +679,42 @@ export default function RolesManager({
         </div>,
         document.body
       )}
+
+       {/* CORRESPONDENCE PORTAL DELETE OPERATOR OVERLAY */}
+       {deleteConfirmUid && createPortal(
+         <div id="overlay-delete-operator" className="fixed inset-0 bg-black/85 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in font-sans">
+           <div id="delete-operator-modal-body" className="bg-[#2A2A2E] rounded-2xl border border-[#3e3e42] shadow-2xl max-w-sm w-full overflow-hidden p-6 space-y-4 text-xs">
+             <div className="text-center space-y-2">
+               <div className="w-12 h-12 bg-rose-500/10 border border-rose-500/20 rounded-full flex items-center justify-center mx-auto text-rose-500">
+                 <ShieldAlert className="w-6 h-6" />
+               </div>
+               <h3 className="text-sm font-bold text-slate-100 uppercase tracking-widest">
+                 Revocar Credenciales
+               </h3>
+               <p className="text-[11.5px] text-slate-300 leading-relaxed">
+                 ¿Está seguro de revocar de forma inmediata todos los privilegios de acceso para: <span className="font-bold text-white">"{deleteConfirmName}"</span>?
+               </p>
+             </div>
+             <div className="flex gap-2.5 pt-2">
+               <button
+                 id="btn-cancel-delete"
+                 onClick={() => setDeleteConfirmUid(null)}
+                 className="flex-1 py-2 bg-[#1A1A1E] hover:bg-zinc-800 text-white border border-[#3e3e42] rounded-xl transition font-semibold cursor-pointer"
+               >
+                 No, mantener
+               </button>
+               <button
+                 id="btn-confirm-delete"
+                 onClick={handleConfirmDelete}
+                 className="flex-1 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl transition font-semibold cursor-pointer"
+               >
+                 Sí, revocar definitivo
+               </button>
+             </div>
+           </div>
+         </div>,
+         document.body
+       )}
 
     </div>
   );

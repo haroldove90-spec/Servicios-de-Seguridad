@@ -29,6 +29,111 @@ import ResidentesManager from './components/ResidentesManager';
 import CasetasManager from './components/CasetasManager';
 import { generateQRWithLogo } from './utils/qrWithLogo';
 
+// Global panic audio state managers
+let activeAudio: HTMLAudioElement | null = null;
+let sirenInterval: any = null;
+let audioCtx: AudioContext | null = null;
+let oscillator1: OscillatorNode | null = null;
+let oscillator2: OscillatorNode | null = null;
+let gainNode: GainNode | null = null;
+
+function playPanicSound() {
+  // 1. Play real Mp3 audio (Loud warning siren)
+  try {
+    if (activeAudio) {
+      activeAudio.pause();
+    }
+    const alarmUrl = "https://www.soundjay.com/misc/sounds/siren-1.mp3";
+    activeAudio = new Audio(alarmUrl);
+    activeAudio.loop = true;
+    activeAudio.volume = 1.0;
+    activeAudio.play().catch(err => {
+      console.warn("Audio element playback blocked by browser gesture, fallback to Web Audio API", err);
+    });
+  } catch (err) {
+    console.warn("HTML5 Audio execution error", err);
+  }
+
+  // 2. Play programmatic Piercing Emergency Siren as standard backup / layered sound
+  try {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+    
+    // Create dual oscillators for piercing beat dissonance (feels like a genuine alarm)
+    oscillator1 = audioCtx.createOscillator();
+    oscillator2 = audioCtx.createOscillator();
+    gainNode = audioCtx.createGain();
+    
+    oscillator1.connect(gainNode);
+    oscillator2.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    
+    oscillator1.type = 'sawtooth';
+    oscillator2.type = 'sawtooth';
+    
+    oscillator1.frequency.setValueAtTime(500, audioCtx.currentTime);
+    oscillator2.frequency.setValueAtTime(508, audioCtx.currentTime);
+    
+    gainNode.gain.setValueAtTime(0.35, audioCtx.currentTime);
+    
+    oscillator1.start();
+    oscillator2.start();
+    
+    let goingUp = true;
+    sirenInterval = setInterval(() => {
+      if (!audioCtx || !oscillator1 || !oscillator2) return;
+      const t = audioCtx.currentTime;
+      if (goingUp) {
+        oscillator1.frequency.linearRampToValueAtTime(900, t + 0.2);
+        oscillator2.frequency.linearRampToValueAtTime(910, t + 0.2);
+        goingUp = false;
+      } else {
+        oscillator1.frequency.linearRampToValueAtTime(450, t + 0.2);
+        oscillator2.frequency.linearRampToValueAtTime(458, t + 0.2);
+        goingUp = true;
+      }
+    }, 220);
+    
+  } catch(e) {
+    console.warn("Web Audio API generation issue", e);
+  }
+}
+
+function stopPanicSound() {
+  try {
+    if (activeAudio) {
+      activeAudio.pause();
+      activeAudio = null;
+    }
+  } catch(e) {}
+  
+  if (sirenInterval) {
+    clearInterval(sirenInterval);
+    sirenInterval = null;
+  }
+  
+  try {
+    if (oscillator1) {
+      oscillator1.stop();
+      oscillator1.disconnect();
+      oscillator1 = null;
+    }
+    if (oscillator2) {
+      oscillator2.stop();
+      oscillator2.disconnect();
+      oscillator2 = null;
+    }
+    if (gainNode) {
+      gainNode.disconnect();
+      gainNode = null;
+    }
+  } catch(e) {}
+}
+
 export default function App() {
   // Authentication states
   const [user, setUser] = useState<any | null>(() => {
@@ -126,6 +231,24 @@ export default function App() {
 
   // Master Access logs (cached/shared states)
   const [accessLogs, setAccessLogs] = useState<AccessLog[]>([]);
+  const [globalPanicActive, setGlobalPanicActive] = useState<boolean>(false);
+
+  useEffect(() => {
+    (window as any).globalPanicActive = globalPanicActive;
+    if (globalPanicActive) {
+      playPanicSound();
+    } else {
+      stopPanicSound();
+    }
+    
+    (window as any).onGlobalPanicChange = (state: boolean) => {
+      setGlobalPanicActive(state);
+    };
+
+    return () => {
+      stopPanicSound();
+    };
+  }, [globalPanicActive]);
   
   // Navigation tabs
   const [activeTab, setActiveTab] = useState<'scan' | 'crud' | 'reports' | 'roles' | 'residencias' | 'residentes' | 'casetas'>(() => {
@@ -670,7 +793,7 @@ export default function App() {
                   <div className="grid grid-cols-1 gap-1.5 font-sans">
                     <button 
                       onClick={() => {
-                        handleRoleSelection(SystemUserRole.ADMIN, 'Administrador CNLS (Simulado)', 'crud');
+                        handleRoleSelection(SystemUserRole.ADMIN, 'Administrador CNLS', 'crud');
                         setIsDrawerOpen(false);
                       }}
                       className="w-full text-left px-4 py-3 bg-[#1A1A1E] hover:bg-[#343438] text-white rounded-xl text-xs font-bold transition flex items-center gap-3 cursor-pointer border border-[#3e3e42] hover:border-red-500/20 animate-fade-in"
@@ -679,7 +802,7 @@ export default function App() {
                     </button>
                     <button 
                       onClick={() => {
-                        handleRoleSelection(SystemUserRole.SUPERVISOR, 'Oficial de Seguridad (Simulado)', 'scan');
+                        handleRoleSelection(SystemUserRole.SUPERVISOR, 'Oficial de Seguridad', 'scan');
                         setIsDrawerOpen(false);
                       }}
                       className="w-full text-left px-4 py-3 bg-[#1A1A1E] hover:bg-[#343438] text-white rounded-xl text-xs font-bold transition flex items-center gap-3 cursor-pointer border border-[#3e3e42] hover:border-red-500/20"
@@ -911,7 +1034,7 @@ export default function App() {
               {/* CARD 1: ADMIN */}
               <div 
                 id="role-gateway-card-admin"
-                onClick={() => handleRoleSelection(SystemUserRole.ADMIN, 'Administrador CNLS (Simulado)', 'crud')}
+                onClick={() => handleRoleSelection(SystemUserRole.ADMIN, 'Administrador CNLS', 'crud')}
                 className="group relative bg-[#2A2A2E] hover:bg-[#343438] border border-[#3e3e42] hover:border-red-500 rounded-3xl p-6 shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden"
               >
                 <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 blur-3xl rounded-full group-hover:bg-red-500/10 transition"></div>
@@ -934,7 +1057,7 @@ export default function App() {
               {/* CARD 2: SEGURIDAD / CASETA */}
               <div 
                 id="role-gateway-card-supervisor"
-                onClick={() => handleRoleSelection(SystemUserRole.SUPERVISOR, 'Oficial de Seguridad (Simulado)', 'scan')}
+                onClick={() => handleRoleSelection(SystemUserRole.SUPERVISOR, 'Oficial de Seguridad', 'scan')}
                 className="group relative bg-[#2A2A2E] hover:bg-[#343438] border border-[#3e3e42] hover:border-red-500 rounded-3xl p-6 shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden"
               >
                 <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 blur-3xl rounded-full group-hover:bg-red-500/10 transition"></div>
@@ -1117,6 +1240,31 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      {/* Circular Floating Panic Button (Accessible on home and all roles) */}
+      <button
+        id="global-floating-panic-actuator"
+        onClick={() => {
+          const nextState = !globalPanicActive;
+          setGlobalPanicActive(nextState);
+          (window as any).globalPanicActive = nextState;
+          if ((window as any).onGlobalPanicChange) {
+            (window as any).onGlobalPanicChange(nextState);
+          }
+        }}
+        className={`fixed bottom-6 right-6 z-55 p-4 rounded-full shadow-2xl flex items-center justify-center cursor-pointer transition-all duration-300 ${
+          globalPanicActive 
+            ? 'bg-red-600 border-2 border-white text-white animate-bounce ring-4 ring-red-500/50 scale-110' 
+            : 'bg-red-800 border border-red-500/30 text-white hover:bg-red-700 hover:scale-105 shadow-red-500/25 shadow-lg'
+        }`}
+        style={{ width: '58px', height: '58px' }}
+        title={globalPanicActive ? "Desactivar Botón de Pánico" : "🚨 Activar Botón de Pánico"}
+      >
+        <AlertTriangle className={`w-6 h-6 ${globalPanicActive ? 'animate-pulse text-white' : 'text-red-100'}`} />
+        {globalPanicActive && (
+          <span className="absolute inset-0 rounded-full bg-red-600/30 animate-ping z-[-1]" />
+        )}
+      </button>
     </div>
   );
 }

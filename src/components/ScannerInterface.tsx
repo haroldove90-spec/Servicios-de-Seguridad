@@ -61,6 +61,28 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
     currentGuardRef.current = currentGuard;
   }, [currentGuard]);
 
+  useEffect(() => {
+    const syncPanic = () => {
+      const globalState = !!(window as any).globalPanicActive;
+      if (globalState !== panicActive) {
+        setPanicActive(globalState);
+        if (globalState) {
+          setUseCamera(false);
+          setScanResult(prev => prev || {
+            success: false,
+            message: '⚠ BLOQUEO ACTIVO: Alarma de Emergencia emitida al centro de comando regional.',
+            status: LogStatus.REVOKED_USER
+          });
+        } else {
+          setScanResult(null);
+        }
+      }
+    };
+    syncPanic();
+    const interval = setInterval(syncPanic, 150);
+    return () => clearInterval(interval);
+  }, [panicActive]);
+
   // States for live bitácora logs and testing filters
   const [recentLogs, setRecentLogs] = useState<AccessLog[]>([]);
   const [recentSearch, setRecentSearch] = useState<string>('');
@@ -71,6 +93,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
   const [onsitePeople, setOnsitePeople] = useState<{ userId: string; name: string; document: string; time: string }[]>([]);
   const [votedFeatures, setVotedFeatures] = useState<string[]>([]);
   const [checklistFeedback, setChecklistFeedback] = useState<string>('');
+  const [deleteConfirmLogId, setDeleteConfirmLogId] = useState<string | null>(null);
 
   // Camera & Mobile permissions manager hook
   const [cameraPermission, setCameraPermission] = useState<'prompt' | 'granted' | 'denied' | 'checking'>('checking');
@@ -178,16 +201,21 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
     }
   };
 
-  const handleDeleteAccessLog = async (id: string) => {
-    if (window.confirm('¿Está seguro de que desea eliminar este registro de acceso de la bitácora?')) {
+  const handleDeleteAccessLog = (id: string) => {
+    setDeleteConfirmLogId(id);
+  };
+
+  const handleConfirmDeleteAccessLog = async () => {
+    if (deleteConfirmLogId) {
       try {
-        await dbService.deleteAccessLog(id);
+        await dbService.deleteAccessLog(deleteConfirmLogId);
         reloadRecentLogs();
         reloadOnsitePeople();
         onScanLogged();
       } catch (err) {
         console.error('Error al eliminar el registro de acceso:', err);
       }
+      setDeleteConfirmLogId(null);
     }
   };
 
@@ -1062,7 +1090,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
         </div>
 
         {/* Sandbox Simulation Frame for instant testing */}
-        {true && (
+        {false && (
           <div id="simulation-sandbox-tray" className="mt-8 border-t border-zinc-900 pt-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <div className="flex items-center gap-2">
@@ -1292,7 +1320,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
               <p className="text-xs text-slate-400 max-w-xs mx-auto mt-2 leading-relaxed">
                 {currentGuard?.role === SystemUserRole.SUPERVISOR 
                   ? 'Posicione el código QR del pase del residente o visitante frente al lector o cámara para validar su ingreso/salida.'
-                  : 'Escanea un QR o introduce datos en el panel simulador de la izquierda para desplegar el dictamen automático de entrada/salida y revisar credenciales.'
+                  : 'Escanea un QR o introduce datos en el panel de la izquierda para desplegar el dictamen automático de entrada/salida y revisar credenciales.'
                 }
               </p>
               <div id="active-guard-context-card" className="mt-8 inline-block bg-black border border-zinc-800 rounded-xl px-4 py-2.5 text-xs text-slate-300 text-left">
@@ -1412,7 +1440,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
                       )}
                     </td>
                     <td className="py-3 px-4 text-slate-400 font-medium">
-                      {log.guardName || 'Sistema'}
+                      {(log.guardName || 'Sistema').replace(/\s*\(Simulado\)/gi, '')}
                     </td>
                     <td className="py-3 px-4 text-center">
                       <button
@@ -1461,10 +1489,17 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
         <button
           id="panic-toggle-actuator-btn"
           onClick={() => {
-            const prev = panicActive;
-            setPanicActive(!prev);
+            const nextState = !panicActive;
+            setPanicActive(nextState);
             setUseCamera(false);
-            if (!prev) {
+            
+            // Sync with global custom handlers
+            (window as any).globalPanicActive = nextState;
+            if ((window as any).onGlobalPanicChange) {
+              (window as any).onGlobalPanicChange(nextState);
+            }
+
+            if (nextState) {
               setScanResult({
                 success: false,
                 message: '⚠ BLOQUEO ACTIVO: Alarma de Emergencia emitida al centro de comando regional.',
@@ -1597,6 +1632,37 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
                   </button>
                 );
               })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CUSTOM LOG DELETION CONFIRMATION */}
+      {deleteConfirmLogId && (
+        <div id="delete-log-confirm-overlay" className="fixed inset-0 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-[#18181c] rounded-2xl border border-[#2e2e38] shadow-2xl max-w-sm w-full p-6 text-center text-xs text-slate-200">
+            <div className="w-12 h-12 bg-red-500/10 text-red-500 border border-red-500/20 rounded-2xl flex items-center justify-center mb-4 mx-auto transition">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <h3 className="font-bold text-slate-100 text-sm mb-3 uppercase tracking-wider">Confirmar Eliminación</h3>
+            <p className="text-slate-300 leading-relaxed mb-6">
+              ¿Está seguro de que desea eliminar permanentemente este registro de acceso de la bitácora? Esta acción no se puede deshacer.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmLogId(null)}
+                className="px-4 py-2.5 bg-[#1A1A1E] hover:bg-[#2A2A2E] text-slate-200 border border-[#2e2e38] font-semibold rounded-xl transition cursor-pointer"
+              >
+                No, cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteAccessLog}
+                className="px-4 py-2.5 bg-red-650 hover:bg-red-550 text-white font-semibold rounded-xl transition cursor-pointer"
+              >
+                Sí, eliminar
+              </button>
             </div>
           </div>
         </div>

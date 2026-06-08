@@ -41,6 +41,8 @@ export default function AdminDashboard({ onUsersUpdated }: AdminDashboardProps) 
   const [selectedQRUser, setSelectedQRUser] = useState<AuthorizedUser | null>(null);
   const [generatedQRUrl, setGeneratedQRUrl] = useState<string>('');
   const [copiedToken, setCopiedToken] = useState<boolean>(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deleteConfirmName, setDeleteConfirmName] = useState<string>('');
 
   // Load visitors list
   const loadVisitors = () => {
@@ -160,11 +162,18 @@ export default function AdminDashboard({ onUsersUpdated }: AdminDashboardProps) 
     setIsFormOpen(false);
   };
 
-  const handleDeleteVisitor = async (id: string, name: string) => {
-    if (window.confirm(`¿Está seguro de que desea eliminar permanentemente los accesos autorizados para "${name}"?`)) {
-      await dbService.deleteAuthorizedUser(id);
+  const handleDeleteVisitor = (id: string, name: string) => {
+    setDeleteConfirmId(id);
+    setDeleteConfirmName(name);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (deleteConfirmId) {
+      await dbService.deleteAuthorizedUser(deleteConfirmId);
       loadVisitors();
       onUsersUpdated();
+      setDeleteConfirmId(null);
+      setDeleteConfirmName('');
     }
   };
 
@@ -608,6 +617,41 @@ export default function AdminDashboard({ onUsersUpdated }: AdminDashboardProps) 
                 className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-xl text-xs transition cursor-pointer"
               >
                 Compartir Pase
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* CUSTOM CONFIRMATION DIALOG */}
+      {deleteConfirmId && createPortal(
+        <div id="delete-confirmation-overlay" className="fixed inset-0 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-[#2A2A2E] rounded-2xl border border-[#3e3e42] shadow-2xl max-w-sm w-full p-6 text-center text-xs text-slate-200">
+            <div className="w-12 h-12 bg-red-550/15 text-red-500 border border-red-500/25 rounded-2xl flex items-center justify-center mb-4 mx-auto group-hover:scale-110 transition">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <h3 className="font-bold text-slate-100 text-sm mb-3 uppercase tracking-wider">Confirmar Eliminación</h3>
+            <p className="text-slate-300 leading-relaxed mb-6">
+              ¿Está seguro de que desea eliminar permanentemente los accesos autorizados para <strong className="text-red-400">"{deleteConfirmName}"</strong>? Esta acción no se puede deshacer.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteConfirmId(null);
+                  setDeleteConfirmName('');
+                }}
+                className="px-4 py-2.5 bg-[#1A1A1E] hover:bg-zinc-800 text-slate-200 border border-[#3e3e42] font-semibold rounded-xl transition cursor-pointer"
+              >
+                No, cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                className="px-4 py-2.5 bg-red-650 hover:bg-red-555 text-white font-semibold rounded-xl transition cursor-pointer"
+              >
+                Sí, eliminar
               </button>
             </div>
           </div>

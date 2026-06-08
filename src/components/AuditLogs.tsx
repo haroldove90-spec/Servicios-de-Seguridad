@@ -260,7 +260,7 @@ export default function AuditLogs({ logs, onRefresh }: AuditLogsProps) {
                       </span>
                     </td>
                     <td className="py-3.5 px-5 whitespace-nowrap text-right text-slate-400">
-                      <span className="font-semibold text-slate-200">{log.guardName}</span>
+                      <span className="font-semibold text-slate-200">{(log.guardName || '').replace(/\s*\(Simulado\)/gi, '')}</span>
                       <span className="block text-[9.5px] text-slate-400 font-mono">{log.guardId}</span>
                     </td>
                   </tr>

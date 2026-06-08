@@ -41,6 +41,9 @@ export default function ResidentesManager({ onRefresh }: ResidentesManagerProps)
   const [selectedResidentQR, setSelectedResidentQR] = useState<Residente | null>(null);
   const [generatedQRUrl, setGeneratedQRUrl] = useState<string>('');
   const [copiedToken, setCopiedToken] = useState<boolean>(false);
+  const [formIsVisitor, setFormIsVisitor] = useState<boolean>(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deleteConfirmNombre, setDeleteConfirmNombre] = useState<string>('');
 
   const loadData = async () => {
     try {
@@ -83,6 +86,7 @@ export default function ResidentesManager({ onRefresh }: ResidentesManagerProps)
     setFormDireccion('');
     setFormWhatsapp('');
     setFormCreateQR(true);
+    setFormIsVisitor(false);
     
     // Set default validity to 1 year
     const d = new Date();
@@ -94,7 +98,8 @@ export default function ResidentesManager({ onRefresh }: ResidentesManagerProps)
 
   const handleOpenEditForm = (item: Residente) => {
     setEditingId(item.id);
-    setFormNombre(item.nombre);
+    const cleanName = item.nombre.replace(/\s*\(Visita\)/g, '').replace(/\s*\(Residente\)/g, '').trim();
+    setFormNombre(cleanName);
     setFormResidenciaId(item.residenciaId);
     setFormDireccion(item.direccion);
     setFormWhatsapp(item.whatsapp || '');
@@ -102,6 +107,9 @@ export default function ResidentesManager({ onRefresh }: ResidentesManagerProps)
 
     // Try to load linked AuthorizedUser validUntil or fallback to 1 year from now
     const linkedUser = authorizedUsers.find(u => u.id === item.accessUserId || (item.qrcodeToken && u.qrcodeToken === item.qrcodeToken));
+    const isVis = linkedUser?.name.includes('(Visita)') || item.nombre.includes('(Visita)') || false;
+    setFormIsVisitor(isVis);
+
     if (linkedUser && linkedUser.validUntil) {
       const d = new Date(linkedUser.validUntil);
       setFormValidUntil(new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16));
@@ -127,6 +135,8 @@ export default function ResidentesManager({ onRefresh }: ResidentesManagerProps)
       return;
     }
 
+    const cleanName = formNombre.replace(/\s*\(Visita\)/g, '').replace(/\s*\(Residente\)/g, '').trim();
+
     // Generate or use existing QR token
     let qrToken = '';
     let accessUserId = '';
@@ -147,10 +157,10 @@ export default function ResidentesManager({ onRefresh }: ResidentesManagerProps)
       const endOfYear = new Date(formValidUntil);
 
       const authUserPayload: Omit<AuthorizedUser, 'id'> = {
-        name: formNombre.trim() + ' (Residente)',
+        name: cleanName + (formIsVisitor ? ' (Visita)' : ' (Residente)'),
         documentId: 'RESID-' + matchedComplex.nombre.substring(0, 3).toUpperCase() + '-' + formDireccion.trim().replace(/\s+/g, '-').toUpperCase(),
-        email: 'residente@local.casa',
-        phone: '',
+        email: formIsVisitor ? 'visita@local.casa' : 'residente@local.casa',
+        phone: formWhatsapp.trim(),
         status: UserStatus.ACTIVE,
         qrcodeToken: qrToken,
         oneTime: false,
@@ -181,7 +191,7 @@ export default function ResidentesManager({ onRefresh }: ResidentesManagerProps)
     }
 
     const payload = {
-      nombre: formNombre.trim(),
+      nombre: cleanName + (formIsVisitor ? ' (Visita)' : ''),
       residenciaId: formResidenciaId,
       residenciaNombre: matchedComplex.nombre,
       direccion: formDireccion.trim(),
@@ -209,19 +219,28 @@ export default function ResidentesManager({ onRefresh }: ResidentesManagerProps)
     }
   };
 
-  const handleDelete = async (item: Residente) => {
-    if (window.confirm(`¿Está seguro de que desea eliminar permanentemente al residente "${item.nombre}"? Esto también revocará sus credenciales QR de acceso.`)) {
-      try {
-        // Revoke linked access profile as well
-        if (item.accessUserId) {
-          await dbService.deleteAuthorizedUser(item.accessUserId);
+  const handleDelete = (item: Residente) => {
+    setDeleteConfirmId(item.id);
+    setDeleteConfirmNombre(item.nombre);
+  };
+
+  const handleConfirmDeleteResidente = async () => {
+    if (deleteConfirmId) {
+      const item = residentes.find(r => r.id === deleteConfirmId);
+      if (item) {
+        try {
+          if (item.accessUserId) {
+            await dbService.deleteAuthorizedUser(item.accessUserId);
+          }
+          await dbService.deleteResidente(item.id);
+          loadData();
+          if (onRefresh) onRefresh();
+        } catch (error) {
+          console.error('Error deleting resident:', error);
         }
-        await dbService.deleteResidente(item.id);
-        loadData();
-        if (onRefresh) onRefresh();
-      } catch (error) {
-        console.error('Error deleting resident:', error);
       }
+      setDeleteConfirmId(null);
+      setDeleteConfirmNombre('');
     }
   };
 
@@ -508,6 +527,21 @@ export default function ResidentesManager({ onRefresh }: ResidentesManagerProps)
                 </p>
               </div>
 
+              <div className="pt-2 border-t border-[#2e2e38]/40">
+                <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={formIsVisitor}
+                    onChange={(e) => setFormIsVisitor(e.target.checked)}
+                    className="w-4 h-4 rounded text-red-500 focus:ring-transparent bg-[#111115] border-[#2e2e38]"
+                  />
+                  <span className="text-xs text-slate-300 font-medium">Registrar como visitas</span>
+                </label>
+                <p className="text-[10px] text-slate-500 mt-1 ml-6">
+                  Si se activa el perfil de acceso del residente, se le identificará como visitante ("Pase de Visita") en la caseta de control en lugar de residente regular.
+                </p>
+              </div>
+
               {formCreateQR && (
                 <div className="bg-[#111115] border border-[#2e2e38] p-4 rounded-xl space-y-2">
                   <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
@@ -659,6 +693,40 @@ export default function ResidentesManager({ onRefresh }: ResidentesManagerProps)
                 className="flex flex-col items-center gap-1 p-2 border border-slate-800 rounded-xl bg-slate-950/40 hover:bg-slate-95 hover:text-white text-slate-400 transition-all cursor-pointer text-[9px] font-extrabold uppercase tracking-wider"
               >
                 <X className="w-4 h-4 text-slate-500 hover:text-white" /> Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CUSTOM CONFIRM ACTION */}
+      {deleteConfirmId && (
+        <div id="delete-resident-confirm-overlay" className="fixed inset-0 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-[#18181c] rounded-2xl border border-[#2e2e38] shadow-2xl max-w-sm w-full p-6 text-center text-xs text-slate-200">
+            <div className="w-12 h-12 bg-red-500/10 text-red-500 border border-red-500/20 rounded-2xl flex items-center justify-center mb-4 mx-auto transition">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <h3 className="font-bold text-slate-100 text-sm mb-3 uppercase tracking-wider">Confirmar Eliminación</h3>
+            <p className="text-slate-300 leading-relaxed mb-6">
+              ¿Está seguro de que desea eliminar permanentemente al residente <strong className="text-red-400">"{deleteConfirmNombre}"</strong>? Esto también revocará sus credenciales QR de acceso.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteConfirmId(null);
+                  setDeleteConfirmNombre('');
+                }}
+                className="px-4 py-2.5 bg-[#1A1A1E] hover:bg-[#2A2A2E] text-slate-200 border border-[#2e2e38] font-semibold rounded-xl transition cursor-pointer"
+              >
+                No, cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteResidente}
+                className="px-4 py-2.5 bg-red-650 hover:bg-red-550 text-white font-semibold rounded-xl transition cursor-pointer"
+              >
+                Sí, eliminar
               </button>
             </div>
           </div>
