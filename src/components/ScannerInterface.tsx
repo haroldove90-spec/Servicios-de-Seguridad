@@ -484,39 +484,79 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
       const tokenClean = token.trim();
       let tokenToQuery = tokenClean;
       
-      // Support robust extraction of 'pass=' from URL or standard search string
-      if (tokenClean.includes('pass=')) {
-        const index = tokenClean.indexOf('pass=');
-        if (index !== -1) {
-          const afterPass = tokenClean.substring(index + 5);
-          const ampersandIndex = afterPass.indexOf('&');
-          if (ampersandIndex !== -1) {
-            tokenToQuery = afterPass.substring(0, ampersandIndex).trim();
-          } else {
-            tokenToQuery = afterPass.trim();
-          }
+      // Decrypt/Decode URL encoding if fully encoded
+      try {
+        if (tokenClean.includes('%')) {
+          tokenToQuery = decodeURIComponent(tokenToQuery);
         }
-      } else if (tokenClean.startsWith('http://') || tokenClean.startsWith('https://')) {
+      } catch (err) {
+        console.warn('decodeUriComponent error on raw token input:', err);
+      }
+
+      // Support extremely robust extraction of 'pass=' or 'token=' from URL or search string/hash
+      if (tokenToQuery.includes('?') || tokenToQuery.includes('#') || tokenToQuery.startsWith('http://') || tokenToQuery.startsWith('https://')) {
         try {
-          const urlParams = new URL(tokenClean);
-          const passParam = urlParams.searchParams.get('pass');
-          if (passParam) {
-            tokenToQuery = passParam.trim();
+          let urlString = tokenToQuery;
+          if (!tokenToQuery.startsWith('http://') && !tokenToQuery.startsWith('https://')) {
+            urlString = 'https://dummy.com' + (tokenToQuery.startsWith('/') ? '' : '/') + tokenToQuery;
+          }
+          const url = new URL(urlString);
+          
+          let extraction = url.searchParams.get('pass') || url.searchParams.get('token');
+          
+          if (!extraction && url.hash) {
+            const hashStr = url.hash;
+            if (hashStr.includes('pass=')) {
+              extraction = hashStr.split('pass=')[1]?.split('&')[0];
+            } else if (hashStr.includes('token=')) {
+              extraction = hashStr.split('token=')[1]?.split('&')[0];
+            }
+          }
+          
+          if (extraction) {
+            tokenToQuery = extraction.trim();
           }
         } catch (urlErr) {
-          console.warn('URL structure extraction fallback:', urlErr);
+          console.warn('URL parameters extraction failed, parsing using string split fallback:', urlErr);
+          if (tokenToQuery.includes('pass=')) {
+            const index = tokenToQuery.indexOf('pass=');
+            const afterPass = tokenToQuery.substring(index + 5);
+            const ampIndex = afterPass.indexOf('&');
+            tokenToQuery = ampIndex !== -1 ? afterPass.substring(0, ampIndex) : afterPass;
+          } else if (tokenToQuery.includes('token=')) {
+            const index = tokenToQuery.indexOf('token=');
+            const afterTok = tokenToQuery.substring(index + 6);
+            const ampIndex = afterTok.indexOf('&');
+            tokenToQuery = ampIndex !== -1 ? afterTok.substring(0, ampIndex) : afterTok;
+          }
         }
       }
 
-      tokenToQuery = decodeURIComponent(tokenToQuery).trim();
+      tokenToQuery = tokenToQuery.trim();
       
-      const users = await dbService.getAuthorizedUsers();
-      let matchedUser = users.find(u => u.qrcodeToken === tokenToQuery);
+      // 1. Direct real-time lookup from Supabase with key-normalization
+      let matchedUser = await dbService.getAuthorizedUserByToken(tokenToQuery);
+      
+      // 2. Cache-fallback if direct lookup yielded nothing
+      if (!matchedUser) {
+        const users = await dbService.getAuthorizedUsers();
+        matchedUser = users.find(u => 
+          u.qrcodeToken?.trim() === tokenToQuery || 
+          u.qrcodeToken?.trim().toLowerCase() === tokenToQuery.toLowerCase()
+        );
+      }
 
       // Dynamic self-healing recovery for registered residents (like Sandra Santiago)
       if (!matchedUser) {
-        const allResidents = await dbService.getResidentes();
-        const matchedRes = allResidents.find(r => r.qrcodeToken === tokenToQuery);
+        let matchedRes = await dbService.getResidenteByToken(tokenToQuery);
+        
+        if (!matchedRes) {
+          const allResidents = await dbService.getResidentes();
+          matchedRes = allResidents.find(r => 
+            r.qrcodeToken?.trim() === tokenToQuery || 
+            r.qrcodeToken?.trim().toLowerCase() === tokenToQuery.toLowerCase()
+          );
+        }
         
         if (matchedRes) {
           // Automatically provision missing authorized_users link

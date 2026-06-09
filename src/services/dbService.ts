@@ -46,6 +46,67 @@ function generateId(): string {
   return Math.random().toString(36).substring(2, 11);
 }
 
+// Key normalization helpers to map both camelCase and snake_case properties robustly
+export function normalizeUserRow(raw: any): AuthorizedUser {
+  if (!raw) return raw;
+  return {
+    id: raw.id,
+    name: raw.name,
+    documentId: raw.documentId ?? raw.document_id ?? raw.documentid,
+    email: raw.email,
+    phone: raw.phone,
+    status: raw.status,
+    qrcodeToken: raw.qrcodeToken ?? raw.qrcode_token ?? raw.qrcodetoken ?? raw.qr_token,
+    oneTime: raw.oneTime ?? raw.one_time ?? raw.onetime ?? false,
+    used: raw.used ?? false,
+    validFrom: raw.validFrom ?? raw.valid_from ?? raw.validfrom,
+    validUntil: raw.validUntil ?? raw.valid_until ?? raw.validuntil,
+    days: raw.days ?? [],
+    startTime: raw.startTime ?? raw.start_time ?? raw.starttime,
+    endTime: raw.endTime ?? raw.end_time ?? raw.endtime,
+    createdAt: raw.createdAt ?? raw.created_at ?? raw.createdat,
+    updatedAt: raw.updatedAt ?? raw.updated_at ?? raw.updatedat,
+    createdBy: raw.createdBy ?? raw.created_by ?? raw.createdby,
+    residenciaId: raw.residenciaId ?? raw.residencia_id ?? raw.residenciaid,
+    residenciaNombre: raw.residenciaNombre ?? raw.residencia_nombre ?? raw.residencianombre,
+    isResidentCreated: raw.isResidentCreated ?? raw.is_resident_created ?? raw.isresidentcreated,
+    residentName: raw.residentName ?? raw.resident_name ?? raw.residentname,
+    residentPhone: raw.residentPhone ?? raw.resident_phone ?? raw.residentphone
+  };
+}
+
+export function normalizeResidentRow(raw: any): Residente {
+  if (!raw) return raw;
+  return {
+    id: raw.id,
+    nombre: raw.nombre,
+    residenciaId: raw.residenciaId ?? raw.residencia_id ?? raw.residenciaid,
+    residenciaNombre: raw.residenciaNombre ?? raw.residencia_nombre ?? raw.residencianombre,
+    direccion: raw.direccion,
+    qrcodeToken: raw.qrcodeToken ?? raw.qrcode_token ?? raw.qrcodetoken ?? raw.qr_token,
+    whatsapp: raw.whatsapp,
+    accessUserId: raw.accessUserId ?? raw.access_user_id ?? raw.accessuserid,
+    validUntil: raw.validUntil ?? raw.valid_until ?? raw.validuntil,
+    createdAt: raw.createdAt ?? raw.created_at ?? raw.createdat,
+    updatedAt: raw.updatedAt ?? raw.updated_at ?? raw.updatedat
+  };
+}
+
+export function normalizeLogRow(raw: any): AccessLog {
+  if (!raw) return raw;
+  return {
+    id: raw.id,
+    userId: raw.userId ?? raw.user_id ?? raw.userid,
+    userName: raw.userName ?? raw.user_name ?? raw.username,
+    documentId: raw.documentId ?? raw.document_id ?? raw.documentid,
+    timestamp: raw.timestamp,
+    type: raw.type,
+    status: raw.status,
+    guardId: raw.guardId ?? raw.guard_id ?? raw.guardid,
+    guardName: raw.guardName ?? raw.guard_name ?? raw.guardname
+  };
+}
+
 // ----------------------------------------------------
 // LOCAL STORAGE ENGINE
 // ----------------------------------------------------
@@ -508,7 +569,7 @@ export const dbService = {
         .order('createdAt', { ascending: false });
 
       if (!error && data) {
-        remoteUsers = data as AuthorizedUser[];
+        remoteUsers = (data as any[]).map(normalizeUserRow);
         success = true;
       } else if (error) {
         console.warn('Supabase getAuthorizedUsers query warning. Code:', error.code, 'Msg:', error.message);
@@ -544,6 +605,58 @@ export const dbService = {
     remoteUsers.forEach(u => unifiedMap.set(u.id, u));
 
     return Array.from(unifiedMap.values()).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  },
+
+  async getAuthorizedUserByToken(token: string): Promise<AuthorizedUser | null> {
+    if (!token) return null;
+    const tokenClean = token.trim();
+    
+    // 1. Direct query from Supabase using possible column names or lowercases
+    try {
+      const { data, error } = await supabase
+        .from('authorized_users')
+        .select('*');
+
+      if (!error && data) {
+        const mapped = (data as any[]).map(normalizeUserRow);
+        const found = mapped.find(u => 
+          u.qrcodeToken?.trim() === tokenClean || 
+          u.qrcodeToken?.trim().toLowerCase() === tokenClean.toLowerCase()
+        );
+        if (found) {
+          console.log('Found authorized user by token directly in Supabase using scan find:', found.name);
+          return found;
+        }
+      }
+    } catch (err) {
+      console.warn('getAuthorizedUserByToken direct Supabase exception:', err);
+    }
+
+    // 2. Direct lookup from local storage
+    const localUsers = LocalDB.getUsers();
+    const foundLocal = localUsers.find(u => 
+      u.qrcodeToken?.trim() === tokenClean || 
+      u.qrcodeToken?.trim().toLowerCase() === tokenClean.toLowerCase()
+    );
+    if (foundLocal) {
+      return foundLocal;
+    }
+
+    // 3. Fallback to Firebase
+    if (!IS_FIREBASE_DUMMY) {
+      try {
+        const colRef = collection(db, 'authorized_users');
+        const q = query(colRef, where('qrcodeToken', '==', tokenClean));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          return snap.docs[0].data() as AuthorizedUser;
+        }
+      } catch (err) {
+        console.warn('getAuthorizedUserByToken direct Firestore exception:', err);
+      }
+    }
+
+    return null;
   },
 
   async createAuthorizedUser(user: Omit<AuthorizedUser, 'id'>): Promise<AuthorizedUser> {
@@ -709,7 +822,7 @@ export const dbService = {
         .order('timestamp', { ascending: false });
 
       if (!error && data) {
-        return data as AccessLog[];
+        return (data as any[]).map(normalizeLogRow);
       }
       if (error) {
         console.warn('Supabase getAccessLogs returned query error. Code:', error.code, 'Msg:', error.message);
@@ -950,7 +1063,7 @@ export const dbService = {
         .order('createdAt', { ascending: false });
 
       if (!error && data) {
-        return data as Residente[];
+        return (data as any[]).map(normalizeResidentRow);
       }
       if (error) {
         console.warn('Supabase getResidentes returned query error. Code:', error.code, 'Msg:', error.message);
@@ -976,6 +1089,58 @@ export const dbService = {
       handleFirestoreError(err, OperationType.LIST, 'residentes');
       return [];
     }
+  },
+
+  async getResidenteByToken(token: string): Promise<Residente | null> {
+    if (!token) return null;
+    const tokenClean = token.trim();
+
+    // 1. Direct query from Supabase with possible uppercase/lowercase normalization
+    try {
+      const { data, error } = await supabase
+        .from('residentes')
+        .select('*');
+
+      if (!error && data) {
+        const mapped = (data as any[]).map(normalizeResidentRow);
+        const found = mapped.find(r => 
+          r.qrcodeToken?.trim() === tokenClean || 
+          r.qrcodeToken?.trim().toLowerCase() === tokenClean.toLowerCase()
+        );
+        if (found) {
+          console.log('Found resident by token directly in Supabase using scan find:', found.nombre);
+          return found;
+        }
+      }
+    } catch (err) {
+      console.warn('getResidenteByToken direct Supabase exception:', err);
+    }
+
+    // 2. Direct lookup from local storage
+    const localResidents = LocalDB.getResidentes();
+    const foundLocal = localResidents.find(r => 
+      r.qrcodeToken?.trim() === tokenClean || 
+      r.qrcodeToken?.trim().toLowerCase() === tokenClean.toLowerCase()
+    );
+    if (foundLocal) {
+      return foundLocal;
+    }
+
+    // 3. Fallback to Firebase
+    if (!IS_FIREBASE_DUMMY) {
+      try {
+        const colRef = collection(db, 'residentes');
+        const q = query(colRef, where('qrcodeToken', '==', tokenClean));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          return snap.docs[0].data() as Residente;
+        }
+      } catch (err) {
+        console.warn('getResidenteByToken direct Firestore exception:', err);
+      }
+    }
+
+    return null;
   },
 
   async createResidente(residente: Omit<Residente, 'id'>): Promise<Residente> {
