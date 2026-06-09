@@ -49,7 +49,10 @@ CREATE TABLE IF NOT EXISTS public.authorized_users (
     "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     "createdBy" TEXT NOT NULL,
     "residenciaId" TEXT REFERENCES public.residencias(id) ON DELETE SET NULL,
-    "residenciaNombre" TEXT
+    "residenciaNombre" TEXT,
+    "isResidentCreated" BOOLEAN DEFAULT FALSE,
+    "residentName" TEXT,
+    "residentPhone" TEXT
 );
 
 -- 4. Table for Access Logs (Bitácora de Entrada / Salida en Caseta)
@@ -85,7 +88,9 @@ CREATE TABLE IF NOT EXISTS public.system_roles (
     "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     phone TEXT,
     password TEXT,
-    "isActive" BOOLEAN DEFAULT TRUE
+    "isActive" BOOLEAN DEFAULT TRUE,
+    "residenciaId" TEXT REFERENCES public.residencias(id) ON DELETE SET NULL,
+    "residenciaNombre" TEXT
 );
 
 -- ====================================================================
@@ -117,8 +122,13 @@ VALUES (
 -- ====================================================================
 ALTER TABLE public.authorized_users ADD COLUMN IF NOT EXISTS "residenciaId" TEXT REFERENCES public.residencias(id) ON DELETE SET NULL;
 ALTER TABLE public.authorized_users ADD COLUMN IF NOT EXISTS "residenciaNombre" TEXT;
+ALTER TABLE public.authorized_users ADD COLUMN IF NOT EXISTS "isResidentCreated" BOOLEAN DEFAULT FALSE;
+ALTER TABLE public.authorized_users ADD COLUMN IF NOT EXISTS "residentName" TEXT;
+ALTER TABLE public.authorized_users ADD COLUMN IF NOT EXISTS "residentPhone" TEXT;
 ALTER TABLE public.residentes ADD COLUMN IF NOT EXISTS "validUntil" TIMESTAMP WITH TIME ZONE;
 ALTER TABLE public.system_roles ADD COLUMN IF NOT EXISTS phone TEXT;
 ALTER TABLE public.system_roles ADD COLUMN IF NOT EXISTS password TEXT;
 ALTER TABLE public.system_roles ADD COLUMN IF NOT EXISTS "isActive" BOOLEAN DEFAULT TRUE;
+ALTER TABLE public.system_roles ADD COLUMN IF NOT EXISTS "residenciaId" TEXT REFERENCES public.residencias(id) ON DELETE SET NULL;
+ALTER TABLE public.system_roles ADD COLUMN IF NOT EXISTS "residenciaNombre" TEXT;
 
