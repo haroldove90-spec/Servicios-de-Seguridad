@@ -108,6 +108,164 @@ export function normalizeLogRow(raw: any): AccessLog {
 }
 
 // ----------------------------------------------------
+// MULTI-CASING DATABASE INTELLIGENCE HELPERS
+// ----------------------------------------------------
+
+// Helper to transform any JS object keys from CamelCase to Lowercase
+export function toLowercaseKeys(obj: any): any {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
+  const newObj: any = {};
+  for (const key of Object.keys(obj)) {
+    newObj[key.toLowerCase()] = obj[key];
+  }
+  return newObj;
+}
+
+// Helper to transform camelCase to snake_case
+export function toSnakeCase(str: string): string {
+  return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+}
+
+export function toSnakeCaseKeys(obj: any): any {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
+  const newObj: any = {};
+  for (const key of Object.keys(obj)) {
+    newObj[toSnakeCase(key)] = obj[key];
+  }
+  return newObj;
+}
+
+export async function robustSupabaseInsert(tableName: string, camelPayload: any) {
+  // Try 1: CamelCase (as provided in JS)
+  try {
+    const { data, error } = await supabase
+      .from(tableName)
+      .insert(camelPayload)
+      .select();
+    if (!error) return { data, error: null };
+    
+    console.warn(`Supabase insert CamelCase failed on ${tableName}:`, error.code, error.message);
+    
+    // Try 2: Lowercase keys
+    const lowercasePayload = toLowercaseKeys(camelPayload);
+    const { data: data2, error: error2 } = await supabase
+      .from(tableName)
+      .insert(lowercasePayload)
+      .select();
+    if (!error2) {
+      console.log(`Supabase insert Lowercase keys SUCCEEDED on ${tableName}!`);
+      return { data: data2, error: null };
+    }
+    
+    console.warn(`Supabase insert Lowercase failed on ${tableName}:`, error2.code, error2.message);
+
+    // Try 3: Snake Case keys
+    const snakePayload = toSnakeCaseKeys(camelPayload);
+    const { data: data3, error: error3 } = await supabase
+      .from(tableName)
+      .insert(snakePayload)
+      .select();
+    if (!error3) {
+      console.log(`Supabase insert SnakeCase keys SUCCEEDED on ${tableName}!`);
+      return { data: data3, error: null };
+    }
+    
+    return { data: null, error: error3 };
+  } catch (err: any) {
+    console.error(`robustSupabaseInsert exception on ${tableName}:`, err);
+    return { data: null, error: err };
+  }
+}
+
+export async function robustSupabaseUpdate(tableName: string, camelUpdates: any, idKey: string, idVal: string) {
+  try {
+    const { error } = await supabase
+      .from(tableName)
+      .update(camelUpdates)
+      .eq(idKey, idVal);
+    if (!error) return { error: null };
+    
+    console.warn(`Supabase update CamelCase failed on ${tableName}:`, error.code, error.message);
+
+    // Try 2: Lowercase keys
+    const lowercaseUpdates = toLowercaseKeys(camelUpdates);
+    const lowIdKey = idKey.toLowerCase();
+    const { error: error2 } = await supabase
+      .from(tableName)
+      .update(lowercaseUpdates)
+      .eq(lowIdKey, idVal);
+    if (!error2) {
+      console.log(`Supabase update Lowercase keys SUCCEEDED on ${tableName}!`);
+      return { error: null };
+    }
+
+    console.warn(`Supabase update Lowercase failed on ${tableName}:`, error2.code, error2.message);
+
+    // Try 3: Snake Case keys
+    const snakeUpdates = toSnakeCaseKeys(camelUpdates);
+    const snakeIdKey = toSnakeCase(idKey);
+    const { error: error3 } = await supabase
+      .from(tableName)
+      .update(snakeUpdates)
+      .eq(snakeIdKey, idVal);
+    if (!error3) {
+      console.log(`Supabase update SnakeCase keys SUCCEEDED on ${tableName}!`);
+      return { error: null };
+    }
+
+    return { error: error3 };
+  } catch (err: any) {
+    console.error(`robustSupabaseUpdate exception on ${tableName}:`, err);
+    return { error: err };
+  }
+}
+
+export async function robustSupabaseSelectAll(tableName: string, preferredOrderField?: string): Promise<any[]> {
+  try {
+    if (preferredOrderField) {
+      // Try 1: With preferred order field as camelCase
+      const { data, error } = await supabase
+        .from(tableName)
+        .select('*')
+        .order(preferredOrderField, { ascending: false });
+      if (!error && data) return data;
+
+      // Try 2: With preferred order field all lowercase
+      const { data: data2, error: error2 } = await supabase
+        .from(tableName)
+        .select('*')
+        .order(preferredOrderField.toLowerCase(), { ascending: false });
+      if (!error2 && data2) return data2;
+
+      // Try 3: With preferred order field snake case
+      const { data: data3, error: error3 } = await supabase
+        .from(tableName)
+        .select('*')
+        .order(toSnakeCase(preferredOrderField), { ascending: false });
+      if (!error3 && data3) return data3;
+    }
+
+    // Try 4: Flat fetch without ordering, we will sort on client
+    const { data: data4, error: error4 } = await supabase
+      .from(tableName)
+      .select('*');
+    if (!error4 && data4) return data4;
+
+    console.warn(`All Supabase fetch attempts failed on ${tableName}:`, error4?.message);
+    throw new Error(error4?.message || 'Fetch failed');
+  } catch (err) {
+    console.warn(`robustSupabaseSelectAll exception on ${tableName}:`, err);
+    // Try final fallback without any bells and whistles
+    try {
+      const { data } = await supabase.from(tableName).select('*');
+      return data || [];
+    } catch (finalErr) {
+      return [];
+    }
+  }
+}
+
+// ----------------------------------------------------
 // LOCAL STORAGE ENGINE
 // ----------------------------------------------------
 const LocalDB = {
@@ -563,16 +721,13 @@ export const dbService = {
     let success = false;
 
     try {
-      const { data, error } = await supabase
-        .from('authorized_users')
-        .select('*')
-        .order('createdAt', { ascending: false });
-
-      if (!error && data) {
-        remoteUsers = (data as any[]).map(normalizeUserRow);
+      const data = await robustSupabaseSelectAll('authorized_users', 'createdAt');
+      if (data && data.length > 0) {
+        remoteUsers = data.map(normalizeUserRow);
         success = true;
-      } else if (error) {
-        console.warn('Supabase getAuthorizedUsers query warning. Code:', error.code, 'Msg:', error.message);
+      } else {
+        // Flat fetch succeeded but empty or handled gracefully
+        success = true;
       }
     } catch (err) {
       console.warn('Supabase getAuthorizedUsers critical exception, using local fallbacks:', err);
@@ -613,12 +768,9 @@ export const dbService = {
     
     // 1. Direct query from Supabase using possible column names or lowercases
     try {
-      const { data, error } = await supabase
-        .from('authorized_users')
-        .select('*');
-
-      if (!error && data) {
-        const mapped = (data as any[]).map(normalizeUserRow);
+      const data = await robustSupabaseSelectAll('authorized_users');
+      if (data && data.length > 0) {
+        const mapped = data.map(normalizeUserRow);
         const found = mapped.find(u => 
           u.qrcodeToken?.trim() === tokenClean || 
           u.qrcodeToken?.trim().toLowerCase() === tokenClean.toLowerCase()
@@ -670,46 +822,11 @@ export const dbService = {
 
     // 2. Propagate to Supabase as primary cloud store
     try {
-      const { error } = await supabase
-        .from('authorized_users')
-        .insert(newUser);
-
-      if (!error) {
-        return newUser;
-      }
-      console.warn('Supabase createAuthorizedUser returned query error. Code:', error.code, 'Msg:', error.message);
-
-      // If error is code 42703 (undefined_column), retry by filtering out newer columns
-      if (error.code === '42703' || (error.message && error.message.includes('column'))) {
-        console.log('Detected undefined_column error on Supabase, retrying with core columns...');
-        const coreUser = {
-          id: newUser.id,
-          name: newUser.name,
-          documentId: newUser.documentId,
-          email: newUser.email,
-          phone: newUser.phone,
-          status: newUser.status,
-          qrcodeToken: newUser.qrcodeToken,
-          oneTime: newUser.oneTime,
-          used: newUser.used,
-          validFrom: newUser.validFrom,
-          validUntil: newUser.validUntil,
-          days: newUser.days,
-          startTime: newUser.startTime,
-          endTime: newUser.endTime,
-          createdAt: newUser.createdAt,
-          updatedAt: newUser.updatedAt,
-          createdBy: newUser.createdBy
-        };
-        const { error: retryError } = await supabase
-          .from('authorized_users')
-          .insert(coreUser);
-
-        if (!retryError) {
-          console.log('Supabase retry succeeded with core columns!');
-          return newUser;
-        }
-        console.warn('Supabase core columns insertion also failed:', retryError.message);
+      const { error } = await robustSupabaseInsert('authorized_users', newUser);
+      if (error) {
+        console.warn('Supabase createAuthorizedUser returned query error:', error);
+      } else {
+        console.log('Successfully inserted authorized user to Supabase!');
       }
     } catch (err) {
       console.warn('Supabase createAuthorizedUser exception, relying on local sync:', err);
@@ -743,27 +860,12 @@ export const dbService = {
 
     // 2. Propagate to Supabase
     try {
-      const { error } = await supabase
-        .from('authorized_users')
-        .update({ ...updates, updatedAt: new Date().toISOString() })
-        .eq('id', id);
-
+      const updatesWithTimestamp = { ...updates, updatedAt: new Date().toISOString() };
+      const { error } = await robustSupabaseUpdate('authorized_users', updatesWithTimestamp, 'id', id);
       if (error) {
-        console.warn('Supabase updateAuthorizedUser returned query error. Code:', error.code, 'Msg:', error.message);
-        if (error.code === '42703' || (error.message && error.message.includes('column'))) {
-          console.log('Detected undefined_column error on Supabase update, filtering and retrying...');
-          const { isResidentCreated, residentName, residentPhone, residenciaId, residenciaNombre, ...coreUpdates } = updates as any;
-          const { error: retryError } = await supabase
-            .from('authorized_users')
-            .update({ ...coreUpdates, updatedAt: new Date().toISOString() })
-            .eq('id', id);
-
-          if (retryError) {
-            console.warn('Supabase core updates update also failed:', retryError.message);
-          } else {
-            console.log('Supabase update retry succeeded with core columns!');
-          }
-        }
+        console.warn('Supabase updateAuthorizedUser returned query error:', error);
+      } else {
+        console.log('Successfully updated authorized user in Supabase!');
       }
     } catch (err) {
       console.warn('Supabase updateAuthorizedUser exception, using fallback sync:', err);
@@ -855,14 +957,12 @@ export const dbService = {
     const newLog: AccessLog = { ...log, id };
 
     try {
-      const { error } = await supabase
-        .from('access_logs')
-        .insert(newLog);
-
-      if (!error) {
-        return newLog;
+      const { error } = await robustSupabaseInsert('access_logs', newLog);
+      if (error) {
+        console.warn('Supabase createAccessLog returned query error:', error);
+      } else {
+        console.log('Successfully inserted access log to Supabase!');
       }
-      console.warn('Supabase createAccessLog returned query error. Code:', error.code, 'Msg:', error.message);
     } catch (err) {
       console.warn('Supabase createAccessLog exception, using fallback:', err);
     }
@@ -1148,39 +1248,11 @@ export const dbService = {
     const newResidente: Residente = { ...residente, id };
 
     try {
-      const { error } = await supabase
-        .from('residentes')
-        .insert(newResidente);
-
-      if (!error) {
-        return newResidente;
-      }
-      console.warn('Supabase createResidente returned query error. Code:', error.code, 'Msg:', error.message);
-
-      // If undefined_column error, retry without newer validUntil column
-      if (error.code === '42703' || (error.message && error.message.includes('column'))) {
-        console.log('Detected undefined_column error on Supabase residentes, retrying without validUntil...');
-        const coreResidente = {
-          id: newResidente.id,
-          nombre: newResidente.nombre,
-          residenciaId: newResidente.residenciaId,
-          residenciaNombre: newResidente.residenciaNombre,
-          direccion: newResidente.direccion,
-          qrcodeToken: newResidente.qrcodeToken,
-          whatsapp: newResidente.whatsapp,
-          accessUserId: newResidente.accessUserId,
-          createdAt: newResidente.createdAt,
-          updatedAt: newResidente.updatedAt
-        };
-        const { error: retryError } = await supabase
-          .from('residentes')
-          .insert(coreResidente);
-
-        if (!retryError) {
-          console.log('Supabase residentes insertion retry succeeded!');
-          return newResidente;
-        }
-        console.warn('Supabase core residentes insert failure:', retryError.message);
+      const { error } = await robustSupabaseInsert('residentes', newResidente);
+      if (error) {
+        console.warn('Supabase createResidente returned query error:', error);
+      } else {
+        console.log('Successfully inserted resident to Supabase!');
       }
     } catch (err) {
       console.warn('Supabase createResidente exception, using fallback:', err);
@@ -1205,27 +1277,12 @@ export const dbService = {
 
   async updateResidente(id: string, updates: Partial<Residente>): Promise<void> {
     try {
-      const { error } = await supabase
-        .from('residentes')
-        .update({ ...updates, updatedAt: new Date().toISOString() })
-        .eq('id', id);
-
+      const updatesWithTimestamp = { ...updates, updatedAt: new Date().toISOString() };
+      const { error } = await robustSupabaseUpdate('residentes', updatesWithTimestamp, 'id', id);
       if (error) {
-        console.warn('Supabase updateResidente returned query error. Code:', error.code, 'Msg:', error.message);
-        if (error.code === '42703' || (error.message && error.message.includes('column'))) {
-          console.log('Detected undefined_column error on Supabase updateResidente, retrying without validUntil...');
-          const { validUntil, ...coreUpdates } = updates;
-          const { error: retryError } = await supabase
-            .from('residentes')
-            .update({ ...coreUpdates, updatedAt: new Date().toISOString() })
-            .eq('id', id);
-
-          if (retryError) {
-            console.warn('Supabase core residentes update failed:', retryError.message);
-          } else {
-            console.log('Supabase updateResidente retry succeeded!');
-          }
-        }
+        console.warn('Supabase updateResidente returned query error:', error);
+      } else {
+        console.log('Successfully updated resident in Supabase!');
       }
     } catch (err) {
       console.warn('Supabase updateResidente exception, using fallback:', err);
