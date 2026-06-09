@@ -929,7 +929,7 @@ export default function App() {
         />
         <div 
           id="cnls-lateral-drawer"
-          className={`fixed top-0 left-0 bottom-0 w-80 bg-[#2A2A2E] border-r border-[#3e3e42] z-[60] p-6 flex flex-col justify-between transition-transform duration-300 ease-out transform ${
+          className={`fixed top-0 left-0 bottom-0 w-80 bg-[#2A2A2E] border-r border-[#3e3e42] z-[60] p-6 flex flex-col justify-between overflow-y-auto transition-transform duration-300 ease-out transform ${
             isDrawerOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
         >
