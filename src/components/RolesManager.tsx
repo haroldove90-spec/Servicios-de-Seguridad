@@ -293,7 +293,8 @@ export default function RolesManager({
   const getRoleLabel = (r: SystemUserRole) => {
     switch (r) {
       case SystemUserRole.ADMIN: return 'Director Admin 🛡️';
-      case SystemUserRole.GUARD: return 'Residente 🏠';
+      case SystemUserRole.RESIDENTE: return 'Residente 🏠';
+      case SystemUserRole.GUARD: return 'Residente (Legacy) 🏠';
       case SystemUserRole.SUPERVISOR: return 'Seguridad 🛡️';
       case SystemUserRole.AUDITOR: return 'Auditor Cumplimiento 🔍';
       default: return 'Desconocido';
@@ -305,6 +306,7 @@ export default function RolesManager({
       case SystemUserRole.ADMIN: return 'bg-red-500/15 text-red-400 border-red-505/30';
       case SystemUserRole.SUPERVISOR: return 'bg-amber-500/10 text-amber-400 border-amber-500/25';
       case SystemUserRole.GUARD: return 'bg-zinc-800 text-zinc-300 border-zinc-700';
+      case SystemUserRole.RESIDENTE: return 'bg-blue-550/15 text-blue-400 border-blue-500/20';
       case SystemUserRole.AUDITOR: return 'bg-purple-500/10 text-purple-400 border-purple-500/15';
       default: return 'bg-slate-800 text-slate-400 border-slate-700';
     }
@@ -854,6 +856,7 @@ export default function RolesManager({
                   className="w-full px-3 py-2 bg-[#1A1A1E] border border-[#3e3e42] text-white rounded-xl focus:border-red-500 focus:outline-hidden cursor-pointer"
                 >
                    <option value={SystemUserRole.SUPERVISOR} className="bg-[#1A1A1E]" >👮 Seguridad / Control de Accesos (Lector QR, Bitácora)</option>
+                   <option value={SystemUserRole.RESIDENTE} className="bg-[#1A1A1E]" >🏠 Residente (Panel para dar de alta Visitas con QR)</option>
                    <option value={SystemUserRole.ADMIN} className="bg-[#1A1A1E]" >🛡️ Director Administrador (Control Total Maestro)</option>
                 </select>
               </div>

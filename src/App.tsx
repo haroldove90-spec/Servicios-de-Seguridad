@@ -29,6 +29,8 @@ import ResidentesManager from './components/ResidentesManager';
 import CasetasManager from './components/CasetasManager';
 import { ProfileManager } from './components/ProfileManager';
 import { ManualUsuario } from './components/ManualUsuario';
+import ResidentDashboard from './components/ResidentDashboard';
+import VisitasDeResidentes from './components/VisitasDeResidentes';
 import { generateQRWithLogo } from './utils/qrWithLogo';
 
 // Global panic audio state managers
@@ -253,7 +255,7 @@ export default function App() {
   }, [globalPanicActive]);
   
   // Navigation tabs - activated with profile view as well
-  const [activeTab, setActiveTab] = useState<'scan' | 'crud' | 'reports' | 'roles' | 'residencias' | 'residentes' | 'casetas' | 'perfil' | 'manual'>(() => {
+  const [activeTab, setActiveTab] = useState<'scan' | 'crud' | 'reports' | 'roles' | 'residencias' | 'residentes' | 'casetas' | 'perfil' | 'manual' | 'visitas' | 'visitas_admin'>(() => {
     return (localStorage.getItem('cnls_active_tab') as any) || 'scan';
   });
   const [hasSelectedRole, setHasSelectedRole] = useState<boolean>(() => {
@@ -275,7 +277,7 @@ export default function App() {
   const [selectedLoginTarget, setSelectedLoginTarget] = useState<{
     role: SystemUserRole;
     label: string;
-    defaultTab: 'scan' | 'crud' | 'reports' | 'roles' | 'residencias' | 'residentes' | 'casetas' | 'perfil' | 'manual';
+    defaultTab: 'scan' | 'crud' | 'reports' | 'roles' | 'residencias' | 'residentes' | 'casetas' | 'perfil' | 'manual' | 'visitas' | 'visitas_admin';
     residenciaId?: string;
     residenciaNombre?: string;
   } | null>(null);
@@ -343,6 +345,8 @@ export default function App() {
       // Instantly route based on matched role
       if (matched.role === SystemUserRole.ADMIN) {
         setActiveTab('crud');
+      } else if (matched.role === SystemUserRole.RESIDENTE) {
+        setActiveTab('visitas');
       } else {
         setActiveTab('scan');
       }
@@ -419,7 +423,7 @@ export default function App() {
   const handleRoleSelection = (
     role: SystemUserRole, 
     nameSimulated: string, 
-    defaultTab: 'scan' | 'crud' | 'reports' | 'roles' | 'residencias' | 'residentes' | 'casetas',
+    defaultTab: 'scan' | 'crud' | 'reports' | 'roles' | 'residencias' | 'residentes' | 'casetas' | 'perfil' | 'manual' | 'visitas' | 'visitas_admin',
     residenciaId?: string,
     residenciaNombre?: string
   ) => {
@@ -701,6 +705,7 @@ export default function App() {
   const isSupervisor = userRole?.role === SystemUserRole.SUPERVISOR;
   const isAuditor = userRole?.role === SystemUserRole.AUDITOR;
   const isGuard = userRole?.role === SystemUserRole.GUARD;
+  const isResidente = userRole?.role === SystemUserRole.RESIDENTE;
 
   // Strict role separation for custom dashboards
   const canScan = isGuard || isSupervisor || isAdmin;
@@ -711,21 +716,29 @@ export default function App() {
   const canManageResidents = isAdmin;
   const canManageCasetas = isAdmin;
 
+  // Resident role permissions for creating individual 1-day visits with QR
+  const canManageYourVisits = isResidente || isGuard; // Guard is legacy resident or guard. We give both resident privileges.
+  const canManageAllResidentVisits = isAdmin;
+
   // Gracefully redirect the user if they simulation-switch roles and lose tab privilege
   useEffect(() => {
     if (!userRole) return;
     const current = activeTab;
     if (current === 'scan' && !canScan) {
-      if (canCrud) setActiveTab('crud');
+      if (canManageYourVisits) setActiveTab('visitas');
+      else if (canCrud) setActiveTab('crud');
       else if (canReports) setActiveTab('reports');
     } else if (current === 'crud' && !canCrud) {
-      if (canScan) setActiveTab('scan');
+      if (canManageYourVisits) setActiveTab('visitas');
+      else if (canScan) setActiveTab('scan');
       else if (canReports) setActiveTab('reports');
     } else if (current === 'reports' && !canReports) {
-      if (canScan) setActiveTab('scan');
+      if (canManageYourVisits) setActiveTab('visitas');
+      else if (canScan) setActiveTab('scan');
       else if (canCrud) setActiveTab('crud');
     } else if (current === 'roles' && !canManageRoles) {
-      if (canScan) setActiveTab('scan');
+      if (canManageYourVisits) setActiveTab('visitas');
+      else if (canScan) setActiveTab('scan');
       else if (canCrud) setActiveTab('crud');
       else setActiveTab('reports');
     } else if (
@@ -733,15 +746,26 @@ export default function App() {
       (current === 'residentes' && !canManageResidents) ||
       (current === 'casetas' && !canManageCasetas)
     ) {
-      if (canScan) setActiveTab('scan');
+      if (canManageYourVisits) setActiveTab('visitas');
+      else if (canScan) setActiveTab('scan');
       else if (canCrud) setActiveTab('crud');
       else setActiveTab('reports');
     } else if (current === 'manual' && !isAdmin) {
+      if (canManageYourVisits) setActiveTab('visitas');
+      else if (canScan) setActiveTab('scan');
+      else if (canCrud) setActiveTab('crud');
+      else setActiveTab('reports');
+    } else if (current === 'visitas' && !canManageYourVisits) {
       if (canScan) setActiveTab('scan');
       else if (canCrud) setActiveTab('crud');
       else setActiveTab('reports');
+    } else if (current === 'visitas_admin' && !canManageAllResidentVisits) {
+      if (canManageYourVisits) setActiveTab('visitas');
+      else if (canScan) setActiveTab('scan');
+      else if (canCrud) setActiveTab('crud');
+      else setActiveTab('reports');
     }
-  }, [userRole, activeTab, canScan, canCrud, canReports, canManageRoles, canManageResidences, canManageResidents, canManageCasetas, isAdmin]);
+  }, [userRole, activeTab, canScan, canCrud, canReports, canManageRoles, canManageResidences, canManageResidents, canManageCasetas, isAdmin, isResidente, isGuard, canManageYourVisits, canManageAllResidentVisits]);
 
   // Render standalone high-fidelity mobile visitor passport card if opened with public URL
   if (visitorPassToken) {
@@ -954,6 +978,15 @@ export default function App() {
                     >
                       <Users className="w-4 h-4 text-red-500" /> Caseta General
                     </button>
+                    <button 
+                      onClick={() => {
+                        handleRoleSelection(SystemUserRole.RESIDENTE, 'Haroldo Residente 🏡', 'visitas', 'res_001', 'Lomas de Chapultepec, Casa 15');
+                        setIsDrawerOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-3 bg-[#1A1A1E] hover:bg-[#343438] text-white rounded-xl text-xs font-bold transition flex items-center gap-3 cursor-pointer border border-[#3e3e42] hover:border-blue-500/20"
+                    >
+                      <Home className="w-4 h-4 text-blue-500" /> Residente Autogestión 🏡
+                    </button>
                   </div>
                 </div>
               ) : (
@@ -1042,6 +1075,26 @@ export default function App() {
                         }`}
                       >
                         <Shield className="w-4 h-4" /> Privilegios y Roles
+                      </button>
+                    )}
+                    {canManageYourVisits && (
+                      <button
+                        onClick={() => { setActiveTab('visitas'); setIsDrawerOpen(false); }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer ${
+                          activeTab === 'visitas' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
+                        }`}
+                      >
+                        <QrCode className="w-4 h-4 text-blue-400 shrink-0" /> Autorizar Visitas (Mi QR)
+                      </button>
+                    )}
+                    {canManageAllResidentVisits && (
+                      <button
+                        onClick={() => { setActiveTab('visitas_admin'); setIsDrawerOpen(false); }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer ${
+                          activeTab === 'visitas_admin' ? 'bg-red-650 text-white shadow-lg shadow-red-650/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
+                        }`}
+                      >
+                        <Users className="w-4 h-4 text-emerald-400 shrink-0" /> Visitas de Residentes
                       </button>
                     )}
                     {isAdmin && (
@@ -1584,6 +1637,20 @@ export default function App() {
 
                   {activeTab === 'manual' && isAdmin && (
                     <ManualUsuario />
+                  )}
+
+                  {activeTab === 'visitas' && canManageYourVisits && userRole && (
+                    <ResidentDashboard 
+                      currentResidentUser={userRole} 
+                      onRefresh={reloadAccessLogs} 
+                    />
+                  )}
+
+                  {activeTab === 'visitas_admin' && canManageAllResidentVisits && userRole && (
+                    <VisitasDeResidentes 
+                      currentAdminUser={userRole} 
+                      onRefresh={reloadAccessLogs} 
+                    />
                   )}
                 </div>
 
