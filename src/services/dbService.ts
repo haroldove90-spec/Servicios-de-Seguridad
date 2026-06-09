@@ -138,10 +138,15 @@ export function toSnakeCaseKeys(obj: any): any {
 export async function robustSupabaseInsert(tableName: string, camelPayload: any) {
   let payload = { ...camelPayload };
   
-  // Clean up undefined properties to avoid PostgREST issues
+  // Clean up undefined/empty ID properties to avoid PostgREST foreign key issues (like empty strings)
   for (const k of Object.keys(payload)) {
     if (payload[k] === undefined) {
       delete payload[k];
+    } else if (payload[k] === '') {
+      const lowerK = k.toLowerCase();
+      if (lowerK.endsWith('id') || lowerK.endsWith('_id') || lowerK.includes('residenciaid')) {
+        payload[k] = null;
+      }
     }
   }
 
@@ -205,9 +210,15 @@ export async function robustSupabaseInsert(tableName: string, camelPayload: any)
 export async function robustSupabaseUpdate(tableName: string, camelUpdates: any, idKey: string, idVal: string) {
   let updates = { ...camelUpdates };
   
+  // Clean up undefined/empty ID properties to avoid PostgREST foreign key issues (like empty strings)
   for (const k of Object.keys(updates)) {
     if (updates[k] === undefined) {
       delete updates[k];
+    } else if (updates[k] === '') {
+      const lowerK = k.toLowerCase();
+      if (lowerK.endsWith('id') || lowerK.endsWith('_id') || lowerK.includes('residenciaid')) {
+        updates[k] = null;
+      }
     }
   }
 
@@ -258,6 +269,72 @@ export async function robustSupabaseUpdate(tableName: string, camelUpdates: any,
     }
   }
   return { error: { message: 'Max self-healing database update attempts reached' } };
+}
+
+export async function robustSupabaseUpsert(tableName: string, camelPayload: any) {
+  let payload = { ...camelPayload };
+  
+  // Clean up undefined/empty ID properties to avoid PostgREST foreign key issues (like empty strings)
+  for (const k of Object.keys(payload)) {
+    if (payload[k] === undefined) {
+      delete payload[k];
+    } else if (payload[k] === '') {
+      const lowerK = k.toLowerCase();
+      if (lowerK.endsWith('id') || lowerK.endsWith('_id') || lowerK.includes('residenciaid')) {
+        payload[k] = null;
+      }
+    }
+  }
+
+  const maxAttempts = 10;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const { data, error } = await supabase
+        .from(tableName)
+        .upsert(payload)
+        .select();
+        
+      if (!error) {
+        return { data, error: null };
+      }
+      
+      console.warn(`[Supabase Upsert Attempt ${attempt}] failed on ${tableName}. Code: ${error.code}, Message: ${error.message}`);
+      
+      if (error.code === '42703' || (error.message && error.message.toLowerCase().includes('column'))) {
+        const match = error.message.match(/column "([^"]+)"/i) || error.message.match(/column ([a-zA-Z0-9_]+)/i);
+        if (match && match[1]) {
+          const badCol = match[1];
+          console.log(`Self-healing upsert: Pruning missing column "${badCol}" from ${tableName} payload.`);
+          
+          delete payload[badCol];
+          
+          const badColLower = badCol.toLowerCase();
+          for (const key of Object.keys(payload)) {
+            if (key.toLowerCase() === badColLower || toSnakeCase(key) === badColLower || key === badCol) {
+              delete payload[key];
+            }
+          }
+          continue;
+        } else {
+          if (attempt === 1) {
+            console.log(`Retrying upsert using lowercase keys conversion...`);
+            payload = toLowercaseKeys(payload);
+            continue;
+          } else if (attempt === 2) {
+            console.log(`Retrying upsert using snake_case keys conversion...`);
+            payload = toSnakeCaseKeys(camelPayload);
+            continue;
+          }
+        }
+      }
+      
+      return { data: null, error };
+    } catch (err: any) {
+      console.error(`robustSupabaseUpsert exception on ${tableName} attempt ${attempt}:`, err);
+      return { data: null, error: err };
+    }
+  }
+  return { data: null, error: { message: 'Max self-healing database upsert attempts reached' } };
 }
 
 export async function robustSupabaseSelectAll(tableName: string, preferredOrderField?: string): Promise<any[]> {
@@ -659,14 +736,12 @@ export const dbService = {
 
   async saveSystemRole(role: SystemRole): Promise<void> {
     try {
-      const { error } = await supabase
-        .from('system_roles')
-        .upsert(role);
-
-      if (!error) {
-        return;
+      const { error } = await robustSupabaseUpsert('system_roles', role);
+      if (error) {
+        console.warn('Supabase saveSystemRole returned query error:', error);
+      } else {
+        console.log('Successfully saved system role in Supabase!');
       }
-      console.warn('Supabase saveSystemRole returned query error. Code:', error.code, 'Msg:', error.message);
     } catch (err) {
       console.warn('Supabase saveSystemRole critical exception, using fallback:', err);
     }
@@ -1098,14 +1173,12 @@ export const dbService = {
     const newResidencia: Residencia = { ...residencia, id };
 
     try {
-      const { error } = await supabase
-        .from('residencias')
-        .insert(newResidencia);
-
-      if (!error) {
-        return newResidencia;
+      const { error } = await robustSupabaseInsert('residencias', newResidencia);
+      if (error) {
+        console.warn('Supabase createResidencia returned query error:', error);
+      } else {
+        console.log('Successfully inserted Residence to Supabase!');
       }
-      console.warn('Supabase createResidencia returned query error. Code:', error.code, 'Msg:', error.message);
     } catch (err) {
       console.warn('Supabase createResidencia exception, using fallback:', err);
     }
@@ -1129,15 +1202,13 @@ export const dbService = {
 
   async updateResidencia(id: string, updates: Partial<Residencia>): Promise<void> {
     try {
-      const { error } = await supabase
-        .from('residencias')
-        .update({ ...updates, updatedAt: new Date().toISOString() })
-        .eq('id', id);
-
-      if (!error) {
-        return;
+      const updatesWithTimestamp = { ...updates, updatedAt: new Date().toISOString() };
+      const { error } = await robustSupabaseUpdate('residencias', updatesWithTimestamp, 'id', id);
+      if (error) {
+        console.warn('Supabase updateResidencia returned query error:', error);
+      } else {
+        console.log('Successfully updated Residence in Supabase!');
       }
-      console.warn('Supabase updateResidencia returned query error. Code:', error.code, 'Msg:', error.message);
     } catch (err) {
       console.warn('Supabase updateResidencia exception, using fallback:', err);
     }
