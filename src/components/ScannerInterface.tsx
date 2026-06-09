@@ -595,6 +595,55 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
         }
       }
 
+      // 3. Check if token matches any registered car Marbete
+      if (!matchedUser) {
+        let matchedMarbete = await dbService.getMarbeteByToken(tokenToQuery);
+        if (!matchedMarbete) {
+          const allMarbetes = await dbService.getMarbetes();
+          matchedMarbete = allMarbetes.find(m => 
+            m.qrcodeToken?.trim() === tokenToQuery || 
+            m.qrcodeToken?.trim().toLowerCase() === tokenToQuery.toLowerCase()
+          );
+        }
+
+        if (matchedMarbete) {
+          const isMarbeteExpired = new Date(matchedMarbete.validUntil) < new Date();
+          const marbeteStatus = isMarbeteExpired ? UserStatus.EXPIRED : matchedMarbete.status;
+
+          const marbeteAuthPayload: Omit<AuthorizedUser, 'id'> = {
+            name: `${matchedMarbete.residenteNombre} (Marbete #${matchedMarbete.consecutivo})`,
+            documentId: 'MARBETE-' + matchedMarbete.consecutivo,
+            email: 'marbete@local.casa',
+            phone: '',
+            status: marbeteStatus,
+            qrcodeToken: tokenToQuery,
+            oneTime: false,
+            used: false,
+            validFrom: matchedMarbete.validFrom,
+            validUntil: matchedMarbete.validUntil,
+            days: [],
+            startTime: '00:00',
+            endTime: '23:59',
+            createdAt: matchedMarbete.createdAt,
+            updatedAt: matchedMarbete.updatedAt,
+            createdBy: 'marbete-system-auto',
+            residenciaId: matchedMarbete.residenciaId,
+            residenciaNombre: matchedMarbete.residenciaNombre
+          };
+
+          try {
+            const createdAuth = await dbService.createAuthorizedUser(marbeteAuthPayload);
+            matchedUser = createdAuth;
+          } catch (err) {
+            console.error('Dynamic marbete authorized_user creation failed:', err);
+            matchedUser = {
+              id: 'mar_fallback_' + matchedMarbete.id,
+              ...marbeteAuthPayload
+            };
+          }
+        }
+      }
+
       const guardName = currentGuardRef.current?.name || 'Oficial de Seguridad';
       const guardId = currentGuardRef.current?.uid || 'anonymous-guard';
 

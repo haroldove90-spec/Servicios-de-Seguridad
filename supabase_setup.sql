@@ -93,6 +93,24 @@ CREATE TABLE IF NOT EXISTS public.system_roles (
     "residenciaNombre" TEXT
 );
 
+-- 7. Table for Marbetes (Vehicular Digital residents passes)
+CREATE TABLE IF NOT EXISTS public.marbetes (
+    id TEXT PRIMARY KEY,
+    consecutivo INTEGER NOT NULL DEFAULT 1000,
+    "residenteId" TEXT REFERENCES public.residentes(id) ON DELETE CASCADE,
+    "residenteNombre" TEXT NOT NULL,
+    "residenciaId" TEXT REFERENCES public.residencias(id) ON DELETE SET NULL,
+    "residenciaNombre" TEXT NOT NULL,
+    "vehiculoPlacas" TEXT,
+    "vehiculoInfo" TEXT,
+    "qrcodeToken" TEXT NOT NULL,
+    "validFrom" TIMESTAMP WITH TIME ZONE NOT NULL,
+    "validUntil" TIMESTAMP WITH TIME ZONE NOT NULL,
+    status TEXT NOT NULL,
+    "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
 -- ====================================================================
 -- DISABLE ROW LEVEL SECURITY (RLS) FOR ANONYMOUS DEVELOPMENT ACCESS
 -- This ensures the anon key can perform SELECT, INSERT, UPDATE, DELETE 
@@ -105,6 +123,7 @@ ALTER TABLE public.authorized_users DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.access_logs DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.system_roles DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.casetas DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.marbetes DISABLE ROW LEVEL SECURITY;
 
 -- Optional dummy admin provision (using softwareai569@gmail.com)
 INSERT INTO public.system_roles (uid, email, name, role, "createdAt")

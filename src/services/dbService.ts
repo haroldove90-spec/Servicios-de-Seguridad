@@ -29,7 +29,8 @@ import {
   OperationType,
   Residencia,
   Residente,
-  Caseta
+  Caseta,
+  Marbete
 } from '../types';
 import { supabase } from '../supabase';
 
@@ -40,6 +41,7 @@ const LS_ROLES_KEY = 'qr_system_roles';
 const LS_RESIDENCIAS_KEY = 'qr_residencias';
 const LS_RESIDENTES_KEY = 'qr_residentes';
 const LS_CASETAS_KEY = 'qr_casetas';
+const LS_MARBETES_KEY = 'qr_marbetes';
 
 // Simple unique string generator
 function generateId(): string {
@@ -104,6 +106,26 @@ export function normalizeLogRow(raw: any): AccessLog {
     status: raw.status,
     guardId: raw.guardId ?? raw.guard_id ?? raw.guardid,
     guardName: raw.guardName ?? raw.guard_name ?? raw.guardname
+  };
+}
+
+export function normalizeMarbeteRow(raw: any): Marbete {
+  if (!raw) return raw;
+  return {
+    id: raw.id,
+    consecutivo: Number(raw.consecutivo ?? 0),
+    residenteId: raw.residenteId ?? raw.residente_id ?? raw.residenteid,
+    residenteNombre: raw.residenteNombre ?? raw.residente_nombre ?? raw.residentenombre,
+    residenciaId: raw.residenciaId ?? raw.residencia_id ?? raw.residenciaid,
+    residenciaNombre: raw.residenciaNombre ?? raw.residencia_nombre ?? raw.residencianombre,
+    vehiculoPlacas: raw.vehiculoPlacas ?? raw.vehiculo_placas ?? raw.vehiculoplacas,
+    vehiculoInfo: raw.vehiculoInfo ?? raw.vehiculo_info ?? raw.vehiculoinfo,
+    qrcodeToken: raw.qrcodeToken ?? raw.qrcode_token ?? raw.qrcodetoken ?? raw.qr_token,
+    validFrom: raw.validFrom ?? raw.valid_from ?? raw.validfrom,
+    validUntil: raw.validUntil ?? raw.valid_until ?? raw.validuntil,
+    status: raw.status ?? UserStatus.ACTIVE,
+    createdAt: raw.createdAt ?? raw.created_at ?? raw.createdat,
+    updatedAt: raw.updatedAt ?? raw.updated_at ?? raw.updatedat
   };
 }
 
@@ -687,6 +709,18 @@ const LocalDB = {
 
   saveCasetas(casetas: Caseta[]) {
     localStorage.setItem(LS_CASETAS_KEY, JSON.stringify(casetas));
+  },
+
+  getMarbetes(): Marbete[] {
+    const data = localStorage.getItem(LS_MARBETES_KEY);
+    if (!data) {
+      return [];
+    }
+    return JSON.parse(data);
+  },
+
+  saveMarbetes(marbetes: Marbete[]) {
+    localStorage.setItem(LS_MARBETES_KEY, JSON.stringify(marbetes));
   }
 };
 
@@ -1584,6 +1618,186 @@ export const dbService = {
       await deleteDoc(docRef);
     } catch (err) {
       handleFirestoreError(err, OperationType.DELETE, `casetas/${id}`);
+    }
+  },
+
+  // --------------------------------------------------
+  // Marbetes Management CRUD
+  // --------------------------------------------------
+  async getMarbetes(): Promise<Marbete[]> {
+    try {
+      const data = await robustSupabaseSelectAll('marbetes', 'createdAt');
+      if (data && data.length > 0) {
+        return data.map(normalizeMarbeteRow);
+      }
+    } catch (err) {
+      console.warn('Supabase getMarbetes exception, using fallback:', err);
+    }
+
+    if (IS_FIREBASE_DUMMY) {
+      return LocalDB.getMarbetes().map(normalizeMarbeteRow);
+    }
+
+    try {
+      const colRef = collection(db, 'marbetes');
+      const q = query(colRef, orderBy('createdAt', 'desc'));
+      const snap = await getDocs(q);
+      const results: Marbete[] = [];
+      snap.forEach(d => {
+        results.push(normalizeMarbeteRow(d.data()));
+      });
+      return results;
+    } catch (err) {
+      handleFirestoreError(err, OperationType.LIST, 'marbetes');
+      return [];
+    }
+  },
+
+  async createMarbete(marbete: Omit<Marbete, 'id' | 'consecutivo'>): Promise<Marbete> {
+    const id = 'mar_' + generateId();
+    
+    // Get next consecutive number
+    let nextConsecutivo = 1001; // Start consecutive from 1001 if empty
+    try {
+      const existing = await this.getMarbetes();
+      if (existing.length > 0) {
+        const consecs = existing.map(m => m.consecutivo || 0);
+        const max = consecs.length > 0 ? Math.max(...consecs, 1000) : 1000;
+        nextConsecutivo = max + 1;
+      }
+    } catch (err) {
+      console.warn('Error calculating consecutive number, using default:', err);
+    }
+
+    const newMarbete: Marbete = {
+      ...marbete,
+      id,
+      consecutivo: nextConsecutivo
+    };
+
+    try {
+      const { error } = await robustSupabaseInsert('marbetes', newMarbete);
+      if (!error) {
+        return newMarbete;
+      }
+      console.warn('Supabase createMarbete returned query error:', error);
+    } catch (err) {
+      console.warn('Supabase createMarbete exception, using fallback:', err);
+    }
+
+    if (IS_FIREBASE_DUMMY) {
+      const list = LocalDB.getMarbetes();
+      list.unshift(newMarbete);
+      LocalDB.saveMarbetes(list);
+      return newMarbete;
+    }
+
+    try {
+      const docRef = doc(db, 'marbetes', id);
+      await setDoc(docRef, newMarbete);
+      return newMarbete;
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, `marbetes/${id}`);
+      throw err;
+    }
+  },
+
+  async updateMarbete(id: string, updates: Partial<Marbete>): Promise<void> {
+    try {
+      const updatesWithTimestamp = { ...updates, updatedAt: new Date().toISOString() };
+      const { error } = await robustSupabaseUpdate('marbetes', updatesWithTimestamp, 'id', id);
+      if (!error) {
+        return;
+      }
+      console.warn('Supabase updateMarbete returned query error:', error);
+    } catch (err) {
+      console.warn('Supabase updateMarbete exception, using fallback:', err);
+    }
+
+    if (IS_FIREBASE_DUMMY) {
+      const list = LocalDB.getMarbetes();
+      const updated = list.map(item => {
+        if (item.id === id) {
+          return normalizeMarbeteRow({ ...item, ...updates, updatedAt: new Date().toISOString() });
+        }
+        return item;
+      });
+      LocalDB.saveMarbetes(updated);
+      return;
+    }
+
+    try {
+      const docRef = doc(db, 'marbetes', id);
+      await updateDoc(docRef, { ...updates, updatedAt: new Date().toISOString() });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `marbetes/${id}`);
+    }
+  },
+
+  async deleteMarbete(id: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('marbetes')
+        .delete()
+        .eq('id', id);
+
+      if (!error) {
+        return;
+      }
+      console.warn('Supabase deleteMarbete returned query error:', error);
+    } catch (err) {
+      console.warn('Supabase deleteMarbete exception, using fallback:', err);
+    }
+
+    if (IS_FIREBASE_DUMMY) {
+      const list = LocalDB.getMarbetes();
+      const filtered = list.filter(item => item.id !== id);
+      LocalDB.saveMarbetes(filtered);
+      return;
+    }
+
+    try {
+      const docRef = doc(db, 'marbetes', id);
+      await deleteDoc(docRef);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, `marbetes/${id}`);
+    }
+  },
+
+  async getMarbeteByToken(token: string): Promise<Marbete | null> {
+    if (!token) return null;
+    const tokenClean = token.trim();
+
+    try {
+      const data = await robustSupabaseSelectAll('marbetes');
+      if (data && data.length > 0) {
+        const mapped = data.map(normalizeMarbeteRow);
+        const found = mapped.find(m => m.qrcodeToken?.trim() === tokenClean || m.qrcodeToken?.trim().toLowerCase() === tokenClean.toLowerCase());
+        if (found) {
+          return found;
+        }
+      }
+    } catch (err) {
+      console.warn('getMarbeteByToken direct Supabase exception:', err);
+    }
+
+    if (IS_FIREBASE_DUMMY) {
+      const list = LocalDB.getMarbetes();
+      const found = list.find(m => m.qrcodeToken?.trim() === tokenClean || m.qrcodeToken?.trim().toLowerCase() === tokenClean.toLowerCase());
+      return found ? normalizeMarbeteRow(found) : null;
+    }
+
+    try {
+      const colRef = collection(db, 'marbetes');
+      const q = query(colRef, where('qrcodeToken', '==', tokenClean));
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        return normalizeMarbeteRow(snap.docs[0].data());
+      }
+      return null;
+    } catch (err) {
+      handleFirestoreError(err, OperationType.GET, `marbetes_token/${tokenClean}`);
+      return null;
     }
   }
 

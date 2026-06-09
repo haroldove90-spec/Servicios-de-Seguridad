@@ -15,7 +15,7 @@ import {
   ShieldAlert, ScanLine, Users, FileBarChart2, Shield, LogOut, Check, Sparkles, 
   Database, AlertCircle, Key, Lock, Laptop, CheckCircle2, UserCircle, ShieldCheck,
   QrCode, Smartphone, ExternalLink, HelpCircle, RefreshCw, ChevronDown, ChevronUp,
-  Copy, Download, Clock as ClockIcon, AlertTriangle, Menu, X, Home, BookOpen
+  Copy, Download, Clock as ClockIcon, AlertTriangle, Menu, X, Home, BookOpen, Calendar, Car
 } from 'lucide-react';
 import { auth, IS_FIREBASE_DUMMY } from './firebase';
 import { dbService } from './services/dbService';
@@ -27,12 +27,14 @@ import RolesManager from './components/RolesManager';
 import ResidenciasManager from './components/ResidenciasManager';
 import ResidentesManager from './components/ResidentesManager';
 import CasetasManager from './components/CasetasManager';
+import MarbetesManager from './components/MarbetesManager';
 import { ProfileManager } from './components/ProfileManager';
 import { ManualUsuario } from './components/ManualUsuario';
 import ResidentDashboard from './components/ResidentDashboard';
 import VisitasDeResidentes from './components/VisitasDeResidentes';
 import MetricasDashboard from './components/MetricasDashboard';
 import { generateQRWithLogo } from './utils/qrWithLogo';
+import { exportMarbeteToJPG } from './utils/marbeteExporter';
 
 // Global panic audio state managers
 let activeAudio: HTMLAudioElement | null = null;
@@ -230,6 +232,7 @@ export default function App() {
   // Public visitor pass page variables (if opened with ?pass=TOKEN URL parameter)
   const [visitorPassToken, setVisitorPassToken] = useState<string | null>(null);
   const [visitorPassUser, setVisitorPassUser] = useState<any | null>(null);
+  const [visitorPassMarbete, setVisitorPassMarbete] = useState<any | null>(null);
   const [visitorPassQRUrl, setVisitorPassQRUrl] = useState<string>('');
   const [visitorPassLoading, setVisitorPassLoading] = useState<boolean>(false);
   const [copiedToken, setCopiedToken] = useState<boolean>(false);
@@ -256,7 +259,7 @@ export default function App() {
   }, [globalPanicActive]);
   
   // Navigation tabs - activated with profile view as well
-  const [activeTab, setActiveTab] = useState<'scan' | 'crud' | 'reports' | 'roles' | 'residencias' | 'residentes' | 'casetas' | 'perfil' | 'manual' | 'visitas' | 'visitas_admin'>(() => {
+  const [activeTab, setActiveTab] = useState<'scan' | 'crud' | 'reports' | 'roles' | 'residencias' | 'residentes' | 'casetas' | 'perfil' | 'manual' | 'visitas' | 'visitas_admin' | 'marbetes' | 'metricas'>(() => {
     return (localStorage.getItem('cnls_active_tab') as any) || 'scan';
   });
   const [hasSelectedRole, setHasSelectedRole] = useState<boolean>(() => {
@@ -278,7 +281,7 @@ export default function App() {
   const [selectedLoginTarget, setSelectedLoginTarget] = useState<{
     role: SystemUserRole;
     label: string;
-    defaultTab: 'scan' | 'crud' | 'reports' | 'roles' | 'residencias' | 'residentes' | 'casetas' | 'perfil' | 'manual' | 'visitas' | 'visitas_admin' | 'metricas';
+    defaultTab: 'scan' | 'crud' | 'reports' | 'roles' | 'residencias' | 'residentes' | 'casetas' | 'perfil' | 'manual' | 'visitas' | 'visitas_admin' | 'marbetes' | 'metricas';
     residenciaId?: string;
     residenciaNombre?: string;
   } | null>(null);
@@ -550,7 +553,25 @@ export default function App() {
             setVisitorPassLoading(false);
           });
         } else {
-          setVisitorPassLoading(false);
+          // Check in marbetes!
+          dbService.getMarbetes().then((marbetes) => {
+            const foundMarbete = marbetes.find(m => m.qrcodeToken === token);
+            if (foundMarbete) {
+              setVisitorPassMarbete(foundMarbete);
+              const passUrl = `${window.location.origin}${window.location.pathname}?pass=${token}`;
+              generateQRWithLogo(passUrl).then(url => {
+                setVisitorPassQRUrl(url);
+                setVisitorPassLoading(false);
+              }).catch(err => {
+                console.error('Marbete QR failed', err);
+                setVisitorPassLoading(false);
+              });
+            } else {
+              setVisitorPassLoading(false);
+            }
+          }).catch(() => {
+            setVisitorPassLoading(false);
+          });
         }
       });
     }
@@ -788,6 +809,115 @@ export default function App() {
               <div className="w-8 h-8 border-2 border-red-500 border-t-transparent rounded-full animate-spin mb-4"></div>
               <p className="text-xs text-slate-400">Verificando pase público...</p>
             </div>
+          ) : visitorPassMarbete ? (
+            <>
+              {/* --- PREMIUM MARBETE DIGITAL CARD INTERFACE --- */}
+              <div className="w-full bg-[#111827] rounded-[1.5rem] p-5 border border-slate-800/80 mb-5 relative flex flex-col items-center">
+                
+                {/* Crest Top Image */}
+                <div className="w-40 h-40 flex items-center justify-center mb-1 drop-shadow-lg">
+                  <img 
+                    src="https://cossma.com.mx/cnls.png" 
+                    alt="CNLS Crest" 
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+
+                <div className="text-sm font-bold text-slate-100 tracking-[0.2em] uppercase mb-1">
+                  Marbete Autorizado
+                </div>
+                <div className="text-xs font-mono text-red-500 font-extrabold tracking-widest mb-3">
+                  CONSECUTIVO: #{visitorPassMarbete.consecutivo}
+                </div>
+
+                {/* Floating status badge */}
+                <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                  new Date(visitorPassMarbete.validUntil) >= new Date() && visitorPassMarbete.status === 'active'
+                    ? 'bg-emerald-500/15 text-emerald-450 border border-emerald-500/30'
+                    : 'bg-rose-500/15 text-rose-450 border border-rose-500/30'
+                }`}>
+                  {new Date(visitorPassMarbete.validUntil) >= new Date() && visitorPassMarbete.status === 'active' ? 'VIGENTE ✅' : 'VENCIDO/REVOCADO 🚫'}
+                </span>
+              </div>
+
+              {/* QR Code Container */}
+              <div className="bg-white p-4.5 rounded-[1.5rem] shadow-xl shadow-black/80 inline-block border-2 border-slate-800">
+                {visitorPassQRUrl ? (
+                  <img 
+                    src={visitorPassQRUrl} 
+                    alt="Marbete QR Code" 
+                    className="w-44 h-44 block"
+                    referrerPolicy="referrer"
+                  />
+                ) : (
+                  <div className="w-44 h-44 bg-slate-100 animate-pulse rounded flex items-center justify-center text-slate-400 text-xs">Cargando código...</div>
+                )}
+              </div>
+
+              {/* Resident, Residence, and Vehicle description */}
+              <div className="mt-4 w-full text-center">
+                <h3 className="text-base font-extrabold text-white uppercase leading-tight tracking-wide">{visitorPassMarbete.residenteNombre}</h3>
+                <p className="text-xs text-slate-400 font-mono mt-0.5">{visitorPassMarbete.residenciaNombre}</p>
+                
+                {/* Vehicle plates and description */}
+                {(visitorPassMarbete.vehiculoPlacas || visitorPassMarbete.vehiculoInfo) && (
+                  <div className="mt-2.5 mx-auto max-w-xs bg-slate-900 border border-slate-800 p-2 rounded-xl text-center leading-snug">
+                    {visitorPassMarbete.vehiculoPlacas && (
+                      <p className="text-xs font-mono text-red-400 font-bold uppercase tracking-wider">
+                        PLACAS: {visitorPassMarbete.vehiculoPlacas}
+                      </p>
+                    )}
+                    {visitorPassMarbete.vehiculoInfo && (
+                      <p className="text-[11px] text-slate-300 font-sans mt-0.5 font-medium">
+                        {visitorPassMarbete.vehiculoInfo}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Expiration date */}
+                <div className="mt-3.5 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-450 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span>VENCE: {new Date(visitorPassMarbete.validUntil).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase()}</span>
+                </div>
+              </div>
+
+              {/* Interactive buttons */}
+              <div className="w-full border-t border-slate-800 pt-5 mt-6 flex flex-col gap-2 font-sans">
+                {/* Download Marbete JPG button */}
+                <button
+                  id="download-marbete-jpg-btn"
+                  onClick={() => visitorPassQRUrl && exportMarbeteToJPG(visitorPassMarbete, visitorPassQRUrl)}
+                  className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 bg-emerald-650 hover:bg-emerald-600 text-white font-bold text-sm rounded-xl shadow-lg transition cursor-pointer"
+                >
+                  <Download className="w-4 h-4" /> Guardar en Mi Teléfono (JPG)
+                </button>
+                
+                <button
+                  id="simulate-scan-marbete"
+                  onClick={() => {
+                    handleSimulateScanDirect(visitorPassMarbete.qrcodeToken);
+                    alert('¡Simulando escaneo de Marbete! El sistema del oficial de seguridad registrará y validará su acceso vehicular.');
+                  }}
+                  className="w-full flex items-center justify-center gap-1.5 px-4 py-2 bg-red-650 hover:bg-red-600 text-white font-semibold text-xs rounded-xl shadow-md transition cursor-pointer"
+                >
+                  <ScanLine className="w-4 h-4" /> Simular Paso en Caseta
+                </button>
+
+                <button
+                  id="nav-to-dashboard-from-pass"
+                  onClick={() => {
+                    const nextUrl = window.location.origin + window.location.pathname;
+                    window.history.pushState({}, '', nextUrl);
+                    setVisitorPassToken(null);
+                    setVisitorPassMarbete(null);
+                  }}
+                  className="w-full text-slate-400 hover:text-white font-medium text-xs py-2 transition cursor-pointer"
+                >
+                  Volver al Panel de Seguridad 🛡️
+                </button>
+              </div>
+            </>
           ) : visitorPassUser ? (
             <>
               {/* Visitor Wallet View */}
@@ -1066,6 +1196,16 @@ export default function App() {
                         }`}
                       >
                         <Smartphone className="w-4 h-4" /> Registro de Residente
+                      </button>
+                    )}
+                    {isAdmin && (
+                      <button
+                        onClick={() => { setActiveTab('marbetes'); setIsDrawerOpen(false); }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer ${
+                          activeTab === 'marbetes' ? 'bg-red-650 text-white shadow-lg shadow-red-650/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
+                        }`}
+                      >
+                        <Car className="w-4 h-4 text-red-400 shrink-0" /> Control de Marbetes
                       </button>
                     )}
                     {canManageCasetas && (
@@ -1663,6 +1803,12 @@ export default function App() {
                   {activeTab === 'residentes' && canManageResidents && (
                     <ResidentesManager 
                       onRefresh={loadVisitorsForPhoneList}
+                    />
+                  )}
+
+                  {activeTab === 'marbetes' && isAdmin && (
+                    <MarbetesManager 
+                      onRefresh={handleLogsUpdated}
                     />
                   )}
 

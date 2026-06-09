@@ -116,6 +116,23 @@ export interface Caseta {
   updatedAt: string; // ISO DateTime
 }
 
+export interface Marbete {
+  id: string;
+  consecutivo: number;
+  residenteId: string;
+  residenteNombre: string;
+  residenciaId: string;
+  residenciaNombre: string;
+  vehiculoPlacas?: string;
+  vehiculoInfo?: string; // e.g. "Sentra Gris 2022"
+  qrcodeToken: string;
+  validFrom: string; // ISO DateTime
+  validUntil: string; // ISO DateTime
+  status: UserStatus;
+  createdAt: string; // ISO DateTime
+  updatedAt: string; // ISO DateTime
+}
+
 export enum OperationType {
   CREATE = 'create',
   UPDATE = 'update',
