@@ -1352,7 +1352,7 @@ export default function App() {
                 </p>
 
                 {/* Roles Grid Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left max-w-2xl mx-auto">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left max-w-4xl mx-auto">
                   
                   {/* CARD 1: ADMIN */}
                   <div 
@@ -1366,14 +1366,14 @@ export default function App() {
                       <div className="w-14 h-14 bg-red-550/15 text-red-500 border border-red-500/25 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition shrink-0">
                         <Shield className="w-7 h-7 animate-pulse" />
                       </div>
-                      <h3 className="text-xl font-extrabold text-white group-hover:text-red-400 transition" id="lbl-admin-general-role">
-                        Administración General
+                      <h3 className="text-xl font-extrabold text-white group-hover:text-red-404 transition" id="lbl-admin-general-role">
+                        Administración
                       </h3>
                     </div>
 
                     <div className="mt-4 pt-4 border-t border-[#3e3e42] flex items-center justify-between font-sans">
                       <span className="text-[10px] font-bold text-red-405 tracking-wider uppercase group-hover:translate-x-1 transition-all">Acceder al Panel Admin →</span>
-                      <span className="text-[10px] bg-red-650/20 text-red-400 font-mono px-2.5 py-0.5 rounded-full uppercase font-bold">Control Total</span>
+                      <span className="text-[10px] bg-red-650/20 text-red-404 font-mono px-2.5 py-0.5 rounded-full uppercase font-bold">Total</span>
                     </div>
                   </div>
 
@@ -1381,22 +1381,51 @@ export default function App() {
                   <div 
                     id="role-gateway-card-supervisor"
                     onClick={() => setSelectedLoginTarget({ role: SystemUserRole.SUPERVISOR, label: 'Panel Caseta de Guardias', defaultTab: 'scan' })}
-                    className="group relative bg-[#2A2A2E] hover:bg-[#343438] border border-[#3e3e42] hover:border-red-500 rounded-3xl p-6 shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden"
+                    className="group relative bg-[#2A2A2E] hover:bg-[#343438] border border-[#3e3e42] hover:border-amber-500 rounded-3xl p-6 shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden"
                   >
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 blur-3xl rounded-full group-hover:bg-red-500/10 transition"></div>
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 blur-3xl rounded-full group-hover:bg-amber-500/10 transition"></div>
                     
                     <div className="flex flex-col items-center justify-center text-center py-6">
-                      <div className="w-14 h-14 bg-red-550/15 text-red-500 border border-red-500/25 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition shrink-0">
-                        <Users className="w-7 h-7 text-red-500" />
+                      <div className="w-14 h-14 bg-amber-500/15 text-amber-500 border border-amber-500/25 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition shrink-0">
+                        <Users className="w-7 h-7 text-amber-500" />
                       </div>
-                      <h3 className="text-xl font-extrabold text-white group-hover:text-red-400 transition" id="lbl-caseta-general-role">
-                        Caseta General
+                      <h3 className="text-xl font-extrabold text-white group-hover:text-amber-400 transition" id="lbl-caseta-general-role">
+                        Caseta / Seguridad
                       </h3>
                     </div>
 
                     <div className="mt-4 pt-4 border-t border-[#3e3e42] flex items-center justify-between font-sans">
-                      <span className="text-[10px] font-bold text-red-405 tracking-wider uppercase group-hover:translate-x-1 transition-all">Ingresar al Módulo Seguridad →</span>
-                      <span className="text-[10px] bg-red-650/20 text-red-400 font-mono px-2.5 py-0.5 rounded-full uppercase font-bold">Activo</span>
+                      <span className="text-[10px] font-bold text-amber-405 tracking-wider uppercase group-hover:translate-x-1 transition-all">Módulo Seguridad →</span>
+                      <span className="text-[10px] bg-amber-600/20 text-amber-400 font-mono px-2.5 py-0.5 rounded-full uppercase font-bold">Activo</span>
+                    </div>
+                  </div>
+
+                  {/* CARD 3: RESIDENTE AUTOGESTIÓN */}
+                  <div 
+                    id="role-gateway-card-residente"
+                    onClick={() => setSelectedLoginTarget({ 
+                      role: SystemUserRole.RESIDENTE, 
+                      label: 'Panel Haroldo Residente 🏡', 
+                      defaultTab: 'visitas',
+                      residenciaId: 'res_001',
+                      residenciaNombre: 'Lomas de Chapultepec, Casa 15' 
+                    })}
+                    className="group relative bg-[#2A2A2E] hover:bg-[#343438] border border-[#3e3e42] hover:border-blue-500 rounded-3xl p-6 shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden"
+                  >
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 blur-3xl rounded-full group-hover:bg-blue-500/10 transition"></div>
+                    
+                    <div className="flex flex-col items-center justify-center text-center py-6">
+                      <div className="w-14 h-14 bg-blue-500/15 text-blue-400 border border-blue-550/20 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition shrink-0">
+                        <Home className="w-7 h-7 text-blue-400 animate-pulse" />
+                      </div>
+                      <h3 className="text-xl font-extrabold text-white group-hover:text-blue-400 transition" id="lbl-residente-general-role">
+                        Residente Autogestión
+                      </h3>
+                    </div>
+
+                    <div className="mt-4 pt-4 border-t border-[#3e3e42] flex items-center justify-between font-sans">
+                      <span className="text-[10px] font-bold text-blue-400 tracking-wider uppercase group-hover:translate-x-1 transition-all">Pases QR / Mis Visitas →</span>
+                      <span className="text-[10px] bg-blue-600/20 text-blue-400 font-mono px-2.5 py-0.5 rounded-full uppercase font-bold">Vecino</span>
                     </div>
                   </div>
 
@@ -1443,7 +1472,7 @@ export default function App() {
                             </span>
                           </div>
 
-                          <div className="grid grid-cols-2 gap-2.5 mt-4 pt-4 border-t border-zinc-800">
+                          <div className="grid grid-cols-3 gap-1.5 mt-4 pt-4 border-t border-zinc-800">
                             <button
                               onClick={() => setSelectedLoginTarget({
                                 role: SystemUserRole.ADMIN, 
@@ -1453,7 +1482,7 @@ export default function App() {
                                 residenciaNombre: res.nombre
                               })}
                               disabled={!res.isActive}
-                              className="flex items-center justify-center gap-1.5 py-2.5 px-3 bg-[#242429] hover:bg-red-950/25 text-[10.5px] font-bold text-slate-300 hover:text-white rounded-xl border border-[#2e2e38] hover:border-red-500/30 transition-all cursor-pointer disabled:opacity-40 disabled:pointer-events-none"
+                              className="flex items-center justify-center gap-1.5 py-2 px-1 bg-[#242429] hover:bg-red-950/25 text-[9.5px] font-bold text-slate-300 hover:text-white rounded-xl border border-[#2e2e38] hover:border-red-500/30 transition-all cursor-pointer disabled:opacity-40 disabled:pointer-events-none"
                               title={`Ingresar como Administrador de ${res.nombre}`}
                             >
                               <Shield className="w-3.5 h-3.5 text-red-500 shrink-0" /> Admin
@@ -1467,10 +1496,24 @@ export default function App() {
                                 residenciaNombre: res.nombre
                               })}
                               disabled={!res.isActive}
-                              className="flex items-center justify-center gap-1.5 py-2.5 px-3 bg-[#242429] hover:bg-amber-950/25 text-[10.5px] font-bold text-slate-300 hover:text-white rounded-xl border border-[#2e2e38] hover:border-amber-500/30 transition-all cursor-pointer disabled:opacity-40 disabled:pointer-events-none"
+                              className="flex items-center justify-center gap-1.5 py-2 px-1 bg-[#242429] hover:bg-amber-950/25 text-[9.5px] font-bold text-slate-300 hover:text-white rounded-xl border border-[#2e2e38] hover:border-amber-500/30 transition-all cursor-pointer disabled:opacity-40 disabled:pointer-events-none"
                               title={`Ingresar como Caseta de Seguridad de ${res.nombre}`}
                             >
                               <Smartphone className="w-3.5 h-3.5 text-amber-500 shrink-0" /> Caseta
+                            </button>
+                            <button
+                              onClick={() => setSelectedLoginTarget({
+                                role: SystemUserRole.RESIDENTE, 
+                                label: `Vecino - ${res.nombre}`, 
+                                defaultTab: 'visitas', 
+                                residenciaId: res.id, 
+                                residenciaNombre: res.nombre
+                              })}
+                              disabled={!res.isActive}
+                              className="flex items-center justify-center gap-1.5 py-2 px-1 bg-[#242429] hover:bg-blue-950/25 text-[9.5px] font-bold text-slate-300 hover:text-white rounded-xl border border-[#2e2e38] hover:border-blue-500/30 transition-all cursor-pointer disabled:opacity-40 disabled:pointer-events-none"
+                              title={`Ingresar como Residente de ${res.nombre}`}
+                            >
+                              <Home className="w-3.5 h-3.5 text-blue-400 shrink-0" /> Vecino
                             </button>
                           </div>
                         </div>
