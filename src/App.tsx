@@ -15,7 +15,7 @@ import {
   ShieldAlert, ScanLine, Users, FileBarChart2, Shield, LogOut, Check, Sparkles, 
   Database, AlertCircle, Key, Lock, Laptop, CheckCircle2, UserCircle, ShieldCheck,
   QrCode, Smartphone, ExternalLink, HelpCircle, RefreshCw, ChevronDown, ChevronUp,
-  Copy, Download, Clock as ClockIcon, AlertTriangle, Menu, X, Home
+  Copy, Download, Clock as ClockIcon, AlertTriangle, Menu, X, Home, BookOpen
 } from 'lucide-react';
 import { auth, IS_FIREBASE_DUMMY } from './firebase';
 import { dbService } from './services/dbService';
@@ -28,6 +28,7 @@ import ResidenciasManager from './components/ResidenciasManager';
 import ResidentesManager from './components/ResidentesManager';
 import CasetasManager from './components/CasetasManager';
 import { ProfileManager } from './components/ProfileManager';
+import { ManualUsuario } from './components/ManualUsuario';
 import { generateQRWithLogo } from './utils/qrWithLogo';
 
 // Global panic audio state managers
@@ -252,7 +253,7 @@ export default function App() {
   }, [globalPanicActive]);
   
   // Navigation tabs - activated with profile view as well
-  const [activeTab, setActiveTab] = useState<'scan' | 'crud' | 'reports' | 'roles' | 'residencias' | 'residentes' | 'casetas' | 'perfil'>(() => {
+  const [activeTab, setActiveTab] = useState<'scan' | 'crud' | 'reports' | 'roles' | 'residencias' | 'residentes' | 'casetas' | 'perfil' | 'manual'>(() => {
     return (localStorage.getItem('cnls_active_tab') as any) || 'scan';
   });
   const [hasSelectedRole, setHasSelectedRole] = useState<boolean>(() => {
@@ -274,7 +275,7 @@ export default function App() {
   const [selectedLoginTarget, setSelectedLoginTarget] = useState<{
     role: SystemUserRole;
     label: string;
-    defaultTab: 'scan' | 'crud' | 'reports' | 'roles' | 'residencias' | 'residentes' | 'casetas' | 'perfil';
+    defaultTab: 'scan' | 'crud' | 'reports' | 'roles' | 'residencias' | 'residentes' | 'casetas' | 'perfil' | 'manual';
     residenciaId?: string;
     residenciaNombre?: string;
   } | null>(null);
@@ -735,8 +736,12 @@ export default function App() {
       if (canScan) setActiveTab('scan');
       else if (canCrud) setActiveTab('crud');
       else setActiveTab('reports');
+    } else if (current === 'manual' && !isAdmin) {
+      if (canScan) setActiveTab('scan');
+      else if (canCrud) setActiveTab('crud');
+      else setActiveTab('reports');
     }
-  }, [userRole, activeTab, canScan, canCrud, canReports, canManageRoles, canManageResidences, canManageResidents, canManageCasetas]);
+  }, [userRole, activeTab, canScan, canCrud, canReports, canManageRoles, canManageResidences, canManageResidents, canManageCasetas, isAdmin]);
 
   // Render standalone high-fidelity mobile visitor passport card if opened with public URL
   if (visitorPassToken) {
@@ -1037,6 +1042,17 @@ export default function App() {
                         }`}
                       >
                         <Shield className="w-4 h-4" /> Privilegios y Roles
+                      </button>
+                    )}
+                    {isAdmin && (
+                      <button
+                        id="nav-to-user-manual"
+                        onClick={() => { setActiveTab('manual'); setIsDrawerOpen(false); }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer ${
+                          activeTab === 'manual' ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-600/15' : 'text-amber-450 hover:bg-[#1A1A1E] hover:text-white'
+                        }`}
+                      >
+                        <BookOpen className="w-4 h-4 shrink-0" /> Manual del usuario
                       </button>
                     )}
                     <button
@@ -1564,6 +1580,10 @@ export default function App() {
                         setTimeout(() => setDemoFeedback(''), 4500);
                       }}
                     />
+                  )}
+
+                  {activeTab === 'manual' && isAdmin && (
+                    <ManualUsuario />
                   )}
                 </div>
 
