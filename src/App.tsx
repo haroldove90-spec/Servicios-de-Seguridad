@@ -31,6 +31,7 @@ import { ProfileManager } from './components/ProfileManager';
 import { ManualUsuario } from './components/ManualUsuario';
 import ResidentDashboard from './components/ResidentDashboard';
 import VisitasDeResidentes from './components/VisitasDeResidentes';
+import MetricasDashboard from './components/MetricasDashboard';
 import { generateQRWithLogo } from './utils/qrWithLogo';
 
 // Global panic audio state managers
@@ -277,7 +278,7 @@ export default function App() {
   const [selectedLoginTarget, setSelectedLoginTarget] = useState<{
     role: SystemUserRole;
     label: string;
-    defaultTab: 'scan' | 'crud' | 'reports' | 'roles' | 'residencias' | 'residentes' | 'casetas' | 'perfil' | 'manual' | 'visitas' | 'visitas_admin';
+    defaultTab: 'scan' | 'crud' | 'reports' | 'roles' | 'residencias' | 'residentes' | 'casetas' | 'perfil' | 'manual' | 'visitas' | 'visitas_admin' | 'metricas';
     residenciaId?: string;
     residenciaNombre?: string;
   } | null>(null);
@@ -344,7 +345,7 @@ export default function App() {
 
       // Instantly route based on matched role
       if (matched.role === SystemUserRole.ADMIN) {
-        setActiveTab('crud');
+        setActiveTab('metricas');
       } else if (matched.role === SystemUserRole.RESIDENTE) {
         setActiveTab('visitas');
       } else {
@@ -423,7 +424,7 @@ export default function App() {
   const handleRoleSelection = (
     role: SystemUserRole, 
     nameSimulated: string, 
-    defaultTab: 'scan' | 'crud' | 'reports' | 'roles' | 'residencias' | 'residentes' | 'casetas' | 'perfil' | 'manual' | 'visitas' | 'visitas_admin',
+    defaultTab: 'scan' | 'crud' | 'reports' | 'roles' | 'residencias' | 'residentes' | 'casetas' | 'perfil' | 'manual' | 'visitas' | 'visitas_admin' | 'metricas',
     residenciaId?: string,
     residenciaNombre?: string
   ) => {
@@ -962,7 +963,7 @@ export default function App() {
                   <div className="grid grid-cols-1 gap-1.5 font-sans">
                     <button 
                       onClick={() => {
-                        handleRoleSelection(SystemUserRole.ADMIN, 'Administrador CNLS', 'crud');
+                        handleRoleSelection(SystemUserRole.ADMIN, 'Administrador CNLS', 'metricas');
                         setIsDrawerOpen(false);
                       }}
                       className="w-full text-left px-4 py-3 bg-[#1A1A1E] hover:bg-[#343438] text-white rounded-xl text-xs font-bold transition flex items-center gap-3 cursor-pointer border border-[#3e3e42] hover:border-red-500/20 animate-fade-in"
@@ -980,7 +981,7 @@ export default function App() {
                     </button>
                     <button 
                       onClick={() => {
-                        handleRoleSelection(SystemUserRole.RESIDENTE, 'Haroldo Residente 🏡', 'visitas', 'res_001', 'Lomas de Chapultepec, Casa 15');
+                        handleRoleSelection(SystemUserRole.RESIDENTE, 'Haroldo Residente 🏡', 'visitas', 'res-demo-1', 'Lomas de Chapultepec');
                         setIsDrawerOpen(false);
                       }}
                       className="w-full text-left px-4 py-3 bg-[#1A1A1E] hover:bg-[#343438] text-white rounded-xl text-xs font-bold transition flex items-center gap-3 cursor-pointer border border-[#3e3e42] hover:border-blue-500/20"
@@ -1007,6 +1008,16 @@ export default function App() {
 
                   <div className="space-y-1.5 pt-1">
                     <p className="text-[10px] uppercase font-bold text-slate-500 px-3 tracking-wider font-mono mb-2">Vistas y Herramientas</p>
+                    {isAdmin && (
+                      <button
+                        onClick={() => { setActiveTab('metricas'); setIsDrawerOpen(false); }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer ${
+                          activeTab === 'metricas' ? 'bg-red-650 text-white shadow-lg shadow-red-650/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
+                        }`}
+                      >
+                        <FileBarChart2 className="w-4 h-4 text-red-400 shrink-0" /> Métricas del Condominio
+                      </button>
+                    )}
                     {canScan && (
                       <button
                         onClick={() => { setActiveTab('scan'); setIsDrawerOpen(false); }}
@@ -1357,7 +1368,7 @@ export default function App() {
                   {/* CARD 1: ADMIN */}
                   <div 
                     id="role-gateway-card-admin"
-                    onClick={() => setSelectedLoginTarget({ role: SystemUserRole.ADMIN, label: 'Panel Administración General', defaultTab: 'crud' })}
+                    onClick={() => setSelectedLoginTarget({ role: SystemUserRole.ADMIN, label: 'Panel Administración General', defaultTab: 'metricas' })}
                     className="group relative bg-[#2A2A2E] hover:bg-[#343438] border border-[#3e3e42] hover:border-red-500 rounded-3xl p-6 shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden"
                   >
                     <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 blur-3xl rounded-full group-hover:bg-red-500/10 transition"></div>
@@ -1407,8 +1418,8 @@ export default function App() {
                       role: SystemUserRole.RESIDENTE, 
                       label: 'Panel Haroldo Residente 🏡', 
                       defaultTab: 'visitas',
-                      residenciaId: 'res_001',
-                      residenciaNombre: 'Lomas de Chapultepec, Casa 15' 
+                      residenciaId: 'res-demo-1',
+                      residenciaNombre: 'Lomas de Chapultepec' 
                     })}
                     className="group relative bg-[#2A2A2E] hover:bg-[#343438] border border-[#3e3e42] hover:border-blue-500 rounded-3xl p-6 shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden"
                   >
@@ -1477,7 +1488,7 @@ export default function App() {
                               onClick={() => setSelectedLoginTarget({
                                 role: SystemUserRole.ADMIN, 
                                 label: `Admin - ${res.nombre}`, 
-                                defaultTab: 'crud', 
+                                defaultTab: 'metricas', 
                                 residenciaId: res.id, 
                                 residenciaNombre: res.nombre
                               })}
@@ -1616,6 +1627,13 @@ export default function App() {
                   
                   {/* Tab Views routers */}
                 <div id="workspace-routed-frame" className="animate-fade-in-up">
+                  {activeTab === 'metricas' && isAdmin && userRole && (
+                    <MetricasDashboard 
+                      currentAdminUser={userRole} 
+                      onRefresh={reloadAccessLogs} 
+                    />
+                  )}
+
                   {activeTab === 'scan' && canScan && (
                     <ScannerInterface 
                       currentGuard={userRole ? { uid: userRole.uid, name: userRole.name, role: userRole.role } : null} 

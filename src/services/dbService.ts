@@ -498,6 +498,9 @@ export const dbService = {
   // Authorized Users CRUD (Visitors List)
   // --------------------------------------------------
   async getAuthorizedUsers(): Promise<AuthorizedUser[]> {
+    let remoteUsers: AuthorizedUser[] = [];
+    let success = false;
+
     try {
       const { data, error } = await supabase
         .from('authorized_users')
@@ -505,38 +508,54 @@ export const dbService = {
         .order('createdAt', { ascending: false });
 
       if (!error && data) {
-        return data as AuthorizedUser[];
-      }
-      if (error) {
-        console.warn('Supabase getAuthorizedUsers returned query error. Code:', error.code, 'Msg:', error.message);
+        remoteUsers = data as AuthorizedUser[];
+        success = true;
+      } else if (error) {
+        console.warn('Supabase getAuthorizedUsers query warning. Code:', error.code, 'Msg:', error.message);
       }
     } catch (err) {
-      console.warn('Supabase getAuthorizedUsers critical exception, using fallback:', err);
+      console.warn('Supabase getAuthorizedUsers critical exception, using local fallbacks:', err);
     }
 
-    if (IS_FIREBASE_DUMMY) {
-      return LocalDB.getUsers();
+    if (!success && !IS_FIREBASE_DUMMY) {
+      try {
+        const colRef = collection(db, 'authorized_users');
+        const q = query(colRef, orderBy('createdAt', 'desc'));
+        const snap = await getDocs(q);
+        const results: AuthorizedUser[] = [];
+        snap.forEach(d => {
+          results.push(d.data() as AuthorizedUser);
+        });
+        remoteUsers = results;
+        success = true;
+      } catch (err) {
+        console.warn('Firestore getAuthorizedUsers failed, using local fallbacks:', err);
+      }
     }
 
-    try {
-      const colRef = collection(db, 'authorized_users');
-      const q = query(colRef, orderBy('createdAt', 'desc'));
-      const snap = await getDocs(q);
-      const results: AuthorizedUser[] = [];
-      snap.forEach(d => {
-        results.push(d.data() as AuthorizedUser);
-      });
-      return results;
-    } catch (err) {
-      handleFirestoreError(err, OperationType.LIST, 'authorized_users');
-      return [];
+    const localUsers = LocalDB.getUsers();
+    if (!success && remoteUsers.length === 0) {
+      return localUsers;
     }
+
+    // Unify both sets of records without duplicate keys, prioritizing latest updates
+    const unifiedMap = new Map<string, AuthorizedUser>();
+    localUsers.forEach(u => unifiedMap.set(u.id, u));
+    remoteUsers.forEach(u => unifiedMap.set(u.id, u));
+
+    return Array.from(unifiedMap.values()).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   },
 
   async createAuthorizedUser(user: Omit<AuthorizedUser, 'id'>): Promise<AuthorizedUser> {
     const id = 'usr_' + generateId();
     const newUser: AuthorizedUser = { ...user, id };
 
+    // 1. Always assure local persistence first for robust real-time feedback
+    const users = LocalDB.getUsers();
+    users.unshift(newUser);
+    LocalDB.saveUsers(users);
+
+    // 2. Propagate to Supabase as primary cloud store
     try {
       const { error } = await supabase
         .from('authorized_users')
@@ -547,88 +566,84 @@ export const dbService = {
       }
       console.warn('Supabase createAuthorizedUser returned query error. Code:', error.code, 'Msg:', error.message);
     } catch (err) {
-      console.warn('Supabase createAuthorizedUser exception, using fallback:', err);
+      console.warn('Supabase createAuthorizedUser exception, relying on local sync:', err);
     }
 
     if (IS_FIREBASE_DUMMY) {
-      const users = LocalDB.getUsers();
-      users.unshift(newUser);
-      LocalDB.saveUsers(users);
       return newUser;
     }
 
+    // 3. Propagate to Firebase as auxiliary cloud store
     try {
       const docRef = doc(db, 'authorized_users', id);
       await setDoc(docRef, newUser);
       return newUser;
     } catch (err) {
-      handleFirestoreError(err, OperationType.CREATE, `authorized_users/${id}`);
-      throw err;
+      console.warn('Firestore setDoc failed, proceeding with local synchronized status:', err);
+      return newUser;
     }
   },
 
   async updateAuthorizedUser(id: string, updates: Partial<AuthorizedUser>): Promise<void> {
+    // 1. Always apply to local state instantly
+    const users = LocalDB.getUsers();
+    const updated = users.map(u => {
+      if (u.id === id) {
+        return { ...u, ...updates, updatedAt: new Date().toISOString() };
+      }
+      return u;
+    });
+    LocalDB.saveUsers(updated);
+
+    // 2. Propagate to Supabase
     try {
-      const { error } = await supabase
+      await supabase
         .from('authorized_users')
         .update({ ...updates, updatedAt: new Date().toISOString() })
         .eq('id', id);
-
-      if (!error) {
-        return;
-      }
-      console.warn('Supabase updateAuthorizedUser returned query error. Code:', error.code, 'Msg:', error.message);
     } catch (err) {
-      console.warn('Supabase updateAuthorizedUser exception, using fallback:', err);
+      console.warn('Supabase updateAuthorizedUser exception, using fallback sync:', err);
     }
 
     if (IS_FIREBASE_DUMMY) {
-      const users = LocalDB.getUsers();
-      const updated = users.map(u => {
-        if (u.id === id) {
-          return { ...u, ...updates, updatedAt: new Date().toISOString() };
-        }
-        return u;
-      });
-      LocalDB.saveUsers(updated);
       return;
     }
 
+    // 3. Propagate to Firestore
     try {
       const docRef = doc(db, 'authorized_users', id);
       await updateDoc(docRef, { ...updates, updatedAt: new Date().toISOString() });
     } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, `authorized_users/${id}`);
+      console.warn('Firestore updateDoc failed, relying on local synchronized state:', err);
     }
   },
 
   async deleteAuthorizedUser(id: string): Promise<void> {
+    // 1. Delete locally
+    const users = LocalDB.getUsers();
+    const filtered = users.filter(u => u.id !== id);
+    LocalDB.saveUsers(filtered);
+
+    // 2. Delete from Supabase
     try {
-      const { error } = await supabase
+      await supabase
         .from('authorized_users')
         .delete()
         .eq('id', id);
-
-      if (!error) {
-        return;
-      }
-      console.warn('Supabase deleteAuthorizedUser returned query error. Code:', error.code, 'Msg:', error.message);
     } catch (err) {
-      console.warn('Supabase deleteAuthorizedUser exception, using fallback:', err);
+      console.warn('Supabase deleteAuthorizedUser exception:', err);
     }
 
     if (IS_FIREBASE_DUMMY) {
-      const users = LocalDB.getUsers();
-      const filtered = users.filter(u => u.id !== id);
-      LocalDB.saveUsers(filtered);
       return;
     }
 
+    // 3. Delete from Firestore
     try {
       const docRef = doc(db, 'authorized_users', id);
       await deleteDoc(docRef);
     } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, `authorized_users/${id}`);
+      console.warn('Firestore deleteDoc exception:', err);
     }
   },
 
