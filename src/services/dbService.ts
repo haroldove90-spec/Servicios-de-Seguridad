@@ -565,6 +565,39 @@ export const dbService = {
         return newUser;
       }
       console.warn('Supabase createAuthorizedUser returned query error. Code:', error.code, 'Msg:', error.message);
+
+      // If error is code 42703 (undefined_column), retry by filtering out newer columns
+      if (error.code === '42703' || (error.message && error.message.includes('column'))) {
+        console.log('Detected undefined_column error on Supabase, retrying with core columns...');
+        const coreUser = {
+          id: newUser.id,
+          name: newUser.name,
+          documentId: newUser.documentId,
+          email: newUser.email,
+          phone: newUser.phone,
+          status: newUser.status,
+          qrcodeToken: newUser.qrcodeToken,
+          oneTime: newUser.oneTime,
+          used: newUser.used,
+          validFrom: newUser.validFrom,
+          validUntil: newUser.validUntil,
+          days: newUser.days,
+          startTime: newUser.startTime,
+          endTime: newUser.endTime,
+          createdAt: newUser.createdAt,
+          updatedAt: newUser.updatedAt,
+          createdBy: newUser.createdBy
+        };
+        const { error: retryError } = await supabase
+          .from('authorized_users')
+          .insert(coreUser);
+
+        if (!retryError) {
+          console.log('Supabase retry succeeded with core columns!');
+          return newUser;
+        }
+        console.warn('Supabase core columns insertion also failed:', retryError.message);
+      }
     } catch (err) {
       console.warn('Supabase createAuthorizedUser exception, relying on local sync:', err);
     }
@@ -597,10 +630,28 @@ export const dbService = {
 
     // 2. Propagate to Supabase
     try {
-      await supabase
+      const { error } = await supabase
         .from('authorized_users')
         .update({ ...updates, updatedAt: new Date().toISOString() })
         .eq('id', id);
+
+      if (error) {
+        console.warn('Supabase updateAuthorizedUser returned query error. Code:', error.code, 'Msg:', error.message);
+        if (error.code === '42703' || (error.message && error.message.includes('column'))) {
+          console.log('Detected undefined_column error on Supabase update, filtering and retrying...');
+          const { isResidentCreated, residentName, residentPhone, residenciaId, residenciaNombre, ...coreUpdates } = updates as any;
+          const { error: retryError } = await supabase
+            .from('authorized_users')
+            .update({ ...coreUpdates, updatedAt: new Date().toISOString() })
+            .eq('id', id);
+
+          if (retryError) {
+            console.warn('Supabase core updates update also failed:', retryError.message);
+          } else {
+            console.log('Supabase update retry succeeded with core columns!');
+          }
+        }
+      }
     } catch (err) {
       console.warn('Supabase updateAuthorizedUser exception, using fallback sync:', err);
     }
@@ -940,6 +991,32 @@ export const dbService = {
         return newResidente;
       }
       console.warn('Supabase createResidente returned query error. Code:', error.code, 'Msg:', error.message);
+
+      // If undefined_column error, retry without newer validUntil column
+      if (error.code === '42703' || (error.message && error.message.includes('column'))) {
+        console.log('Detected undefined_column error on Supabase residentes, retrying without validUntil...');
+        const coreResidente = {
+          id: newResidente.id,
+          nombre: newResidente.nombre,
+          residenciaId: newResidente.residenciaId,
+          residenciaNombre: newResidente.residenciaNombre,
+          direccion: newResidente.direccion,
+          qrcodeToken: newResidente.qrcodeToken,
+          whatsapp: newResidente.whatsapp,
+          accessUserId: newResidente.accessUserId,
+          createdAt: newResidente.createdAt,
+          updatedAt: newResidente.updatedAt
+        };
+        const { error: retryError } = await supabase
+          .from('residentes')
+          .insert(coreResidente);
+
+        if (!retryError) {
+          console.log('Supabase residentes insertion retry succeeded!');
+          return newResidente;
+        }
+        console.warn('Supabase core residentes insert failure:', retryError.message);
+      }
     } catch (err) {
       console.warn('Supabase createResidente exception, using fallback:', err);
     }
@@ -968,10 +1045,23 @@ export const dbService = {
         .update({ ...updates, updatedAt: new Date().toISOString() })
         .eq('id', id);
 
-      if (!error) {
-        return;
+      if (error) {
+        console.warn('Supabase updateResidente returned query error. Code:', error.code, 'Msg:', error.message);
+        if (error.code === '42703' || (error.message && error.message.includes('column'))) {
+          console.log('Detected undefined_column error on Supabase updateResidente, retrying without validUntil...');
+          const { validUntil, ...coreUpdates } = updates;
+          const { error: retryError } = await supabase
+            .from('residentes')
+            .update({ ...coreUpdates, updatedAt: new Date().toISOString() })
+            .eq('id', id);
+
+          if (retryError) {
+            console.warn('Supabase core residentes update failed:', retryError.message);
+          } else {
+            console.log('Supabase updateResidente retry succeeded!');
+          }
+        }
       }
-      console.warn('Supabase updateResidente returned query error. Code:', error.code, 'Msg:', error.message);
     } catch (err) {
       console.warn('Supabase updateResidente exception, using fallback:', err);
     }
