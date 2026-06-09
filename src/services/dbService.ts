@@ -136,88 +136,128 @@ export function toSnakeCaseKeys(obj: any): any {
 }
 
 export async function robustSupabaseInsert(tableName: string, camelPayload: any) {
-  // Try 1: CamelCase (as provided in JS)
-  try {
-    const { data, error } = await supabase
-      .from(tableName)
-      .insert(camelPayload)
-      .select();
-    if (!error) return { data, error: null };
-    
-    console.warn(`Supabase insert CamelCase failed on ${tableName}:`, error.code, error.message);
-    
-    // Try 2: Lowercase keys
-    const lowercasePayload = toLowercaseKeys(camelPayload);
-    const { data: data2, error: error2 } = await supabase
-      .from(tableName)
-      .insert(lowercasePayload)
-      .select();
-    if (!error2) {
-      console.log(`Supabase insert Lowercase keys SUCCEEDED on ${tableName}!`);
-      return { data: data2, error: null };
+  let payload = { ...camelPayload };
+  
+  // Clean up undefined properties to avoid PostgREST issues
+  for (const k of Object.keys(payload)) {
+    if (payload[k] === undefined) {
+      delete payload[k];
     }
-    
-    console.warn(`Supabase insert Lowercase failed on ${tableName}:`, error2.code, error2.message);
-
-    // Try 3: Snake Case keys
-    const snakePayload = toSnakeCaseKeys(camelPayload);
-    const { data: data3, error: error3 } = await supabase
-      .from(tableName)
-      .insert(snakePayload)
-      .select();
-    if (!error3) {
-      console.log(`Supabase insert SnakeCase keys SUCCEEDED on ${tableName}!`);
-      return { data: data3, error: null };
-    }
-    
-    return { data: null, error: error3 };
-  } catch (err: any) {
-    console.error(`robustSupabaseInsert exception on ${tableName}:`, err);
-    return { data: null, error: err };
   }
+
+  const maxAttempts = 10;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      // 1. Try writing directly
+      const { data, error } = await supabase
+        .from(tableName)
+        .insert(payload)
+        .select();
+        
+      if (!error) {
+        return { data, error: null };
+      }
+      
+      console.warn(`[Supabase Insert Attempt ${attempt}] failed on ${tableName}. Code: ${error.code}, Message: ${error.message}`);
+      
+      // If code is 42703 (undefined_column) or message specifies a missing column
+      if (error.code === '42703' || (error.message && error.message.toLowerCase().includes('column'))) {
+        // Try extracting column name from error.message
+        const match = error.message.match(/column "([^"]+)"/i) || error.message.match(/column ([a-zA-Z0-9_]+)/i);
+        if (match && match[1]) {
+          const badCol = match[1];
+          console.log(`Self-healing insert: Pruning missing column "${badCol}" from ${tableName} payload.`);
+          
+          // Delete from payload
+          delete payload[badCol];
+          
+          // Delete other naming casing styles of this key to prevent cascades
+          const badColLower = badCol.toLowerCase();
+          for (const key of Object.keys(payload)) {
+            if (key.toLowerCase() === badColLower || toSnakeCase(key) === badColLower || key === badCol) {
+              delete payload[key];
+            }
+          }
+          continue;
+        } else {
+          // Fallback to lowercased keys or snake_cased keys as retry options if first failed
+          if (attempt === 1) {
+            console.log(`Retrying insertion using lowercase keys conversion...`);
+            payload = toLowercaseKeys(payload);
+            continue;
+          } else if (attempt === 2) {
+            console.log(`Retrying insertion using snake_case keys conversion...`);
+            payload = toSnakeCaseKeys(camelPayload);
+            continue;
+          }
+        }
+      }
+      
+      return { data: null, error };
+    } catch (err: any) {
+      console.error(`robustSupabaseInsert exception on ${tableName} attempt ${attempt}:`, err);
+      return { data: null, error: err };
+    }
+  }
+  return { data: null, error: { message: 'Max self-healing database insert attempts reached' } };
 }
 
 export async function robustSupabaseUpdate(tableName: string, camelUpdates: any, idKey: string, idVal: string) {
-  try {
-    const { error } = await supabase
-      .from(tableName)
-      .update(camelUpdates)
-      .eq(idKey, idVal);
-    if (!error) return { error: null };
-    
-    console.warn(`Supabase update CamelCase failed on ${tableName}:`, error.code, error.message);
-
-    // Try 2: Lowercase keys
-    const lowercaseUpdates = toLowercaseKeys(camelUpdates);
-    const lowIdKey = idKey.toLowerCase();
-    const { error: error2 } = await supabase
-      .from(tableName)
-      .update(lowercaseUpdates)
-      .eq(lowIdKey, idVal);
-    if (!error2) {
-      console.log(`Supabase update Lowercase keys SUCCEEDED on ${tableName}!`);
-      return { error: null };
+  let updates = { ...camelUpdates };
+  
+  for (const k of Object.keys(updates)) {
+    if (updates[k] === undefined) {
+      delete updates[k];
     }
-
-    console.warn(`Supabase update Lowercase failed on ${tableName}:`, error2.code, error2.message);
-
-    // Try 3: Snake Case keys
-    const snakeUpdates = toSnakeCaseKeys(camelUpdates);
-    const snakeIdKey = toSnakeCase(idKey);
-    const { error: error3 } = await supabase
-      .from(tableName)
-      .update(snakeUpdates)
-      .eq(snakeIdKey, idVal);
-    if (!error3) {
-      console.log(`Supabase update SnakeCase keys SUCCEEDED on ${tableName}!`);
-      return { error: null };
-    }
-
-    return { error: error3 };
-  } catch (err: any) {
-    console.error(`robustSupabaseUpdate exception on ${tableName}:`, err);
-    return { error: err };
   }
+
+  const maxAttempts = 10;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const { error } = await supabase
+        .from(tableName)
+        .update(updates)
+        .eq(idKey, idVal);
+        
+      if (!error) return { error: null };
+      
+      console.warn(`[Supabase Update Attempt ${attempt}] failed on ${tableName}. Code: ${error.code}, Message: ${error.message}`);
+      
+      if (error.code === '42703' || (error.message && error.message.toLowerCase().includes('column'))) {
+        const match = error.message.match(/column "([^"]+)"/i) || error.message.match(/column ([a-zA-Z0-9_]+)/i);
+        if (match && match[1]) {
+          const badCol = match[1];
+          console.log(`Self-healing update: Pruning missing column "${badCol}" from ${tableName} updates.`);
+          
+          delete updates[badCol];
+          
+          const badColLower = badCol.toLowerCase();
+          for (const key of Object.keys(updates)) {
+            if (key.toLowerCase() === badColLower || toSnakeCase(key) === badColLower || key === badCol) {
+              delete updates[key];
+            }
+          }
+          continue;
+        } else {
+          if (attempt === 1) {
+            console.log(`Retrying updates using lowercase keys conversion...`);
+            updates = toLowercaseKeys(updates);
+            continue;
+          } else if (attempt === 2) {
+            console.log(`Retrying updates using snake_case keys conversion...`);
+            updates = toSnakeCaseKeys(camelUpdates);
+            continue;
+          }
+        }
+      }
+      
+      return { error };
+    } catch (err: any) {
+      console.error(`robustSupabaseUpdate exception on ${tableName} attempt ${attempt}:`, err);
+      return { error: err };
+    }
+  }
+  return { error: { message: 'Max self-healing database update attempts reached' } };
 }
 
 export async function robustSupabaseSelectAll(tableName: string, preferredOrderField?: string): Promise<any[]> {
