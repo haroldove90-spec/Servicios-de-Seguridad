@@ -15,7 +15,7 @@ import {
   ShieldAlert, ScanLine, Users, FileBarChart2, Shield, LogOut, Check, Sparkles, 
   Database, AlertCircle, Key, Lock, Laptop, CheckCircle2, UserCircle, ShieldCheck,
   QrCode, Smartphone, ExternalLink, HelpCircle, RefreshCw, ChevronDown, ChevronUp,
-  Copy, Download, Clock as ClockIcon, AlertTriangle, Menu, X, Home, BookOpen, Calendar, Car
+  Copy, Download, Clock as ClockIcon, AlertTriangle, Menu, X, Home, BookOpen, Calendar, Car, Eye, EyeOff
 } from 'lucide-react';
 import { auth, IS_FIREBASE_DUMMY } from './firebase';
 import { dbService } from './services/dbService';
@@ -289,6 +289,7 @@ export default function App() {
   const [loginUsername, setLoginUsername] = useState<string>('');
   const [loginPassword, setLoginPassword] = useState<string>('');
   const [loginError, setLoginError] = useState<string>('');
+  const [showPassword, setShowPassword] = useState<boolean>(false);
 
   const handleCredentialLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1434,13 +1435,25 @@ export default function App() {
                       <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                       <input
                         id="login-password-input"
-                        type="password"
+                        type={showPassword ? "text" : "password"}
                         required
                         placeholder="••••••••"
                         value={loginPassword}
                         onChange={(e) => setLoginPassword(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 bg-[#1A1A1E] border border-[#3e3e42] text-white text-sm rounded-xl focus:border-red-500 focus:outline-hidden font-mono"
+                        className="w-full pl-10 pr-10 py-2.5 bg-[#1A1A1E] border border-[#3e3e42] text-white text-sm rounded-xl focus:border-red-500 focus:outline-hidden font-mono"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition cursor-pointer"
+                        title={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
+                      </button>
                     </div>
                   </div>
 
@@ -1470,6 +1483,7 @@ export default function App() {
                         setLoginUsername('');
                         setLoginPassword('');
                         setLoginError('');
+                        setShowPassword(false);
                       }}
                       className="w-full text-center text-slate-500 hover:text-slate-300 transition text-[10px] font-bold py-2 mt-1 cursor-pointer"
                     >
