@@ -18,6 +18,7 @@ interface RolesManagerProps {
   currentUserId?: string;
   onSimulateRole?: (role: SystemUserRole, name: string) => void;
   activeSimulatedRole?: SystemUserRole;
+  currentUser?: any;
 }
 
 // Fixed mapping of capabilities based on security roles
@@ -32,7 +33,8 @@ export default function RolesManager({
   onRolesUpdated, 
   currentUserId,
   onSimulateRole,
-  activeSimulatedRole 
+  activeSimulatedRole,
+  currentUser
 }: RolesManagerProps) {
   const [roles, setRoles] = useState<SystemRole[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -146,7 +148,7 @@ export default function RolesManager({
     setFormRole(SystemUserRole.SUPERVISOR);
     setFormPhone('');
     setFormPassword('');
-    setFormResidenciaId('');
+    setFormResidenciaId(currentUser?.residenciaId || '');
     setFormAlert('');
     setIsFormOpen(true);
   };
@@ -352,11 +354,13 @@ export default function RolesManager({
     }
   ];
 
-  const filteredRoles = roles.filter(role => 
-    role.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    role.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    role.role.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredRoles = roles.filter(role => {
+    const matchesSearch = role.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      role.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      role.role.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesResidence = currentUser?.residenciaId ? role.residenciaId === currentUser.residenciaId : true;
+    return matchesSearch && matchesResidence;
+  });
 
   return (
     <div id="roles-manager-cabinet-root" className="space-y-6">
@@ -864,10 +868,11 @@ export default function RolesManager({
               <div>
                 <label className="block text-[10px] font-bold text-white uppercase tracking-widest mb-1.5">Residencia / Subdivisión Asignada (Auto-Detección)</label>
                 <select
+                  disabled={!!currentUser?.residenciaId}
                   id="select-operator-residencia"
                   value={formResidenciaId}
                   onChange={(e) => setFormResidenciaId(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#1A1A1E] border border-[#3e3e42] text-white rounded-xl focus:border-red-500 focus:outline-hidden cursor-pointer"
+                  className="w-full px-3 py-2 bg-[#1A1A1E] border border-[#3e3e42] text-white rounded-xl focus:border-red-500 focus:outline-hidden cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <option value="" className="bg-[#1A1A1E]">🏢 Administración / Caseta General (Todas)</option>
                   {residencias.map((res: any) => (

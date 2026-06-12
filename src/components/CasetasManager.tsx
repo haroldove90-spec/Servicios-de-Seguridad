@@ -12,9 +12,10 @@ import { Caseta, Residencia } from '../types';
 
 interface CasetasManagerProps {
   onRefresh?: () => void;
+  currentUser?: any;
 }
 
-export default function CasetasManager({ onRefresh }: CasetasManagerProps) {
+export default function CasetasManager({ onRefresh, currentUser }: CasetasManagerProps) {
   const [casetas, setCasetas] = useState<Caseta[]>([]);
   const [residencias, setResidencias] = useState<Residencia[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -49,8 +50,8 @@ export default function CasetasManager({ onRefresh }: CasetasManagerProps) {
   const handleOpenCreateForm = () => {
     setEditingId(null);
     setFormNombre('');
-    // Require explicit selection
-    setFormResidenciaId('');
+    // Require explicit selection or use active visited residence
+    setFormResidenciaId(currentUser?.residenciaId || '');
     setFormIsActive(true);
     setIsFormOpen(true);
   };
@@ -124,10 +125,12 @@ export default function CasetasManager({ onRefresh }: CasetasManagerProps) {
     }
   };
 
-  const filteredCasetas = casetas.filter(c => 
-    c.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.residenciaNombre.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredCasetas = casetas.filter(c => {
+    const matchesSearch = c.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.residenciaNombre.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesResidence = currentUser?.residenciaId ? c.residenciaId === currentUser.residenciaId : true;
+    return matchesSearch && matchesResidence;
+  });
 
   return (
     <div id="casetas-manager-root" className="space-y-6 font-sans">
@@ -302,9 +305,10 @@ export default function CasetasManager({ onRefresh }: CasetasManagerProps) {
                 <div className="space-y-1.5">
                   <label className="block text-[11px] font-extrabold uppercase text-slate-400">Residencia Responsable</label>
                   <select
+                    disabled={!!currentUser?.residenciaId}
                     value={formResidenciaId}
                     onChange={(e) => setFormResidenciaId(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-500 transition"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-500 transition disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     <option value="">-- Seleccione una residencia --</option>
                     {residencias.map(r => (

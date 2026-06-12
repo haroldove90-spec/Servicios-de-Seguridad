@@ -15,9 +15,10 @@ import { generateQRWithLogo } from '../utils/qrWithLogo';
 
 interface ResidentesManagerProps {
   onRefresh?: () => void;
+  currentUser?: any;
 }
 
-export default function ResidentesManager({ onRefresh }: ResidentesManagerProps) {
+export default function ResidentesManager({ onRefresh, currentUser }: ResidentesManagerProps) {
   const [residentes, setResidentes] = useState<Residente[]>([]);
   const [residencias, setResidencias] = useState<Residencia[]>([]);
   const [authorizedUsers, setAuthorizedUsers] = useState<AuthorizedUser[]>([]);
@@ -80,9 +81,11 @@ export default function ResidentesManager({ onRefresh }: ResidentesManagerProps)
   const handleOpenCreateForm = () => {
     setEditingId(null);
     setFormNombre('');
-    // Default to first active complex if available
-    const activeRes = residencias.find(r => r.isActive);
-    setFormResidenciaId(activeRes?.id || '');
+    // Default to first active complex if available, or active visited residence
+    const activeRes = currentUser?.residenciaId 
+      ? residencias.find(r => r.id === currentUser.residenciaId)
+      : residencias.find(r => r.isActive);
+    setFormResidenciaId(activeRes?.id || currentUser?.residenciaId || '');
     setFormDireccion('');
     setFormWhatsapp('');
     setFormCreateQR(true);
@@ -259,11 +262,13 @@ export default function ResidentesManager({ onRefresh }: ResidentesManagerProps)
     return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
   };
 
-  const filteredItems = residentes.filter(item => 
-    item.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.residenciaNombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.direccion.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredItems = residentes.filter(item => {
+    const matchesSearch = item.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.residenciaNombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.direccion.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesResidence = currentUser?.residenciaId ? item.residenciaId === currentUser.residenciaId : true;
+    return matchesSearch && matchesResidence;
+  });
 
   return (
     <div className="space-y-6 font-sans">
@@ -463,9 +468,10 @@ export default function ResidentesManager({ onRefresh }: ResidentesManagerProps)
                 </label>
                 <select
                   required
+                  disabled={!!currentUser?.residenciaId}
                   value={formResidenciaId}
                   onChange={(e) => setFormResidenciaId(e.target.value)}
-                  className="w-full bg-[#111115] border border-[#2e2e38] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-red-500 font-medium placeholder-slate-600 transition-all cursor-pointer"
+                  className="w-full bg-[#111115] border border-[#2e2e38] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-red-500 font-medium placeholder-slate-600 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <option value="" disabled>Seleccione una residencia...</option>
                   {residencias.filter(r => r.isActive).map(r => (

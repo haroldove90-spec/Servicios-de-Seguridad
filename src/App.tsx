@@ -159,6 +159,33 @@ export default function App() {
       return null;
     }
   });
+
+  const [visitingResidencia, setVisitingResidencia] = useState<{ id: string; nombre: string } | null>(() => {
+    const saved = localStorage.getItem('cnls_visiting_residencia');
+    try {
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    if (visitingResidencia) {
+      localStorage.setItem('cnls_visiting_residencia', JSON.stringify(visitingResidencia));
+    } else {
+      localStorage.removeItem('cnls_visiting_residencia');
+    }
+  }, [visitingResidencia]);
+
+  const activeResidenciaId = visitingResidencia ? visitingResidencia.id : userRole?.residenciaId;
+  const activeResidenciaNombre = visitingResidencia ? visitingResidencia.nombre : userRole?.residenciaNombre;
+
+  const computedAdminUser = userRole ? {
+    ...userRole,
+    residenciaId: activeResidenciaId,
+    residenciaNombre: activeResidenciaNombre
+  } : null;
+
   const [loading, setLoading] = useState<boolean>(true);
 
   // Preview Mode Sandbox simulation controls
@@ -265,6 +292,12 @@ export default function App() {
   const [hasSelectedRole, setHasSelectedRole] = useState<boolean>(() => {
     return localStorage.getItem('cnls_has_selected_role') === 'true';
   });
+
+  useEffect(() => {
+    if (!hasSelectedRole) {
+      setVisitingResidencia(null);
+    }
+  }, [hasSelectedRole]);
 
   const [residenciasList, setResidenciasList] = useState<any[]>([]);
 
@@ -1345,6 +1378,29 @@ export default function App() {
           </div>
         </header>
 
+        {/* Visited Residence Control Banner */}
+        {hasSelectedRole && visitingResidencia && (
+          <div id="visiting-residencia-banner" className="bg-[#111116] border-b border-amber-500/30 text-white font-sans animate-fade-in">
+            <div className="max-w-7xl mx-auto px-4 py-3 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2 font-bold">
+                <span className="flex h-2.5 w-2.5 relative shrink-0">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
+                </span>
+                <span className="text-slate-200">
+                  👁️ MODO VISTA: Estás interactuando con la residencia: <span className="text-amber-400 uppercase font-extrabold bg-[#1e1e24] px-2.5 py-1 rounded-lg border border-amber-500/15 ml-1 inline-block">{visitingResidencia.nombre}</span>
+                </span>
+              </div>
+              <button
+                onClick={() => setVisitingResidencia(null)}
+                className="bg-red-650 hover:bg-red-550 text-white font-black uppercase px-3.5 py-1.5 rounded-xl text-[9.5px] tracking-wider transition shadow cursor-pointer flex items-center gap-1.5 border border-red-500/20 shadow-red-500/10"
+              >
+                Cerrar Vista y Volver a Panel General
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Real Authenticated Mode Role Alert (Missing access role) */}
         {!IS_FIREBASE_DUMMY && !user && (
           <div id="db-active-auth-barrier" className="max-w-md mx-auto my-16 bg-[#0f172a] border border-[#1e293b] rounded-3xl p-8 shadow-2xl text-center">
@@ -1690,16 +1746,16 @@ export default function App() {
                   
                   {/* Tab Views routers */}
                 <div id="workspace-routed-frame" className="animate-fade-in-up">
-                  {activeTab === 'metricas' && isAdmin && userRole && (
+                  {activeTab === 'metricas' && isAdmin && computedAdminUser && (
                     <MetricasDashboard 
-                      currentAdminUser={userRole} 
+                      currentAdminUser={computedAdminUser} 
                       onRefresh={reloadAccessLogs} 
                     />
                   )}
 
                   {activeTab === 'scan' && canScan && (
                     <ScannerInterface 
-                      currentGuard={userRole ? { uid: userRole.uid, name: userRole.name, role: userRole.role } : null} 
+                      currentGuard={computedAdminUser} 
                       onScanLogged={handleLogsUpdated} 
                     />
                   )}
@@ -1720,24 +1776,31 @@ export default function App() {
                   {activeTab === 'residencias' && canManageResidences && (
                     <ResidenciasManager 
                       onRefresh={loadVisitorsForPhoneList}
+                      onVisitResidencia={(res) => {
+                        setVisitingResidencia({ id: res.id, nombre: res.nombre });
+                        setActiveTab('metricas');
+                      }}
                     />
                   )}
 
                   {activeTab === 'residentes' && canManageResidents && (
                     <ResidentesManager 
                       onRefresh={loadVisitorsForPhoneList}
+                      currentUser={computedAdminUser}
                     />
                   )}
 
                   {activeTab === 'marbetes' && isAdmin && (
                     <MarbetesManager 
                       onRefresh={handleLogsUpdated}
+                      currentUser={computedAdminUser}
                     />
                   )}
 
                   {activeTab === 'casetas' && canManageCasetas && (
                     <CasetasManager 
                       onRefresh={reloadAccessLogs}
+                      currentUser={computedAdminUser}
                     />
                   )}
 
@@ -1750,6 +1813,7 @@ export default function App() {
                         setDemoName(name);
                       }}
                       activeSimulatedRole={demoRole}
+                      currentUser={computedAdminUser}
                     />
                   )}
 
@@ -1776,9 +1840,9 @@ export default function App() {
                     />
                   )}
 
-                  {activeTab === 'visitas_admin' && canManageAllResidentVisits && userRole && (
+                  {activeTab === 'visitas_admin' && canManageAllResidentVisits && computedAdminUser && (
                     <VisitasDeResidentes 
-                      currentAdminUser={userRole} 
+                      currentAdminUser={computedAdminUser} 
                       onRefresh={reloadAccessLogs} 
                     />
                   )}

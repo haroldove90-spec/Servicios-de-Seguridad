@@ -92,9 +92,14 @@ export default function MetricasDashboard({ currentAdminUser, onRefresh }: Metri
   const completedVisits = filteredResidentVisits.filter(v => v.used);
   const expiredVisits = filteredResidentVisits.filter(v => !v.used && new Date(v.validUntil) <= now);
 
+  // Filter access logs for visited resilience bound
+  const filteredAccessLogs = isBoundToResidence
+    ? accessLogs.filter(l => l.residenciaId === currentAdminUser.residenciaId)
+    : accessLogs;
+
   // Parse access statistics
-  const totalScans = accessLogs.length;
-  const successfulScans = accessLogs.filter(l => l.status === LogStatus.SUCCESS).length;
+  const totalScans = filteredAccessLogs.length;
+  const successfulScans = filteredAccessLogs.filter(l => l.status === LogStatus.SUCCESS).length;
   const failedScans = totalScans - successfulScans;
 
   // Generate 7 Days flow chart data (Raw SVG helper metrics)
@@ -106,7 +111,7 @@ export default function MetricasDashboard({ currentAdminUser, onRefresh }: Metri
       const d = new Date();
       d.setDate(d.getDate() - i);
       const dateString = d.toDateString();
-      const count = accessLogs.filter(log => new Date(log.timestamp).toDateString() === dateString).length;
+      const count = filteredAccessLogs.filter(log => new Date(log.timestamp).toDateString() === dateString).length;
       dataList.push({
         label: daysName[d.getDay()],
         count: count,
@@ -390,7 +395,7 @@ export default function MetricasDashboard({ currentAdminUser, onRefresh }: Metri
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#212128]">
-                  {accessLogs.slice(0, 5).map((log) => {
+                  {filteredAccessLogs.slice(0, 5).map((log) => {
                     const parsedTime = new Date(log.timestamp).toLocaleString('es-ES', {
                       hour: '2-digit', minute: '2-digit', second: '2-digit',
                       day: '2-digit', month: '2-digit'
@@ -423,7 +428,7 @@ export default function MetricasDashboard({ currentAdminUser, onRefresh }: Metri
                     );
                   })}
 
-                  {accessLogs.length === 0 && (
+                  {filteredAccessLogs.length === 0 && (
                     <tr>
                       <td colSpan={5} className="py-8 text-center text-slate-500">
                         <AlertCircle className="w-6 h-6 mx-auto mb-2 text-slate-650" />

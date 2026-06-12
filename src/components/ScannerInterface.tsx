@@ -175,6 +175,17 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
     const guardName = currentGuard?.name || 'Guardia de Guardia';
     const guardId = currentGuard?.uid || 'anonymous-guard';
     
+    let userResId: string | undefined = undefined;
+    let userResNombre: string | undefined = undefined;
+    try {
+      const allUsers = await dbService.getAuthorizedUsers();
+      const userObj = allUsers.find(u => u.id === userId);
+      if (userObj) {
+        userResId = userObj.residenciaId;
+        userResNombre = userObj.residenciaNombre;
+      }
+    } catch (e) {}
+
     // Create checkout log
     await dbService.createAccessLog({
       userId,
@@ -185,6 +196,8 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
       status: LogStatus.SUCCESS,
       guardId,
       guardName,
+      residenciaId: userResId,
+      residenciaNombre: userResNombre
     });
     
     reloadOnsitePeople();
@@ -666,6 +679,8 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
           status: LogStatus.EXPIRED_TOKEN,
           guardId,
           guardName,
+          residenciaId: currentGuardRef.current?.residenciaId,
+          residenciaNombre: currentGuardRef.current?.residenciaNombre
         });
         onScanLogged();
         return false;
@@ -866,6 +881,8 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
       status: status,
       guardId: currentGuard?.uid || 'anonymous-guard',
       guardName: currentGuard?.name || 'Guardia de Seguridad',
+      residenciaId: user.residenciaId,
+      residenciaNombre: user.residenciaNombre
     };
     await dbService.createAccessLog(logData);
     onScanLogged();

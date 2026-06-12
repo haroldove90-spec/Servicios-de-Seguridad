@@ -15,9 +15,10 @@ import { exportMarbeteToJPG } from '../utils/marbeteExporter';
 
 interface MarbetesManagerProps {
   onRefresh?: () => void;
+  currentUser?: any;
 }
 
-export default function MarbetesManager({ onRefresh }: MarbetesManagerProps) {
+export default function MarbetesManager({ onRefresh, currentUser }: MarbetesManagerProps) {
   const [marbetes, setMarbetes] = useState<Marbete[]>([]);
   const [residents, setResidents] = useState<Residente[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -192,13 +193,15 @@ export default function MarbetesManager({ onRefresh }: MarbetesManagerProps) {
 
   const filteredMarbetes = marbetes.filter(m => {
     const q = searchTerm.toLowerCase();
-    return (
+    const matchesSearch = (
       m.residenteNombre.toLowerCase().includes(q) ||
       m.residenciaNombre.toLowerCase().includes(q) ||
       (m.vehiculoPlacas || '').toLowerCase().includes(q) ||
       (m.vehiculoInfo || '').toLowerCase().includes(q) ||
       m.consecutivo?.toString().includes(q)
     );
+    const matchesResidence = currentUser?.residenciaId ? m.residenciaId === currentUser.residenciaId : true;
+    return matchesSearch && matchesResidence;
   });
 
   return (
@@ -533,11 +536,13 @@ export default function MarbetesManager({ onRefresh }: MarbetesManagerProps) {
                     className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-slate-200 focus:outline-none focus:border-red-550 transition"
                   >
                     <option value="" disabled>Selecciona un residente...</option>
-                    {residents.map(r => (
-                      <option key={r.id} value={r.id}>
-                        {r.nombre} ({r.residenciaNombre || 'Sin domicilio'})
-                      </option>
-                    ))}
+                    {residents
+                      .filter(r => currentUser?.residenciaId ? r.residenciaId === currentUser.residenciaId : true)
+                      .map(r => (
+                        <option key={r.id} value={r.id}>
+                          {r.nombre} ({r.residenciaNombre || 'Sin domicilio'})
+                        </option>
+                      ))}
                   </select>
                 )}
                 <p className="text-[10px] text-slate-500 mt-1">El marbete digital incluirá automáticamente la residencia y contacto del residente.</p>

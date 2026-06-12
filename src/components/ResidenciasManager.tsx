@@ -7,7 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Plus, Search, Edit2, Trash2, CheckCircle, XCircle, Home, User, Shield, 
   Info, Check, X, ChevronDown, ChevronUp, Users, Calendar, Clock, 
-  Sparkles, MessageSquare, QrCode, Download, Copy, ExternalLink, RefreshCw, Smartphone
+  Sparkles, MessageSquare, QrCode, Download, Copy, ExternalLink, RefreshCw, Smartphone, Eye
 } from 'lucide-react';
 import { dbService } from '../services/dbService';
 import { Residencia, Residente, AuthorizedUser, UserStatus, SystemUserRole } from '../types';
@@ -15,9 +15,10 @@ import { generateQRWithLogo } from '../utils/qrWithLogo';
 
 interface ResidenciasManagerProps {
   onRefresh?: () => void;
+  onVisitResidencia?: (residencia: Residencia) => void;
 }
 
-export default function ResidenciasManager({ onRefresh }: ResidenciasManagerProps) {
+export default function ResidenciasManager({ onRefresh, onVisitResidencia }: ResidenciasManagerProps) {
   const [residencias, setResidencias] = useState<Residencia[]>([]);
   const [residentes, setResidentes] = useState<Residente[]>([]);
   const [visitantes, setVisitantes] = useState<AuthorizedUser[]>([]);
@@ -262,47 +263,17 @@ export default function ResidenciasManager({ onRefresh }: ResidenciasManagerProp
           username: finalUsername.toLowerCase()
         });
 
-        const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
-
-        // 2. Create Caseta / Supervisor Role for this Residence
-        const casetaName = `Oficial de Seguridad (${formNombre.trim()})`;
-        const casetaEmail = `caseta.${cleanResName || 'resd'}@control.local`;
-        const casetaPass = `Caseta_${randomSuffix}`;
-        const casetaUid = 'operator_cas_' + Math.random().toString(36).substring(2, 9);
-        await dbService.saveSystemRole({
-          uid: casetaUid,
-          name: casetaName,
-          email: casetaEmail,
-          role: SystemUserRole.SUPERVISOR,
-          phone: '+52 55 ' + Math.floor(10000000 + Math.random() * 90000000),
-          password: casetaPass,
-          createdAt: new Date().toISOString(),
-          isActive: true,
-          residenciaId: newRes.id,
-          residenciaNombre: newRes.nombre,
-          username: `caseta.${cleanResName || 'resd'}`
-        });
-
-        // 3. Create default Caseta entry in Casetas collection
-        await dbService.createCaseta({
-          nombre: `Caseta Principal (${formNombre.trim()})`,
-          residenciaId: newRes.id,
-          residenciaNombre: newRes.nombre,
-          isActive: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        });
-
-        // Store details to exhibit in success modal
+        // Only the administrator account is created for the new residence.
+        // No casetas or supervisor profiles are pre-created, fulfilling the requirement of starting with "5" records or "0" stats.
         setCreatedCredentials({
           residenciaNombre: formNombre.trim(),
           adminName: formAdministrador.trim(),
-          adminEmail: finalUsername,
+          adminEmail: finalEmail,
           adminPass,
           adminPhone: finalWhatsApp,
-          casetaName,
-          casetaEmail: `caseta.${cleanResName || 'resd'}`,
-          casetaPass
+          casetaName: '',
+          casetaEmail: '',
+          casetaPass: ''
         });
       }
       setIsFormOpen(false);
@@ -580,6 +551,16 @@ export default function ResidenciasManager({ onRefresh }: ResidenciasManagerProp
                         </td>
                         <td className="py-4 px-6 text-right">
                           <div className="flex items-center justify-end gap-2">
+                            {onVisitResidencia && (
+                              <button
+                                onClick={() => onVisitResidencia(item)}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[#2e2e38] bg-[#1e1e24] text-red-400 hover:bg-red-650 hover:text-white hover:border-transparent transition-all text-[10px] font-bold uppercase tracking-wider cursor-pointer"
+                                title="Visitar Residencia"
+                              >
+                                <Eye className="w-4 h-4 text-red-500 hover:text-inherit" />
+                                <span>Visitar Residencia</span>
+                              </button>
+                            )}
                             <button
                               onClick={() => handleOpenEditForm(item)}
                               className="p-2 text-slate-400 hover:text-white hover:bg-[#1e1e24] rounded-lg transition-all"
@@ -1177,7 +1158,7 @@ export default function ResidenciasManager({ onRefresh }: ResidenciasManagerProp
                 <p className="text-xs text-slate-400 mt-1">Se han generado las siguientes credenciales de acceso para esta subdivisión:</p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className={createdCredentials.casetaEmail ? "grid grid-cols-1 md:grid-cols-2 gap-4" : "grid grid-cols-1 gap-4"}>
                 {/* 1. Admin Role Credentials */}
                 <div className="bg-[#1e1e24]/40 border border-[#2e2e38] p-4 rounded-xl space-y-2 relative text-left">
                   <div className="absolute top-3.5 right-3.5 px-2 py-0.5 rounded text-[8px] font-black uppercase bg-red-500/10 text-red-400 border border-red-500/20">
@@ -1199,37 +1180,39 @@ export default function ResidenciasManager({ onRefresh }: ResidenciasManagerProp
                 </div>
 
                 {/* 2. Guard / Caseta Credentials */}
-                <div className="bg-[#1e1e24]/40 border border-[#2e2e38] p-4 rounded-xl space-y-2 relative text-left">
-                  <div className="absolute top-3.5 right-3.5 px-2 py-0.5 rounded text-[8px] font-black uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                    Caseta / Guardia
-                  </div>
-                  <h4 className="text-xs font-bold text-white flex items-center gap-1.5 pt-0.5">
-                    <Smartphone className="w-3.5 h-3.5 text-amber-500" /> {createdCredentials.casetaName}
-                  </h4>
-                  <div className="space-y-1 text-xs">
-                    <div>
-                      <span className="text-[9px] text-slate-500 block">Usuario / Correo:</span>
-                      <code className="text-amber-300 font-mono text-[11px] block select-all bg-black/30 px-2 py-1 rounded mt-0.5 border border-zinc-800">{createdCredentials.casetaEmail}</code>
+                {createdCredentials.casetaEmail && (
+                  <div className="bg-[#1e1e24]/40 border border-[#2e2e38] p-4 rounded-xl space-y-2 relative text-left">
+                    <div className="absolute top-3.5 right-3.5 px-2 py-0.5 rounded text-[8px] font-black uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                      Caseta / Guardia
                     </div>
-                    <div>
-                      <span className="text-[9px] text-slate-500 block">Contraseña de acceso:</span>
-                      <code className="text-emerald-400 font-mono text-[11px] font-bold block select-all bg-black/30 px-2 py-1 rounded mt-0.5 border border-zinc-800">{createdCredentials.casetaPass}</code>
+                    <h4 className="text-xs font-bold text-white flex items-center gap-1.5 pt-0.5">
+                      <Smartphone className="w-3.5 h-3.5 text-amber-500" /> {createdCredentials.casetaName}
+                    </h4>
+                    <div className="space-y-1 text-xs">
+                      <div>
+                        <span className="text-[9px] text-slate-500 block">Usuario / Correo:</span>
+                        <code className="text-amber-300 font-mono text-[11px] block select-all bg-black/30 px-2 py-1 rounded mt-0.5 border border-zinc-800">{createdCredentials.casetaEmail}</code>
+                      </div>
+                      <div>
+                        <span className="text-[9px] text-slate-500 block">Contraseña de acceso:</span>
+                        <code className="text-emerald-400 font-mono text-[11px] font-bold block select-all bg-black/30 px-2 py-1 rounded mt-0.5 border border-zinc-800">{createdCredentials.casetaPass}</code>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
               </div>
 
               <div className="bg-emerald-500/5 border border-emerald-500/10 p-3.5 rounded-xl flex items-start gap-2.5 text-left">
                 <Info className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                 <p className="text-[10px] text-slate-400 leading-relaxed">
-                  Estas credenciales han sido dadas de alta en el servidor central. Estos operadores ya pueden iniciar sesión de forma independiente en la pantalla de bienvenida seleccionando sus respectivos roles y usando estas contraseñas de seguridad.
+                  Estas credenciales han sido dadas de alta en el servidor central. El Administrador ya puede acceder de forma independiente para configurar sus propias casetas de vigilancia, dar de alta vigilantes y registrar a sus respectivos residentes.
                 </p>
               </div>
 
               <div className="flex flex-wrap items-center justify-end gap-3 pt-4 border-t border-[#2e2e38]">
                 {createdCredentials.adminPhone && (
                   <a
-                    href={`https://wa.me/${createdCredentials.adminPhone.replace(/\D/g, '')}?text=${encodeURIComponent(`¡Hola *${createdCredentials.adminName}*!\n\nTe comparto tus *Credenciales de Acceso* como Administrador de la residencia *${createdCredentials.residenciaNombre}*:\n\n🔗 *Enlace de acceso:* ${window.location.origin}${window.location.pathname}\n👤 *Usuario:* ${createdCredentials.adminEmail}\n🔑 *Contraseña:* ${createdCredentials.adminPass}\n\n_Guarda estos datos para poder ingresar y administrar visitas, residentes y marbetes._`)}`}
+                    href={`https://wa.me/${createdCredentials.adminPhone.replace(/\D/g, '')}?text=${encodeURIComponent(`¡Hola *${createdCredentials.adminName}*!\n\nTe comparto tus *Credenciales de Acceso* como Administrador de la residencia *${createdCredentials.residenciaNombre}*:\n\n🔗 *Enlace de acceso:* ${window.location.origin}${window.location.pathname}\n👤 *Usuario:* ${createdCredentials.adminEmail}\n🔑 *Contraseña:* ${createdCredentials.adminPass}\n\n_Guarda estos datos para ingresar y comenzar a dar de alta sus vigilantes y residentes._`)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-emerald-750 hover:bg-emerald-600 text-emerald-100 rounded-xl text-xs font-semibold cursor-pointer border border-emerald-500/20 shadow transition"
@@ -1240,7 +1223,9 @@ export default function ResidenciasManager({ onRefresh }: ResidenciasManagerProp
                 <button
                   type="button"
                   onClick={() => {
-                    const textToCopy = `Residencia: ${createdCredentials.residenciaNombre}\n\n1. ROL DIRECTOR ADMINISTRADOR:\nUsuario: ${createdCredentials.adminEmail}\nContraseña: ${createdCredentials.adminPass}\n\n2. ROL VIGILANCIA / CASETA:\nUsuario: ${createdCredentials.casetaEmail}\nContraseña: ${createdCredentials.casetaPass}`;
+                    const textToCopy = createdCredentials.casetaEmail 
+                      ? `Residencia: ${createdCredentials.residenciaNombre}\n\n1. ROL DIRECTOR ADMINISTRADOR:\nUsuario: ${createdCredentials.adminEmail}\nContraseña: ${createdCredentials.adminPass}\n\n2. ROL VIGILANCIA / CASETA:\nUsuario: ${createdCredentials.casetaEmail}\nContraseña: ${createdCredentials.casetaPass}`
+                      : `Residencia: ${createdCredentials.residenciaNombre}\n\nROL DIRECTOR ADMINISTRADOR:\nUsuario: ${createdCredentials.adminEmail}\nContraseña: ${createdCredentials.adminPass}`;
                     navigator.clipboard.writeText(textToCopy);
                     alert('¡Credenciales copiadas al portapapeles!');
                   }}

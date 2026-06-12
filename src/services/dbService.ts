@@ -105,7 +105,9 @@ export function normalizeLogRow(raw: any): AccessLog {
     type: raw.type,
     status: raw.status,
     guardId: raw.guardId ?? raw.guard_id ?? raw.guardid,
-    guardName: raw.guardName ?? raw.guard_name ?? raw.guardname
+    guardName: raw.guardName ?? raw.guard_name ?? raw.guardname,
+    residenciaId: raw.residenciaId ?? raw.residencia_id ?? raw.residenciaid,
+    residenciaNombre: raw.residenciaNombre ?? raw.residencia_nombre ?? raw.residencianombre
   };
 }
 

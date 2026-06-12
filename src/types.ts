@@ -65,6 +65,8 @@ export interface AccessLog {
   status: LogStatus;
   guardId: string;
   guardName: string;
+  residenciaId?: string;
+  residenciaNombre?: string;
 }
 
 export interface SystemRole {
