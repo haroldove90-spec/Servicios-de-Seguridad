@@ -22,6 +22,7 @@ export default function ResidenciasManager({ onRefresh }: ResidenciasManagerProp
   const [residentes, setResidentes] = useState<Residente[]>([]);
   const [visitantes, setVisitantes] = useState<AuthorizedUser[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [rolesList, setRolesList] = useState<any[]>([]);
   
   // Residence Form state
   const [isFormOpen, setIsFormOpen] = useState<boolean>(false);
@@ -31,8 +32,20 @@ export default function ResidenciasManager({ onRefresh }: ResidenciasManagerProp
   const [formNumResidencias, setFormNumResidencias] = useState<number>(0);
   const [formIsActive, setFormIsActive] = useState<boolean>(true);
 
-  // Sub-panel expanded state per Residence
+  // New admin credentials fields for creation mode
+  const [formAdminUsername, setFormAdminUsername] = useState<string>('');
+  const [formAdminPassword, setFormAdminPassword] = useState<string>('');
+  const [formAdminPhone, setFormAdminPhone] = useState<string>('');
+
+  // Sub-panel expanded state per Residence (managing admin credentials)
   const [expandedResidenciaId, setExpandedResidenciaId] = useState<string | null>(null);
+  const [editingAdminId, setEditingAdminId] = useState<string | null>(null);
+  const [editingAdminName, setEditingAdminName] = useState<string>('');
+  const [editingAdminUsername, setEditingAdminUsername] = useState<string>('');
+  const [editingAdminPassword, setEditingAdminPassword] = useState<string>('');
+  const [editingAdminPhone, setEditingAdminPhone] = useState<string>('');
+  const [editingAdminIsActive, setEditingAdminIsActive] = useState<boolean>(true);
+  const [isSavingAdmin, setIsSavingAdmin] = useState<boolean>(false);
   const [activeSubTab, setActiveSubTab] = useState<'residentes' | 'visitantes'>('residentes');
 
   // Visitor Creation Modal State associated with a target residence
@@ -65,10 +78,30 @@ export default function ResidenciasManager({ onRefresh }: ResidenciasManagerProp
     adminName: string;
     adminEmail: string;
     adminPass: string;
+    adminPhone: string;
     casetaName: string;
     casetaEmail: string;
     casetaPass: string;
   } | null>(null);
+
+  // Secure Password Generator Function
+  const generateReallySecurePass = () => {
+    const uppercase = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+    const lowercase = "abcdefghijkmnopqrstuvwxyz";
+    const numbers = "23456789";
+    const specials = "!@#$*-_";
+    let pass = "";
+    pass += uppercase[Math.floor(Math.random() * uppercase.length)];
+    pass += lowercase[Math.floor(Math.random() * lowercase.length)];
+    pass += numbers[Math.floor(Math.random() * numbers.length)];
+    pass += specials[Math.floor(Math.random() * specials.length)];
+    const all = uppercase + lowercase + numbers + specials;
+    for (let i = 0; i < 8; i++) {
+      pass += all[Math.floor(Math.random() * all.length)];
+    }
+    // shuffle
+    return pass.split('').sort(() => 0.5 - Math.random()).join('');
+  };
 
   const loadData = async () => {
     try {
@@ -80,6 +113,9 @@ export default function ResidenciasManager({ onRefresh }: ResidenciasManagerProp
 
       const authList = await dbService.getAuthorizedUsers();
       setVisitantes(authList);
+
+      const rList = await dbService.getAllSystemRoles();
+      setRolesList(rList);
     } catch (e) {
       console.error('Error loading data in ResidenciasManager:', e);
     }
@@ -107,6 +143,11 @@ export default function ResidenciasManager({ onRefresh }: ResidenciasManagerProp
     setFormAdministrador('');
     setFormNumResidencias(0);
     setFormIsActive(true);
+    
+    // Auto populate creation credential suggestions
+    setFormAdminUsername('');
+    setFormAdminPassword(generateReallySecurePass());
+    setFormAdminPhone('');
     setIsFormOpen(true);
   };
 
@@ -117,6 +158,58 @@ export default function ResidenciasManager({ onRefresh }: ResidenciasManagerProp
     setFormNumResidencias(item.numResidencias);
     setFormIsActive(item.isActive);
     setIsFormOpen(true);
+  };
+
+  // Update or save specialized administrator role details
+  const handleSaveAdminCredentials = async (residenciaItem: Residencia) => {
+    if (!editingAdminName.trim() || !editingAdminUsername.trim() || !editingAdminPassword.trim()) {
+      alert('Por favor complete el nombre, usuario y contraseña del administrador.');
+      return;
+    }
+    
+    setIsSavingAdmin(true);
+    try {
+      const targetUid = editingAdminId || ('operator_adm_' + Math.random().toString(36).substring(2, 9));
+      const normalizedUser = editingAdminUsername.trim().toLowerCase();
+      
+      const updatedRole: any = {
+        uid: targetUid,
+        name: editingAdminName.trim(),
+        email: normalizedUser.includes('@') ? normalizedUser : `${normalizedUser}@control.local`,
+        role: SystemUserRole.ADMIN,
+        phone: editingAdminPhone.trim(),
+        password: editingAdminPassword.trim(),
+        createdAt: new Date().toISOString(),
+        isActive: editingAdminIsActive,
+        residenciaId: residenciaItem.id,
+        residenciaNombre: residenciaItem.nombre,
+        username: normalizedUser
+      };
+      
+      await dbService.saveSystemRole(updatedRole);
+      
+      // Also update the residencia's administrator name to match!
+      if (residenciaItem.administrador !== editingAdminName.trim()) {
+        await dbService.updateResidencia(residenciaItem.id, {
+          administrador: editingAdminName.trim()
+        });
+      }
+      
+      alert('Credenciales de administrador actualizadas correctamente.');
+      await loadData();
+    } catch (err) {
+      console.error('Error saving admin role:', err);
+      alert('Ocurrió un error al guardar las credenciales.');
+    } finally {
+      setIsSavingAdmin(false);
+    }
+  };
+
+  const getAdminWhatsAppShareUrl = (resTarget: Residencia) => {
+    const cleanPhone = editingAdminPhone ? editingAdminPhone.replace(/\D/g, '') : '';
+    const loginUrl = `${window.location.origin}${window.location.pathname}`;
+    const text = `¡Hola *${editingAdminName}*!\n\nTe comparto tus *Credenciales de Acceso* como Administrador de la residencia *${resTarget.nombre}*:\n\n🔗 *Enlace de acceso:* ${loginUrl}\n👤 *Usuario:* ${editingAdminUsername}\n🔑 *Contraseña:* ${editingAdminPassword}\n\n*Estado:* ${editingAdminIsActive ? 'ACTIVO ✓' : 'SUSPENDIDO ✗'}\n\n_Usa tus datos para ingresar al panel de administración y gestionar las visitas, condóminos y controles del fraccionamiento._`;
+    return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -148,25 +241,28 @@ export default function ResidenciasManager({ onRefresh }: ResidenciasManagerProp
           .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // remove accents
           .replace(/[^a-z0-9]/g, ''); // alphanumeric only
         
-        const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+        const finalUsername = formAdminUsername.trim() || `admin.${cleanResName || 'resd'}`;
+        const finalEmail = finalUsername.includes('@') ? finalUsername : `${finalUsername}@control.local`;
+        const adminPass = formAdminPassword.trim() || `Admin_${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+        const adminUid = 'operator_adm_' + Math.random().toString(36).substring(2, 9);
+        const finalWhatsApp = formAdminPhone.trim();
         
         // 1. Create Admin Role for this Residence
-        const adminName = `${formAdministrador.trim()} (Admin - ${formNombre.trim()})`;
-        const adminEmail = `admin.${cleanResName || 'resd'}@control.local`;
-        const adminPass = `Admin_${randomSuffix}`;
-        const adminUid = 'operator_adm_' + Math.random().toString(36).substring(2, 9);
         await dbService.saveSystemRole({
           uid: adminUid,
-          name: adminName,
-          email: adminEmail,
+          name: formAdministrador.trim(),
+          email: finalEmail,
           role: SystemUserRole.ADMIN,
-          phone: '+52 55 ' + Math.floor(10000000 + Math.random() * 90000000),
+          phone: finalWhatsApp || ('+52 55 ' + Math.floor(10000000 + Math.random() * 90000000)),
           password: adminPass,
           createdAt: new Date().toISOString(),
           isActive: true,
           residenciaId: newRes.id,
-          residenciaNombre: newRes.nombre
+          residenciaNombre: newRes.nombre,
+          username: finalUsername.toLowerCase()
         });
+
+        const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
 
         // 2. Create Caseta / Supervisor Role for this Residence
         const casetaName = `Oficial de Seguridad (${formNombre.trim()})`;
@@ -183,7 +279,8 @@ export default function ResidenciasManager({ onRefresh }: ResidenciasManagerProp
           createdAt: new Date().toISOString(),
           isActive: true,
           residenciaId: newRes.id,
-          residenciaNombre: newRes.nombre
+          residenciaNombre: newRes.nombre,
+          username: `caseta.${cleanResName || 'resd'}`
         });
 
         // 3. Create default Caseta entry in Casetas collection
@@ -199,11 +296,12 @@ export default function ResidenciasManager({ onRefresh }: ResidenciasManagerProp
         // Store details to exhibit in success modal
         setCreatedCredentials({
           residenciaNombre: formNombre.trim(),
-          adminName,
-          adminEmail,
+          adminName: formAdministrador.trim(),
+          adminEmail: finalUsername,
           adminPass,
+          adminPhone: finalWhatsApp,
           casetaName,
-          casetaEmail,
+          casetaEmail: `caseta.${cleanResName || 'resd'}`,
           casetaPass
         });
       }
@@ -240,9 +338,30 @@ export default function ResidenciasManager({ onRefresh }: ResidenciasManagerProp
   const handleToggleRowExpand = (item: Residencia) => {
     if (expandedResidenciaId === item.id) {
       setExpandedResidenciaId(null);
+      setEditingAdminId(null);
     } else {
       setExpandedResidenciaId(item.id);
-      setActiveSubTab('residentes');
+      
+      // Auto resolve or find the matching admin role for editing
+      const adminRole = rolesList.find(r => r.residenciaId === item.id && r.role === SystemUserRole.ADMIN);
+      if (adminRole) {
+        setEditingAdminId(adminRole.uid);
+        setEditingAdminName(adminRole.name);
+        setEditingAdminUsername(adminRole.username || adminRole.email || '');
+        setEditingAdminPassword(adminRole.password || '');
+        setEditingAdminPhone(adminRole.phone || '');
+        setEditingAdminIsActive(adminRole.isActive !== false);
+      } else {
+        setEditingAdminId(null);
+        setEditingAdminName(item.administrador);
+        const cleanResName = item.nombre.toLowerCase()
+          .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-z0-9]/g, '');
+        setEditingAdminUsername(`admin.${cleanResName || 'resd'}`);
+        setEditingAdminPassword(generateReallySecurePass());
+        setEditingAdminPhone('');
+        setEditingAdminIsActive(true);
+      }
     }
   };
 
@@ -387,22 +506,20 @@ export default function ResidenciasManager({ onRefresh }: ResidenciasManagerProp
                 <th className="py-4 px-6">Administrador</th>
                 <th className="py-4 px-4 text-center">Nº Residencias</th>
                 <th className="py-4 px-4 text-center">Estado</th>
-                <th className="py-4 px-4 text-center">Residentes / Visitas</th>
+                <th className="py-4 px-4 text-center">Credenciales Admin</th>
                 <th className="py-4 px-6 text-right">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#2e2e38] text-xs">
               {filteredItems.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-500 font-medium">
+                   <td colSpan={6} className="py-12 text-center text-slate-500 font-medium">
                     {searchTerm ? 'No se encontraron resultados para la búsqueda.' : 'No hay residencias registradas en este momento.'}
                   </td>
                 </tr>
               ) : (
                 filteredItems.map((item) => {
                   const isExpanded = expandedResidenciaId === item.id;
-                  const assignedResidentes = residentes.filter(r => r.residenciaId === item.id);
-                  const assignedVisitantes = visitantes.filter(v => v.residenciaId === item.id);
 
                   return (
                     <React.Fragment key={item.id}>
@@ -452,12 +569,12 @@ export default function ResidenciasManager({ onRefresh }: ResidenciasManagerProp
                             onClick={() => handleToggleRowExpand(item)}
                             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
                               isExpanded 
-                                ? 'bg-red-650 text-white border-transparent' 
-                                : 'bg-[#1e1e24] text-slate-300 border-[#2e2e38] hover:border-slate-650'
+                                ? 'bg-blue-600 text-white border-transparent shadow shadow-blue-500/10' 
+                                : 'bg-[#1e1e24] text-blue-400 border-[#2e2e38] hover:border-blue-500/40'
                             }`}
                           >
-                            <Users className="w-3.5 h-3.5" />
-                            <span>Padres ({assignedResidentes.length} / {assignedVisitantes.length})</span>
+                            <Shield className="w-3.5 h-3.5 text-blue-400 group-hover:scale-110 transition-transform" />
+                            <span>Ver Credenciales</span>
                             {isExpanded ? <ChevronUp className="w-3.5 h-3.5 ml-0.5" /> : <ChevronDown className="w-3.5 h-3.5 ml-0.5" />}
                           </button>
                         </td>
@@ -481,158 +598,133 @@ export default function ResidenciasManager({ onRefresh }: ResidenciasManagerProp
                         </td>
                       </tr>
 
-                      {/* Expandable sub-panel showing resident censo list and visitor list */}
+                      {/* Expandable sub-panel showing administrator credentials controls */}
                       {isExpanded && (
                         <tr>
                           <td colSpan={6} className="bg-[#111115] p-6 border-b border-[#2e2e38] animate-fade-in">
-                            <div className="border border-[#2e2e38] bg-[#15151a] p-5 rounded-2xl space-y-5">
-                              {/* Tab Controls and header */}
+                            <div className="border border-[#2e2e38] bg-[#15151a] p-5 rounded-2xl space-y-5 text-left">
                               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#2e2e38] pb-3">
                                 <div className="flex items-center gap-3">
-                                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">Censo Sincronizado para {item.nombre}</h4>
-                                  <span className="text-[10px] bg-[#1e1e24] border border-[#2e2e38] text-slate-400 px-2 py-0.5 rounded font-bold font-mono">ID: {item.id}</span>
+                                  <h4 className="text-xs font-black uppercase tracking-wider text-blue-400 flex items-center gap-1.5">
+                                    <Shield className="w-4 h-4 text-blue-500" />
+                                    Gestionar Credenciales de Administración
+                                  </h4>
+                                  <span className="text-[10px] bg-[#1e1e24] border border-[#2e2e38] text-slate-400 px-2.5 py-0.5 rounded font-bold font-mono">
+                                    Coto: {item.nombre}
+                                  </span>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    onClick={() => setActiveSubTab('residentes')}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition-all cursor-pointer ${
-                                      activeSubTab === 'residentes'
-                                        ? 'bg-red-500/20 text-red-450 font-bold border border-red-500/30'
-                                        : 'text-slate-400 hover:text-white hover:bg-[#1e1e24]'
-                                    }`}
-                                  >
-                                    👩‍👩‍👧 Residentes ({assignedResidentes.length})
-                                  </button>
-                                  <button
-                                    onClick={() => setActiveSubTab('visitantes')}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition-all cursor-pointer ${
-                                      activeSubTab === 'visitantes'
-                                        ? 'bg-red-500/20 text-red-450 font-bold border border-red-500/30'
-                                        : 'text-slate-400 hover:text-white hover:bg-[#1e1e24]'
-                                    }`}
-                                  >
-                                    🚗 Visitantes ({assignedVisitantes.length})
-                                  </button>
+                                <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-md ${
+                                  editingAdminIsActive 
+                                    ? 'bg-emerald-555/10 text-emerald-400 border border-emerald-500/20' 
+                                    : 'bg-red-555/10 text-red-400 border border-red-550/20'
+                                }`}>
+                                  {editingAdminIsActive ? 'Acceso Activo ✓' : 'Acceso Suspendido ✗'}
+                                </span>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-1">
+                                <div className="space-y-4">
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-slate-450 uppercase tracking-wider mb-1.5">
+                                      Nombre Completo del Administrador *
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={editingAdminName}
+                                      onChange={(e) => setEditingAdminName(e.target.value)}
+                                      className="w-full bg-[#111115] border border-[#2e2e38] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500 font-medium transition-all"
+                                      placeholder="Ej. Ing. Alejandro Ruiz"
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-slate-450 uppercase tracking-wider mb-1.5">
+                                      Nombre de Usuario (Para Login) *
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={editingAdminUsername}
+                                      onChange={(e) => setEditingAdminUsername(e.target.value)}
+                                      className="w-full bg-[#111115] border border-[#2e2e38] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500 font-mono tracking-tight transition-all"
+                                      placeholder="Ej. admin_coto"
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="space-y-4">
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-slate-455 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                                      <span>Contraseña de Acceso *</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => setEditingAdminPassword(generateReallySecurePass())}
+                                        className="text-[9px] text-blue-450 hover:text-blue-300 font-bold uppercase hover:underline flex items-center gap-1 cursor-pointer"
+                                      >
+                                        <Sparkles className="w-3 h-3 text-blue-500" /> Generar Segura
+                                      </button>
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={editingAdminPassword}
+                                      onChange={(e) => setEditingAdminPassword(e.target.value)}
+                                      className="w-full bg-[#111115] border border-[#2e2e38] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500 font-mono font-bold transition-all"
+                                      placeholder="Contraseña residencial"
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-slate-450 uppercase tracking-wider mb-1.5">
+                                      Número de WhatsApp del Administrador
+                                    </label>
+                                    <input
+                                      type="tel"
+                                      value={editingAdminPhone}
+                                      onChange={(e) => setEditingAdminPhone(e.target.value)}
+                                      className="w-full bg-[#111115] border border-[#2e2e38] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500 font-mono transition-all"
+                                      placeholder="Ej. 5213344556677"
+                                    />
+                                    <p className="text-[9px] text-slate-500 mt-1">Ingresa código de país sin espacios ni símbolos (+521...)</p>
+                                  </div>
                                 </div>
                               </div>
 
-                              {/* Resident list tab content */}
-                              {activeSubTab === 'residentes' && (
-                                <div className="space-y-3">
-                                  <div className="flex items-center justify-between">
-                                    <p className="text-[10px] text-slate-400">
-                                      Residentes activos registrados con código de barras o pase QR permanente asignados a este condominio.
-                                    </p>
-                                  </div>
-
-                                  {assignedResidentes.length === 0 ? (
-                                    <div className="py-8 text-center text-slate-500 bg-[#0d0d11]/50 border border-dashed border-[#24242d] rounded-xl font-medium text-xs">
-                                      🏡 No hay residentes asignados a este fraccionamiento aún.<br />
-                                      <span className="text-[10px] text-slate-600 block mt-1">Vaya al módulo "Registro de Residente" para darlos de alta.</span>
-                                    </div>
-                                  ) : (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                      {assignedResidentes.map((resd) => (
-                                        <div key={resd.id} className="bg-[#18181c] border border-[#2a2a32] p-4 rounded-xl flex items-center justify-between w-full shadow hover:border-[#383844] transition-all">
-                                          <div className="space-y-1">
-                                            <p className="font-bold text-white text-xs flex items-center gap-1">
-                                              <User className="w-3.5 h-3.5 text-slate-450" /> {resd.nombre}
-                                            </p>
-                                            <p className="text-[10px] text-slate-400 font-medium">📍 Ubicación: {resd.direccion}</p>
-                                            <p className="text-[10.5px] font-mono text-slate-500">{resd.whatsapp || 'Sin WhatsApp asignado'}</p>
-                                          </div>
-                                          {resd.whatsapp && (
-                                            <a
-                                              href={`https://wa.me/${resd.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola ${resd.nombre}, te comparto tu pase QR permanente.`)}`}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                              className="p-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 transition"
-                                              title="Compartir Pase por WhatsApp"
-                                            >
-                                              <MessageSquare className="w-3.5 h-3.5" />
-                                            </a>
-                                          )}
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
+                              <div className="pt-3 border-t border-[#2e2e38]/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-sans">
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingAdminIsActive(!editingAdminIsActive)}
+                                    className={`inline-flex items-center gap-1.5 px-4.5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wide cursor-pointer transition-all border ${
+                                      editingAdminIsActive
+                                        ? 'bg-red-500/10 text-red-400 border-red-500/25 hover:bg-red-500/20'
+                                        : 'bg-[#1a2d24] text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/25'
+                                    }`}
+                                  >
+                                    {editingAdminIsActive ? 'Suspender Credenciales' : 'Habilitar Cuenta'}
+                                  </button>
                                 </div>
-                              )}
 
-                              {/* Visitor list tab content */}
-                              {activeSubTab === 'visitantes' && (
-                                <div className="space-y-3">
-                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#111115] p-3 rounded-xl border border-[#24242d]">
-                                    <p className="text-[10px] text-slate-450">
-                                      Pases de visitantes activos y autorizados. Los guardias escanean el código de barras/QR de estas personas y el sistema registrará los accesos automáticamente en la bitácora relacionándola con tu subdivision.
-                                    </p>
-                                    <button
-                                      onClick={() => handleOpenVisitorForm(item)}
-                                      className="inline-flex items-center gap-1.5 bg-red-600 hover:bg-red-500 text-white font-bold text-[10px] uppercase tracking-wider px-3 py-2 rounded-lg cursor-pointer transition shrink-0"
+                                <div className="flex items-center gap-2.5">
+                                  {editingAdminPhone && (
+                                    <a
+                                      href={getAdminWhatsAppShareUrl(item)}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center justify-center gap-1.5 px-4.5 py-2.5 bg-emerald-600 hover:bg-emerald-550 text-white rounded-xl text-xs font-extrabold uppercase tracking-wide shadow-lg shadow-emerald-500/10 transition cursor-pointer"
+                                      title="Compartir credenciales de acceso vía WhatsApp"
                                     >
-                                      <Plus className="w-3.5 h-3.5" /> Registrar Visitante
-                                    </button>
-                                  </div>
-
-                                  {assignedVisitantes.length === 0 ? (
-                                    <div className="py-10 text-center text-slate-500 bg-[#0d0d11]/50 border border-dashed border-[#24242d] rounded-xl font-medium text-xs">
-                                      🚗 No hay pases de visitante activos para esta residencia.<br />
-                                      <button 
-                                        onClick={() => handleOpenVisitorForm(item)}
-                                        className="mt-3.5 text-xs text-red-500 hover:text-red-420 font-bold uppercase tracking-wider underline cursor-pointer"
-                                      >
-                                        Crear primer pase ahora
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                      {assignedVisitantes.map((visitor) => {
-                                        const isExpired = new Date(visitor.validUntil) < new Date();
-                                        return (
-                                          <div key={visitor.id} className="bg-[#18181c] border border-[#2a2a32] p-4 rounded-xl flex items-center justify-between w-full shadow hover:border-[#383844] transition-all relative overflow-hidden">
-                                            {/* Top visual accent rule */}
-                                            <div className="absolute top-0 left-0 right-0 h-0.5 bg-zinc-800"></div>
-
-                                            <div className="space-y-1.5">
-                                              <div className="flex items-center gap-1.5">
-                                                <span className={`w-1.5 h-1.5 rounded-full ${isExpired ? 'bg-red-500' : 'bg-emerald-500'}`}></span>
-                                                <p className="font-extrabold text-white text-xs">{visitor.name}</p>
-                                              </div>
-                                              <p className="text-[10px] text-slate-400 font-medium">📱 Tel: {visitor.phone || 'No registrado'}</p>
-                                              <div className="flex items-center gap-1 text-[9.5px] text-slate-500">
-                                                <Calendar className="w-3 h-3" />
-                                                <span>Expira: {new Date(visitor.validUntil).toLocaleString()}</span>
-                                              </div>
-                                              {visitor.oneTime && (
-                                                <span className={`inline-block text-[8px] font-bold uppercase px-1.5 py-0.5 rounded ${visitor.used ? 'bg-slate-800 text-slate-500' : 'bg-amber-500/10 text-amber-500'}`}>
-                                                  {visitor.used ? 'Pase Usado ✓' : 'Un Solo Uso ⚡'}
-                                                </span>
-                                              )}
-                                            </div>
-
-                                            <div className="flex items-center gap-1 shrink-0 ml-4">
-                                              <button
-                                                onClick={() => setSelectedVisitorQR(visitor)}
-                                                className="p-2 text-slate-400 hover:text-white bg-[#111115] border border-[#2e2e38] rounded-lg transition"
-                                                title="Mostrar Código QR"
-                                              >
-                                                <QrCode className="w-3.5 h-3.5" />
-                                              </button>
-                                              <button
-                                                onClick={() => handleDeleteVisitor(visitor.id, visitor.name)}
-                                                className="p-2 text-slate-450 hover:text-red-420 bg-[#111115] border border-[#2e2e38] rounded-lg transition"
-                                                title="Eliminar / Revocar Acceso"
-                                              >
-                                                <Trash2 className="w-3.5 h-3.5" />
-                                              </button>
-                                            </div>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
+                                      <MessageSquare className="w-4 h-4" /> Compartir por WhatsApp
+                                    </a>
                                   )}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSaveAdminCredentials(item)}
+                                    disabled={isSavingAdmin}
+                                    className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 text-white rounded-xl text-xs font-black uppercase tracking-wider transition cursor-pointer shadow-lg shadow-blue-500/10"
+                                  >
+                                    {isSavingAdmin ? 'Guardando...' : 'Guardar Cambios ✓'}
+                                  </button>
                                 </div>
-                              )}
+                              </div>
                             </div>
                           </td>
                         </tr>
@@ -686,10 +778,63 @@ export default function ResidenciasManager({ onRefresh }: ResidenciasManagerProp
                   required
                   value={formAdministrador}
                   onChange={(e) => setFormAdministrador(e.target.value)}
-                  placeholder="Ej. Ing. Alejandro Ruiz"
+                  placeholder="Ej. Alejandro Ruiz"
                   className="w-full bg-[#111115] border border-[#2e2e38] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-red-500 font-medium placeholder-slate-600 transition-all"
                 />
               </div>
+
+              {!editingId && (
+                <>
+                  <div>
+                    <label className="block text-[10.5px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                      Nombre de Usuario (Para el administrador)
+                    </label>
+                    <input
+                      type="text"
+                      value={formAdminUsername}
+                      onChange={(e) => setFormAdminUsername(e.target.value)}
+                      placeholder="Ej. admin.encinos"
+                      className="w-full bg-[#111115] border border-[#2e2e38] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-red-500 font-mono placeholder-slate-600 transition-all"
+                    />
+                    <p className="text-[9.5px] text-slate-500 mt-1">Si lo dejas vacío, se creará uno de acceso automático basado en el fraccionamiento.</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10.5px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                      <span>Contraseña de Acceso *</span>
+                      <button
+                        type="button"
+                        onClick={() => setFormAdminPassword(generateReallySecurePass())}
+                        className="text-[9.5px] text-red-500 hover:text-red-410 font-bold uppercase hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-red-500" /> Generar otra segura
+                      </button>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formAdminPassword}
+                      onChange={(e) => setFormAdminPassword(e.target.value)}
+                      placeholder="Escribe o genera una contraseña segura"
+                      className="w-full bg-[#111115] border border-[#2e2e38] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-red-500 font-mono font-bold placeholder-slate-600 transition-all"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10.5px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                      Número de WhatsApp del Administrador
+                    </label>
+                    <input
+                      type="tel"
+                      value={formAdminPhone}
+                      onChange={(e) => setFormAdminPhone(e.target.value)}
+                      placeholder="Ej. 5213344556677"
+                      className="w-full bg-[#111115] border border-[#2e2e38] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-red-500 font-mono placeholder-slate-600 transition-all font-sans"
+                    />
+                    <p className="text-[9.5px] text-slate-500 mt-1">Código de país seguido del número sin espacios (+521...).</p>
+                  </div>
+                </>
+              )}
 
               <div>
                 <label className="block text-[10.5px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
@@ -1081,7 +1226,17 @@ export default function ResidenciasManager({ onRefresh }: ResidenciasManagerProp
                 </p>
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#2e2e38]">
+              <div className="flex flex-wrap items-center justify-end gap-3 pt-4 border-t border-[#2e2e38]">
+                {createdCredentials.adminPhone && (
+                  <a
+                    href={`https://wa.me/${createdCredentials.adminPhone.replace(/\D/g, '')}?text=${encodeURIComponent(`¡Hola *${createdCredentials.adminName}*!\n\nTe comparto tus *Credenciales de Acceso* como Administrador de la residencia *${createdCredentials.residenciaNombre}*:\n\n🔗 *Enlace de acceso:* ${window.location.origin}${window.location.pathname}\n👤 *Usuario:* ${createdCredentials.adminEmail}\n🔑 *Contraseña:* ${createdCredentials.adminPass}\n\n_Guarda estos datos para poder ingresar y administrar visitas, residentes y marbetes._`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-emerald-750 hover:bg-emerald-600 text-emerald-100 rounded-xl text-xs font-semibold cursor-pointer border border-emerald-500/20 shadow transition"
+                  >
+                    <MessageSquare className="w-4 h-4" /> Compartir WhatsApp
+                  </a>
+                )}
                 <button
                   type="button"
                   onClick={() => {
@@ -1096,7 +1251,7 @@ export default function ResidenciasManager({ onRefresh }: ResidenciasManagerProp
                 <button
                   type="button"
                   onClick={() => setCreatedCredentials(null)}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wide px-5 py-2.5 rounded-xl transition cursor-pointer shadow-lg shadow-emerald-500/10"
+                  className="bg-emerald-600 hover:bg-emerald-550 text-white font-bold text-xs uppercase tracking-wide px-5 py-2.5 rounded-xl transition cursor-pointer shadow-lg shadow-emerald-500/10"
                 >
                   Entendido y Guardado ✓
                 </button>

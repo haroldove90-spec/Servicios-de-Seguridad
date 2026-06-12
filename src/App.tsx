@@ -270,8 +270,8 @@ export default function App() {
 
   const loadResidenciasForHome = async () => {
     try {
-      const list = await dbService.getResidencias();
-      setResidenciasList(list || []);
+      // Residencias are hidden from the home page. Only the general administrator can see/manage them on their dashboard.
+      setResidenciasList([]);
     } catch (e) {
       console.warn("Failed fetching residencias for home screen selector:", e);
     }
