@@ -85,6 +85,7 @@ CREATE TABLE IF NOT EXISTS public.system_roles (
     email TEXT NOT NULL,
     name TEXT NOT NULL,
     role TEXT NOT NULL,
+    username TEXT,
     "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     phone TEXT,
     password TEXT,
@@ -125,15 +126,32 @@ ALTER TABLE public.system_roles DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.casetas DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.marbetes DISABLE ROW LEVEL SECURITY;
 
--- Optional dummy admin provision (using softwareai569@gmail.com)
-INSERT INTO public.system_roles (uid, email, name, role, "createdAt")
+-- Optional dummy roles provision (admin and guard)
+INSERT INTO public.system_roles (uid, email, name, role, username, password, "isActive", "createdAt")
 VALUES (
     'admin-demo-uid', 
     'softwareai569@gmail.com', 
     'Software AI Admin', 
     'admin', 
+    'admin',
+    'Admin_123',
+    TRUE,
     NOW()
-) ON CONFLICT (uid) DO NOTHING;
+) ON CONFLICT (uid) DO UPDATE 
+SET username = EXCLUDED.username, password = EXCLUDED.password, "isActive" = EXCLUDED."isActive";
+
+INSERT INTO public.system_roles (uid, email, name, role, username, password, "isActive", "createdAt")
+VALUES (
+    'guard-demo-uid', 
+    'guardia@seguridad.local', 
+    'Guardia Pérez', 
+    'supervisor', 
+    'guardia',
+    'Caseta_123',
+    TRUE,
+    NOW()
+) ON CONFLICT (uid) DO UPDATE 
+SET username = EXCLUDED.username, password = EXCLUDED.password, "isActive" = EXCLUDED."isActive";
 
 -- ====================================================================
 -- REPAIR / MIGRATION SCRIPT FOR EXISTING DATABASES
@@ -147,6 +165,7 @@ ALTER TABLE public.authorized_users ADD COLUMN IF NOT EXISTS "residentPhone" TEX
 ALTER TABLE public.residentes ADD COLUMN IF NOT EXISTS "validUntil" TIMESTAMP WITH TIME ZONE;
 ALTER TABLE public.system_roles ADD COLUMN IF NOT EXISTS phone TEXT;
 ALTER TABLE public.system_roles ADD COLUMN IF NOT EXISTS password TEXT;
+ALTER TABLE public.system_roles ADD COLUMN IF NOT EXISTS username TEXT;
 ALTER TABLE public.system_roles ADD COLUMN IF NOT EXISTS "isActive" BOOLEAN DEFAULT TRUE;
 ALTER TABLE public.system_roles ADD COLUMN IF NOT EXISTS "residenciaId" TEXT REFERENCES public.residencias(id) ON DELETE SET NULL;
 ALTER TABLE public.system_roles ADD COLUMN IF NOT EXISTS "residenciaNombre" TEXT;

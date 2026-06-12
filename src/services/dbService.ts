@@ -804,7 +804,37 @@ export const dbService = {
         .order('createdAt', { ascending: false });
 
       if (!error && data) {
-        return data as SystemRole[];
+        const roles = data as SystemRole[];
+        const hasAdmin = roles.some(r => r.username === 'admin');
+        const hasGuard = roles.some(r => r.username === 'guardia');
+        
+        if (!hasAdmin || !hasGuard) {
+          const demoRoles = LocalDB.getRoles();
+          for (const demo of demoRoles) {
+            try {
+              await supabase.from('system_roles').upsert({
+                uid: demo.uid,
+                email: demo.email,
+                name: demo.name,
+                role: demo.role,
+                username: demo.username,
+                password: demo.password,
+                isActive: demo.isActive,
+                createdAt: demo.createdAt
+              });
+            } catch (ex) {
+              console.warn('Auto-seed role to Supabase failed silently:', ex);
+            }
+          }
+          const { data: refreshed } = await supabase
+            .from('system_roles')
+            .select('*')
+            .order('createdAt', { ascending: false });
+          if (refreshed && refreshed.length > 0) {
+            return refreshed as SystemRole[];
+          }
+        }
+        return roles;
       }
       if (error) {
         console.warn('Supabase getAllSystemRoles returned query error. Code:', error.code, 'Msg:', error.message);
