@@ -21,6 +21,7 @@ interface MarbetesManagerProps {
 export default function MarbetesManager({ onRefresh, currentUser }: MarbetesManagerProps) {
   const [marbetes, setMarbetes] = useState<Marbete[]>([]);
   const [residents, setResidents] = useState<Residente[]>([]);
+  const [accessLogs, setAccessLogs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
   
@@ -51,12 +52,14 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [listMarbetes, listResidents] = await Promise.all([
+      const [listMarbetes, listResidents, listLogs] = await Promise.all([
         dbService.getMarbetes(),
-        dbService.getResidentes()
+        dbService.getResidentes(),
+        dbService.getAccessLogs()
       ]);
       setMarbetes(listMarbetes);
       setResidents(listResidents);
+      setAccessLogs(listLogs || []);
     } catch (err) {
       console.error('Error fetching Marbete / Resident data:', err);
     } finally {
@@ -290,7 +293,11 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
           ))
         )
       : true;
-    return matchesSearch && matchesResidence && matchesResidentSelf;
+    
+    if (isResidentRole) {
+      return matchesSearch && matchesResidentSelf;
+    }
+    return matchesSearch && matchesResidence;
   });
 
   return (
@@ -427,15 +434,33 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
                       </div>
                     </td>
                     <td className="py-2.5 px-4">
-                      <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        isExpired
-                          ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
-                          : m.status === UserStatus.ACTIVE
-                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                          : 'bg-rose-500/10 text-rose-500 border border-rose-500/20'
-                      }`}>
-                        {isExpired ? 'EXPIRED 🕰️' : m.status.toUpperCase()}
-                      </span>
+                      {(() => {
+                        const hasEntered = accessLogs.some(log => 
+                          log.documentId === 'MARBETE-' + m.consecutivo && 
+                          log.type === 'check-in' &&
+                          log.status === 'success'
+                        );
+                        
+                        let colorClass = '';
+                        let text = '';
+                        
+                        if (isExpired) {
+                          colorClass = 'bg-rose-500/10 text-rose-500 border border-rose-500/20';
+                          text = 'EXPIRADO 🕰️';
+                        } else if (hasEntered) {
+                          colorClass = 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+                          text = 'INGRESADO ✓';
+                        } else {
+                          colorClass = 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20';
+                          text = 'PENDIENTE';
+                        }
+                        
+                        return (
+                          <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold ${colorClass}`}>
+                            {text}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="py-2.5 px-4 text-right">
                       <div className="flex items-center justify-end gap-1.5 opacity-90 group-hover:opacity-100 transition">

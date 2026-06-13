@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Plus, Search, QrCode, Download, Copy, Check, X, 
-  MapPin, User, Calendar, Clock, RefreshCw, Send, Trash2, ShieldCheck, Smartphone
+  MapPin, User, Calendar, Clock, RefreshCw, Send, Trash2, ShieldCheck, Smartphone, Car
 } from 'lucide-react';
 import { dbService } from '../services/dbService';
 import { AuthorizedUser, SystemRole, UserStatus } from '../types';
@@ -36,13 +36,79 @@ export default function ResidentDashboard({ currentResidentUser, onRefresh }: Re
   const loadVisits = async () => {
     setLoading(true);
     try {
-      const allUsers = await dbService.getAuthorizedUsers();
+      const [allUsers, allMarbetes, listResidents, allLogs] = await Promise.all([
+        dbService.getAuthorizedUsers(),
+        dbService.getMarbetes(),
+        dbService.getResidentes(),
+        dbService.getAccessLogs()
+      ]);
+
       // Filter list so resident only sees visits they created (or those associated with their residence)
       const residentVisits = allUsers.filter(u => 
         u.isResidentCreated && 
         (u.createdBy === currentResidentUser.uid || u.createdBy === currentResidentUser.email)
       );
-      setVisits(residentVisits);
+
+      const normalizeName = (nameStr: string) => {
+        if (!nameStr) return '';
+        return nameStr.replace(/\s*\(Visita\)/g, '').replace(/\s*\(Residente\)/g, '').trim().toLowerCase();
+      };
+
+      const residentMarbetes = allMarbetes.filter(m => {
+        const matchesResidence = (currentResidentUser.residenciaId && m.residenciaId === currentResidentUser.residenciaId);
+        const matchesResidentUID = m.residenteId === currentResidentUser.uid;
+        const matchesResidentName = (currentResidentUser.name && normalizeName(m.residenteNombre).includes(normalizeName(currentResidentUser.name)));
+        const matchesResidentInCollection = listResidents.some(r => r.id === m.residenteId && (
+          r.accessUserId === currentResidentUser.uid ||
+          (currentResidentUser.name && normalizeName(r.nombre).includes(normalizeName(currentResidentUser.name)))
+        ));
+        
+        return matchesResidence || matchesResidentUID || matchesResidentName || matchesResidentInCollection;
+      });
+
+      const convertedMarbetes: AuthorizedUser[] = residentMarbetes.map(m => {
+        const isExpired = new Date(m.validUntil) < new Date();
+        const hasEntered = allLogs.some(log => 
+          log.documentId === 'MARBETE-' + m.consecutivo && 
+          log.type === 'check-in' &&
+          log.status === 'success'
+        );
+
+        return {
+          id: 'mar_dash_' + m.id,
+          name: `${m.residenteNombre} (Marbete #${m.consecutivo})`,
+          documentId: 'MARBETE-' + m.consecutivo,
+          phone: m.vehiculoInfo ? `${m.vehiculoInfo} ${m.vehiculoPlacas ? `[Placas: ${m.vehiculoPlacas}]` : ''}` : '(Vehículo - Sin placas)',
+          status: isExpired ? UserStatus.EXPIRED : (hasEntered ? UserStatus.ACTIVE : UserStatus.ACTIVE),
+          qrcodeToken: m.qrcodeToken,
+          oneTime: false,
+          used: hasEntered,
+          validFrom: m.validFrom,
+          validUntil: m.validUntil,
+          days: [],
+          startTime: '00:00',
+          endTime: '23:59',
+          createdAt: m.createdAt,
+          updatedAt: m.updatedAt,
+          residenciaId: m.residenciaId,
+          residenciaNombre: m.residenciaNombre,
+          isResidentCreated: true,
+          createdBy: currentResidentUser.uid,
+          residentName: currentResidentUser.name,
+          residentPhone: currentResidentUser.phone || '',
+          isMarbeteItem: true
+        } as any;
+      });
+
+      // Deduplicate: if an authorized user with MARBETE-consecutivo already exists in residentVisits, skip converting
+      const filteredConvertedMarbetes = convertedMarbetes.filter(cm => 
+        !residentVisits.some(rv => rv.documentId === cm.documentId)
+      );
+
+      const combined = [...residentVisits, ...filteredConvertedMarbetes];
+      combined.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+      setVisits(combined);
     } catch (error) {
       console.error('Error loading resident visits:', error);
     } finally {
@@ -134,11 +200,16 @@ export default function ResidentDashboard({ currentResidentUser, onRefresh }: Re
   };
 
   const handleDeleteVisit = async (visitId: string) => {
-    if (!window.confirm('¿Está seguro de querer cancelar esta autorización de visita? El código QR quedará invalidado de inmediato.')) {
+    if (!window.confirm('¿Está seguro de querer cancelar esta autorización de visita o marbete? El código QR quedará invalidado de inmediato.')) {
       return;
     }
     try {
-      await dbService.deleteAuthorizedUser(visitId);
+      if (visitId.startsWith('mar_dash_')) {
+        const marbeteId = visitId.replace('mar_dash_', '');
+        await dbService.deleteMarbete(marbeteId);
+      } else {
+        await dbService.deleteAuthorizedUser(visitId);
+      }
       setFeedback('✓ Autorización revocada exitosamente.');
       setTimeout(() => setFeedback(''), 4000);
       loadVisits();
@@ -150,11 +221,22 @@ export default function ResidentDashboard({ currentResidentUser, onRefresh }: Re
 
   // WhatsApp share helper
   const handleShareWhatsApp = (visit: AuthorizedUser) => {
+    const isMarbete = (visit as any).isMarbeteItem;
     const passUrl = `${window.location.origin}${window.location.pathname}?pass=${visit.qrcodeToken}`;
     const cleanPhone = visit.phone.replace(/\+/g, '').replace(/\s+/g, '');
-    const message = `Hola ${visit.name.split(' (')[0]}, te comparto tu Pase Digital de Acceso QR para ingresar a la villa/residencia:\n🏠 *${visit.residenciaNombre}*\n⏰ Válido por 1 día (Vence el ${new Date(visit.validUntil).toLocaleDateString()} a las ${new Date(visit.validUntil).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})})\n\nPresenta este QR en caseta para tu ingreso:\n👉 ${passUrl}`;
     
-    const waUrl = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(message)}`;
+    let message = '';
+    if (isMarbete) {
+      message = `Hola ${visit.name.split(' (')[0]}, te comparto tu Pase Digital de Acceso Vehicular (Marbete) para la villa/residencia:\n🏠 *${visit.residenciaNombre}*\n🚗 *Vehículo:* ${visit.phone}\n⏰ Válido hasta el ${new Date(visit.validUntil).toLocaleDateString()} a las ${new Date(visit.validUntil).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}\n\nPresenta este QR en caseta para tu ingreso vehicular:\n👉 ${passUrl}`;
+    } else {
+      message = `Hola ${visit.name.split(' (')[0]}, te comparto tu Pase Digital de Acceso QR para ingresar a la villa/residencia:\n🏠 *${visit.residenciaNombre}*\n⏰ Válido por 1 día (Vence el ${new Date(visit.validUntil).toLocaleDateString()} a las ${new Date(visit.validUntil).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})})\n\nPresenta este QR en caseta para tu ingreso:\n👉 ${passUrl}`;
+    }
+    
+    const isPhoneValid = visit.phone && !visit.phone.includes('Vehículo') && /^\+?\d+$/.test(cleanPhone);
+    const waUrl = isPhoneValid 
+      ? `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(message)}`
+      : `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+      
     window.open(waUrl, '_blank');
   };
 
@@ -276,7 +358,8 @@ export default function ResidentDashboard({ currentResidentUser, onRefresh }: Re
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {filteredVisits.map((visit) => {
               const isExpired = new Date(visit.validUntil) < new Date();
-              const displayName = visit.name.split(' (Visita de ')[0];
+              const isMarbete = (visit as any).isMarbeteItem;
+              const displayName = isMarbete ? visit.name : visit.name.split(' (Visita de ')[0];
               
               return (
                 <div 
@@ -290,8 +373,17 @@ export default function ResidentDashboard({ currentResidentUser, onRefresh }: Re
                       </h3>
                       <div className="flex flex-col gap-1 mt-2 text-[10.5px] text-slate-400 font-sans">
                         <div className="flex items-center gap-1.5">
-                          <Smartphone className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                          <span>WhatsApp: {visit.phone}</span>
+                          {isMarbete ? (
+                            <>
+                              <Car className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                              <span>Vehículo: {visit.phone}</span>
+                            </>
+                          ) : (
+                            <>
+                              <Smartphone className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                              <span>WhatsApp: {visit.phone}</span>
+                            </>
+                          )}
                         </div>
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <Calendar className="w-3.5 h-3.5 text-slate-500 shrink-0" />
@@ -306,12 +398,12 @@ export default function ResidentDashboard({ currentResidentUser, onRefresh }: Re
                     <div className="flex flex-col items-end gap-2 shrink-0">
                       <span className={`px-2.5 py-1 text-[9.5px] font-bold uppercase tracking-wider rounded-md border ${
                         isExpired 
-                          ? 'bg-red-500/10 text-red-400 border-red-505/20' 
+                          ? 'bg-red-500/10 text-red-400 border-red-500/20' 
                           : visit.used 
-                            ? 'bg-blue-500/15 text-blue-400 border-blue-500/22' 
-                            : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/22'
+                            ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/22' 
+                            : 'bg-yellow-500/15 text-yellow-400 border-yellow-500/22'
                       }`}>
-                        {isExpired ? 'Expirado' : visit.used ? 'Usado' : 'Activo'}
+                        {isExpired ? 'Expirado' : visit.used ? 'Ingresado ✓' : 'Pendiente'}
                       </span>
                     </div>
                   </div>
@@ -322,7 +414,7 @@ export default function ResidentDashboard({ currentResidentUser, onRefresh }: Re
                       id={`btn-cancel-visit-${visit.id}`}
                       onClick={() => handleDeleteVisit(visit.id)}
                       className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition rounded-xl cursor-pointer"
-                      title="Invalidar pase de visita"
+                      title={isMarbete ? 'Cancelar marbete de visita' : 'Invalidar pase de visita'}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
