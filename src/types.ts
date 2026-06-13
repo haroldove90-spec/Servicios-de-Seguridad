@@ -92,6 +92,7 @@ export interface Residencia {
   isActive: boolean;
   createdAt: string; // ISO DateTime
   updatedAt: string; // ISO DateTime
+  panicActive?: boolean; // Real-time panico sync across admins & guards
 }
 
 export interface Residente {

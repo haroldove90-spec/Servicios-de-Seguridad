@@ -20,7 +20,13 @@ import {
 } from '../types';
 
 interface ScannerInterfaceProps {
-  currentGuard: { uid: string; name: string; role?: SystemUserRole } | null;
+  currentGuard: { 
+    uid: string; 
+    name: string; 
+    role?: SystemUserRole; 
+    residenciaId?: string; 
+    residenciaNombre?: string; 
+  } | null;
   onScanLogged: () => void;
 }
 
@@ -986,9 +992,21 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
           </div>
           <button 
             id="panic-deactivate-btn"
-            onClick={() => {
+            onClick={async () => {
               setPanicActive(false);
               setScanResult(null);
+              // Sync with global custom handlers
+              (window as any).globalPanicActive = false;
+              if ((window as any).onGlobalPanicChange) {
+                (window as any).onGlobalPanicChange(false);
+              }
+              if (currentGuard?.residenciaId) {
+                try {
+                  await dbService.updateResidencia(currentGuard.residenciaId, { panicActive: false });
+                } catch (e) {
+                  console.warn("Failed to sync panic active deactivation to database:", e);
+                }
+              }
             }}
             className="px-3 py-1.5 bg-white text-rose-700 font-bold text-xs rounded-lg hover:bg-rose-50 transition shrink-0 cursor-pointer"
           >
@@ -1594,7 +1612,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
         
         <button
           id="panic-toggle-actuator-btn"
-          onClick={() => {
+          onClick={async () => {
             const nextState = !panicActive;
             setPanicActive(nextState);
             setUseCamera(false);
@@ -1603,6 +1621,14 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
             (window as any).globalPanicActive = nextState;
             if ((window as any).onGlobalPanicChange) {
               (window as any).onGlobalPanicChange(nextState);
+            }
+
+            if (currentGuard?.residenciaId) {
+              try {
+                await dbService.updateResidencia(currentGuard.residenciaId, { panicActive: nextState });
+              } catch (e) {
+                console.warn("Failed to sync panic active to database:", e);
+              }
             }
 
             if (nextState) {

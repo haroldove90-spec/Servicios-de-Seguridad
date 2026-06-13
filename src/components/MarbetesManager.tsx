@@ -85,9 +85,13 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
       );
       if (!boundRes) {
         const subRes = residents.filter(r => r.residenciaId === currentUser.residenciaId);
-        if (subRes.length > 0) boundRes = subRes[0];
+        if (subRes.length > 0) {
+          boundRes = subRes[0];
+        } else if (residents.length > 0) {
+          boundRes = residents[0];
+        }
       }
-      defaultResId = boundRes ? boundRes.id : 'residente-self';
+      defaultResId = boundRes ? boundRes.id : 'resd-demo-1';
     } else {
       defaultResId = residents.length > 0 ? residents[0].id : '';
     }
@@ -134,14 +138,27 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
       );
       if (!boundRes) {
         const subRes = residents.filter(r => r.residenciaId === currentUser.residenciaId);
-        if (subRes.length > 0) boundRes = subRes[0];
+        if (subRes.length > 0) {
+          boundRes = subRes[0];
+        } else if (residents.length > 0) {
+          boundRes = residents[0];
+        }
       }
-      res = boundRes || {
-        id: currentUser.uid || 'residente-self',
-        nombre: currentUser.name || 'Residente',
-        residenciaId: currentUser.residenciaId || 'res-demo-1',
-        residenciaNombre: currentUser.residenciaNombre || 'Lomas de Chapultepec'
-      };
+      if (boundRes) {
+        res = {
+          id: boundRes.id,
+          nombre: boundRes.nombre,
+          residenciaId: boundRes.residenciaId,
+          residenciaNombre: boundRes.residenciaNombre
+        };
+      } else {
+        res = {
+          id: 'resd-demo-1',
+          nombre: currentUser.name || 'Haroldo Residente',
+          residenciaId: currentUser.residenciaId || 'res-demo-1',
+          residenciaNombre: currentUser.residenciaNombre || 'Lomas de Chapultepec'
+        };
+      }
     } else {
       if (!selectedResidentId) {
         alert('Por favor selecciona un Residente de la lista.');

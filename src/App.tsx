@@ -284,6 +284,40 @@ export default function App() {
       stopPanicSound();
     };
   }, [globalPanicActive]);
+
+  // Real-time Database Poller for Residence Panic status (syncs panic triggered by guards instantly)
+  useEffect(() => {
+    if (!activeResidenciaId) return;
+
+    let isMounted = true;
+    const pollPanicStatus = async () => {
+      try {
+        const residencias = await dbService.getResidencias();
+        if (!isMounted) return;
+        const currentRes = residencias.find(r => r.id === activeResidenciaId);
+        if (currentRes) {
+          const remotePanic = !!currentRes.panicActive;
+          if (remotePanic !== globalPanicActive) {
+            console.log(`[Panic Sync] Remote panic state detected from DB: ${remotePanic}. Updating local siren.`);
+            setGlobalPanicActive(remotePanic);
+          }
+        }
+      } catch (err) {
+        console.warn('Silent error polling panic flag from DB:', err);
+      }
+    };
+
+    // Run immediately on residency load
+    pollPanicStatus();
+    
+    // Poll every 3500ms
+    const intervalId = setInterval(pollPanicStatus, 3500);
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
+  }, [activeResidenciaId, globalPanicActive]);
   
   // Navigation tabs - activated with profile view as well
   const [activeTab, setActiveTab] = useState<'scan' | 'crud' | 'reports' | 'roles' | 'residencias' | 'residentes' | 'casetas' | 'perfil' | 'manual' | 'visitas' | 'visitas_admin' | 'marbetes' | 'metricas'>(() => {
@@ -1875,12 +1909,19 @@ export default function App() {
       {/* Circular Floating Panic Button (Accessible on home and all roles) */}
       <button
         id="global-floating-panic-actuator"
-        onClick={() => {
+        onClick={async () => {
           const nextState = !globalPanicActive;
           setGlobalPanicActive(nextState);
           (window as any).globalPanicActive = nextState;
           if ((window as any).onGlobalPanicChange) {
             (window as any).onGlobalPanicChange(nextState);
+          }
+          if (activeResidenciaId) {
+            try {
+              await dbService.updateResidencia(activeResidenciaId, { panicActive: nextState });
+            } catch (e) {
+              console.warn("Failed to sync global panic trigger to database:", e);
+            }
           }
         }}
         className={`fixed bottom-6 right-6 z-55 p-4 rounded-full shadow-2xl flex items-center justify-center cursor-pointer transition-all duration-300 ${

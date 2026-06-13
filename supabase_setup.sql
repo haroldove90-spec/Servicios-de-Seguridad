@@ -170,3 +170,6 @@ ALTER TABLE public.system_roles ADD COLUMN IF NOT EXISTS "isActive" BOOLEAN DEFA
 ALTER TABLE public.system_roles ADD COLUMN IF NOT EXISTS "residenciaId" TEXT REFERENCES public.residencias(id) ON DELETE SET NULL;
 ALTER TABLE public.system_roles ADD COLUMN IF NOT EXISTS "residenciaNombre" TEXT;
 
+-- Panic Alert System Synchronization Support
+ALTER TABLE public.residencias ADD COLUMN IF NOT EXISTS "panicActive" BOOLEAN NOT NULL DEFAULT FALSE;
+
