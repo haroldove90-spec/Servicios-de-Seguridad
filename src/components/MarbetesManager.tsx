@@ -264,11 +264,26 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
     );
     const matchesResidence = currentUser?.residenciaId ? m.residenciaId === currentUser.residenciaId : true;
     const isResidentRole = currentUser?.role === 'residente';
+    
+    // Helper function to normalize names without " (Residente)" or " (Visita)"
+    const normalizeName = (nameStr: string) => {
+      if (!nameStr) return '';
+      return nameStr.replace(/\s*\(Visita\)/g, '').replace(/\s*\(Residente\)/g, '').trim().toLowerCase();
+    };
+
     const matchesResidentSelf = isResidentRole
       ? (
+          // 1. If residence ID matches, it's safety matched!
+          (currentUser.residenciaId && m.residenciaId === currentUser.residenciaId) ||
+          // 2. Or direct UID matches
           m.residenteId === currentUser.uid ||
-          m.residenteNombre?.toLowerCase().includes(currentUser.name?.toLowerCase().split(' ')[0]) ||
-          residents.some(r => r.id === m.residenteId && (r.accessUserId === currentUser.uid || r.nombre?.toLowerCase().includes(currentUser.name?.toLowerCase().split(' ')[0])))
+          // 3. Or normalized names are highly matching
+          (currentUser.name && normalizeName(m.residenteNombre).includes(normalizeName(currentUser.name))) ||
+          // 4. Or the resident records in the list match
+          residents.some(r => r.id === m.residenteId && (
+            r.accessUserId === currentUser.uid ||
+            (currentUser.name && normalizeName(r.nombre).includes(normalizeName(currentUser.name)))
+          ))
         )
       : true;
     return matchesSearch && matchesResidence && matchesResidentSelf;

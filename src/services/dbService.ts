@@ -762,10 +762,39 @@ const LocalDB = {
 
   getMarbetes(): Marbete[] {
     const data = localStorage.getItem(LS_MARBETES_KEY);
+    const defaultMarbetes: Marbete[] = [
+      {
+        id: 'mar-demo-1',
+        consecutivo: 1001,
+        residenteId: 'resd-demo-1',
+        residenteNombre: 'Mariana Sosa (Residente)',
+        residenciaId: 'res-demo-1',
+        residenciaNombre: 'Lomas de Chapultepec',
+        vehiculoPlacas: 'MS-888-A',
+        vehiculoInfo: 'Audi A3 Blanco',
+        status: UserStatus.ACTIVE,
+        validFrom: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+        validUntil: new Date(Date.now() + 28 * 24 * 60 * 60 * 1000).toISOString(),
+        qrcodeToken: 'mar_token_demo_1',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+    ];
     if (!data) {
-      return [];
+      localStorage.setItem(LS_MARBETES_KEY, JSON.stringify(defaultMarbetes));
+      return defaultMarbetes;
     }
-    return JSON.parse(data);
+    try {
+      const parsed = JSON.parse(data);
+      if (parsed.length === 0) {
+        localStorage.setItem(LS_MARBETES_KEY, JSON.stringify(defaultMarbetes));
+        return defaultMarbetes;
+      }
+      return parsed;
+    } catch {
+      localStorage.setItem(LS_MARBETES_KEY, JSON.stringify(defaultMarbetes));
+      return defaultMarbetes;
+    }
   },
 
   saveMarbetes(marbetes: Marbete[]) {
@@ -862,7 +891,35 @@ export const dbService = {
           const demoRoles = LocalDB.getRoles();
           for (const demo of demoRoles) {
             try {
-              await supabase.from('system_roles').upsert({
+              // Ensure that if a demo role has a residenciaId, that residencia exists first in Supabase 
+              // to satisfy foreign key constraints.
+              if (demo.residenciaId) {
+                try {
+                  const { data: resExists } = await supabase
+                    .from('residencias')
+                    .select('id')
+                    .eq('id', demo.residenciaId)
+                    .maybeSingle();
+                  
+                  if (!resExists) {
+                    const defaultRes = {
+                      id: demo.residenciaId,
+                      nombre: demo.residenciaNombre || 'Fraccionamiento Residencial',
+                      administrador: 'Software AI Admin',
+                      numResidencias: 120,
+                      isActive: true,
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString()
+                    };
+                    await supabase.from('residencias').insert(defaultRes);
+                  }
+                } catch (resErr) {
+                  console.warn('Silent warning ensuring residencia during role seed:', resErr);
+                }
+              }
+
+              // Attempt to upsert the system role
+              const { error: upsertErr } = await supabase.from('system_roles').upsert({
                 uid: demo.uid,
                 email: demo.email,
                 name: demo.name,
@@ -874,6 +931,23 @@ export const dbService = {
                 residenciaId: demo.residenciaId,
                 residenciaNombre: demo.residenciaNombre
               });
+
+              if (upsertErr) {
+                console.warn('Upsert system role with residenciaId failed, retrying without FK:', upsertErr);
+                // Fallback: upsert without residenciaId reference to guarantee credential availability
+                await supabase.from('system_roles').upsert({
+                  uid: demo.uid,
+                  email: demo.email,
+                  name: demo.name,
+                  role: demo.role,
+                  username: demo.username,
+                  password: demo.password,
+                  isActive: demo.isActive,
+                  createdAt: demo.createdAt,
+                  residenciaId: null,
+                  residenciaNombre: null
+                });
+              }
             } catch (ex) {
               console.warn('Auto-seed role to Supabase failed silently:', ex);
             }
@@ -1738,7 +1812,32 @@ export const dbService = {
   async getMarbetes(): Promise<Marbete[]> {
     try {
       const data = await robustSupabaseSelectAll('marbetes', 'createdAt');
-      if (data && data.length > 0) {
+      if (data) {
+        if (data.length === 0) {
+          const defaultMarbete = {
+            id: 'mar-demo-1',
+            consecutivo: 1001,
+            residenteId: 'resd-demo-1',
+            residenteNombre: 'Mariana Sosa (Residente)',
+            residenciaId: 'res-demo-1',
+            residenciaNombre: 'Lomas de Chapultepec',
+            vehiculoPlacas: 'MS-888-A',
+            vehiculoInfo: 'Audi A3 Blanco',
+            status: UserStatus.ACTIVE,
+            validFrom: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+            validUntil: new Date(Date.now() + 28 * 24 * 60 * 60 * 1000).toISOString(),
+            qrcodeToken: 'mar_token_demo_1',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+          // Insert into Supabase
+          try {
+            await supabase.from('marbetes').insert(defaultMarbete);
+          } catch (insErr) {
+            console.warn('Failed to insert default marbete in Supabase:', insErr);
+          }
+          return [defaultMarbete as Marbete];
+        }
         return data.map(normalizeMarbeteRow);
       }
     } catch (err) {

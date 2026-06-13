@@ -370,6 +370,7 @@ export default function App() {
     try {
       // Fetch all system roles/employees
       const registeredRoles = await dbService.getAllSystemRoles();
+      console.log('Roles registrados para login:', registeredRoles.map(r => ({ username: r.username, role: r.role, active: r.isActive })));
       
       // Match on username OR email OR display name, checking password exactly
       const matched = registeredRoles.find(r => {
