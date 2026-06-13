@@ -13,6 +13,35 @@ import { Marbete, Residente, UserStatus } from '../types';
 import { generateQRWithLogo } from '../utils/qrWithLogo';
 import { exportMarbeteToJPG } from '../utils/marbeteExporter';
 
+const getCleanVehiculoInfo = (fullInfo?: string) => {
+  if (!fullInfo) return '';
+  return fullInfo
+    .replace(/\[WA:[^\]]+\]/g, '')
+    .replace(/\[CREATOR:[^\]]+\]/g, '')
+    .trim();
+};
+
+const getMarbeteVisitaWhatsapp = (fullInfo?: string) => {
+  if (!fullInfo) return '';
+  const match = fullInfo.match(/\[WA:([^\]]+)\]/);
+  return match ? match[1].trim() : '';
+};
+
+const parseVehiculoInfo = (fullInfo: string) => {
+  let cleanInfo = fullInfo || '';
+  let wa = '';
+  
+  const waMatch = cleanInfo.match(/\[WA:([^\]]+)\]/);
+  if (waMatch) {
+    wa = waMatch[1].trim();
+    cleanInfo = cleanInfo.replace(/\[WA:[^\]]+\]/, '').trim();
+  }
+  
+  cleanInfo = cleanInfo.replace(/\[CREATOR:[^\]]+\]/, '').trim();
+  
+  return { cleanInfo, wa };
+};
+
 interface MarbetesManagerProps {
   onRefresh?: () => void;
   currentUser?: any;
@@ -34,6 +63,7 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
   const [vehiculoPlacas, setVehiculoPlacas] = useState<string>('');
   const [vehiculoInfo, setVehiculoInfo] = useState<string>('');
   const [visitaNombre, setVisitaNombre] = useState<string>('');
+  const [visitaWhatsapp, setVisitaWhatsapp] = useState<string>('');
   const [status, setStatus] = useState<UserStatus>(UserStatus.ACTIVE);
   const [validFrom, setValidFrom] = useState<string>('');
   const [validUntil, setValidUntil] = useState<string>('');
@@ -103,6 +133,7 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
     setVehiculoPlacas('');
     setVehiculoInfo('');
     setVisitaNombre('');
+    setVisitaWhatsapp('');
     setStatus(UserStatus.ACTIVE);
 
     // Default dates - from today until exactly 1 month from now, or 1 day if resident
@@ -124,7 +155,11 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
     setEditingId(marbete.id);
     setSelectedResidentId(marbete.residenteId);
     setVehiculoPlacas(marbete.vehiculoPlacas || '');
-    setVehiculoInfo(marbete.vehiculoInfo || '');
+    
+    const parsed = parseVehiculoInfo(marbete.vehiculoInfo || '');
+    setVehiculoInfo(parsed.cleanInfo);
+    setVisitaWhatsapp(parsed.wa);
+    
     setVisitaNombre(marbete.residenteNombre || '');
     setStatus(marbete.status);
     setValidFrom(new Date(marbete.validFrom).toISOString().slice(0, 16));
@@ -192,13 +227,21 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
       finalValidUntil = toDate.toISOString();
     }
 
+    let finalVehiculoInfo = vehiculoInfo.trim();
+    if (visitaWhatsapp.trim()) {
+      finalVehiculoInfo += ` [WA:${visitaWhatsapp.trim()}]`;
+    }
+    if (currentUser?.role === 'residente') {
+      finalVehiculoInfo += ` [CREATOR:${currentUser.uid}]`;
+    }
+
     const rawPayload = {
       residenteId: res.id,
       residenteNombre: currentUser?.role === 'residente' ? (visitaNombre.trim() || res.nombre) : res.nombre,
       residenciaId: res.residenciaId,
       residenciaNombre: res.residenciaNombre || 'Residencial',
       vehiculoPlacas: vehiculoPlacas.trim().toUpperCase(),
-      vehiculoInfo: vehiculoInfo.trim(),
+      vehiculoInfo: finalVehiculoInfo,
       status,
       validFrom: new Date(validFrom).toISOString(),
       validUntil: new Date(finalValidUntil).toISOString(),
@@ -238,13 +281,20 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
 
   const getWhatsAppShareLink = (marbete: Marbete): string => {
     const resident = residents.find(r => r.id === marbete.residenteId);
-    const destinationPhone = resident?.whatsapp || '';
+    let destinationPhone = resident?.whatsapp || '';
+    
+    // Use visitor WhatsApp if available
+    const visitorWA = getMarbeteVisitaWhatsapp(marbete.vehiculoInfo);
+    if (visitorWA) {
+      destinationPhone = visitorWA;
+    }
+    
     if (!destinationPhone) return '';
 
     const validityStr = new Date(marbete.validUntil).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
     const appPassLink = `${window.location.origin}${window.location.pathname}?pass=${marbete.qrcodeToken}`;
 
-    const text = `Hola, *${marbete.residenteNombre}* 👋\n\nTu *Marbete Vehicular Digital* autorizado para control de acceso ha sido generado correctamente:\n\n*🔢 No Consecutivo:* #${marbete.consecutivo}\n*🚗 Vehículo:* ${marbete.vehiculoInfo || 'No especificado'} (${marbete.vehiculoPlacas ? `Placas: ${marbete.vehiculoPlacas}` : 'Sin placas registrada'})\n*📅 Vigencia hasta:* ${validityStr}\n\nPuedes abrir tu código QR oficial y descargarlo en alta resolución haciendo clic aquí:\n🔗 ${appPassLink}\n\n*⚠️ Instrucciones:* Por favor, guarda el código JPG en tu celular y proyéctalo frente a la caseta del oficial de vigilancia o lector de acceso al ingresar.\n\n¡Que tengas un excelente día! ✨`;
+    const text = `Hola, *${marbete.residenteNombre}* 👋\n\nTe comparto tu *Marbete Vehicular Digital* autorizado para ingresar a la villa/residencia:\n🏠 *${marbete.residenciaNombre}*\n🚗 *Vehículo:* ${getCleanVehiculoInfo(marbete.vehiculoInfo) || 'No especificado'} (${marbete.vehiculoPlacas ? `Placas: ${marbete.vehiculoPlacas}` : 'Sin placas registradas'})\n⏰ *Vigencia hasta:* ${validityStr}\n\nPuedes abrir tu código QR oficial y descargarlo en alta resolución haciendo clic aquí:\n🔗 ${appPassLink}\n\n*⚠️ Instrucciones:* Por favor, guarda el código QR / imagen en tu celular y presentalo frente a la caseta de vigilancia al ingresar.\n\n¡Que tengas un excelente día! ✨`;
 
     // Strip characters from phone numbers
     const cleanPhone = destinationPhone.replace(/\D/g, '');
@@ -254,7 +304,7 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
   const handleShareWhatsApp = (marbete: Marbete) => {
     const link = getWhatsAppShareLink(marbete);
     if (!link) {
-      alert('El residente asociado no tiene un número de celular de WhatsApp registrado.');
+      alert('La visita no tiene un número de celular de WhatsApp especificado.');
       return;
     }
     window.open(link, '_blank');
@@ -262,11 +312,12 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
 
   const filteredMarbetes = marbetes.filter(m => {
     const q = searchTerm.toLowerCase();
+    const cleanMVehicle = getCleanVehiculoInfo(m.vehiculoInfo).toLowerCase();
     const matchesSearch = (
       m.residenteNombre.toLowerCase().includes(q) ||
       m.residenciaNombre.toLowerCase().includes(q) ||
       (m.vehiculoPlacas || '').toLowerCase().includes(q) ||
-      (m.vehiculoInfo || '').toLowerCase().includes(q) ||
+      cleanMVehicle.includes(q) ||
       m.consecutivo?.toString().includes(q)
     );
     const matchesResidence = currentUser?.residenciaId ? m.residenciaId === currentUser.residenciaId : true;
@@ -280,6 +331,8 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
 
     const matchesResidentSelf = isResidentRole
       ? (
+          // 0. If creator tag matches (robust tracking!)
+          (m.vehiculoInfo && m.vehiculoInfo.includes(`[CREATOR:${currentUser.uid}]`)) ||
           // 1. If residence ID matches, it's safety matched!
           (currentUser.residenciaId && m.residenciaId === currentUser.residenciaId) ||
           // 2. Or direct UID matches
@@ -417,8 +470,13 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
                     <td className="py-2.5 px-4 text-slate-400">
                       {m.residenciaNombre}
                     </td>
-                    <td className="py-2.5 px-4">
-                      {m.vehiculoInfo || <span className="text-slate-600 italic">No registrado</span>}
+                    <td className="py-2.5 px-4 animate-fade-in text-xs text-slate-350">
+                      <div>{getCleanVehiculoInfo(m.vehiculoInfo) || <span className="text-slate-600 italic">No registrado</span>}</div>
+                      {getMarbeteVisitaWhatsapp(m.vehiculoInfo) && (
+                        <div className="text-[10px] text-emerald-400 font-medium mt-0.5">
+                          WA: {getMarbeteVisitaWhatsapp(m.vehiculoInfo)}
+                        </div>
+                      )}
                     </td>
                     <td className="py-2.5 px-4 font-mono font-bold text-slate-200">
                       {m.vehiculoPlacas || <span className="text-slate-600 italic">N/A</span>}
@@ -585,9 +643,14 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
                         PLACAS: {selectedMarbete.vehiculoPlacas}
                       </p>
                     )}
-                    {selectedMarbete.vehiculoInfo && (
+                    {getCleanVehiculoInfo(selectedMarbete.vehiculoInfo) && (
                       <p className="text-[10px] text-slate-350 font-sans font-medium mt-0.5">
-                        {selectedMarbete.vehiculoInfo}
+                        {getCleanVehiculoInfo(selectedMarbete.vehiculoInfo)}
+                      </p>
+                    )}
+                    {getMarbeteVisitaWhatsapp(selectedMarbete.vehiculoInfo) && (
+                      <p className="text-[9.5px] text-emerald-400 font-semibold font-mono mt-1 tracking-wide">
+                        WA: {getMarbeteVisitaWhatsapp(selectedMarbete.vehiculoInfo)}
                       </p>
                     )}
                   </div>
@@ -713,6 +776,24 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
                   onChange={(e) => setVehiculoInfo(e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-[#1B1B1F] border border-zinc-800 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:border-red-550 focus:ring-1 focus:ring-red-550/30 transition shadow-inner"
                 />
+              </div>
+
+              {/* WhatsApp de la Visita */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">
+                  WhatsApp de la Visita *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej: +521234567890"
+                  value={visitaWhatsapp}
+                  onChange={(e) => setVisitaWhatsapp(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-[#1B1B1F] border border-zinc-800 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:border-red-550 focus:ring-1 focus:ring-red-550/30 transition shadow-inner font-semibold"
+                />
+                <p className="text-[10px] text-zinc-500 mt-1">
+                  Especifica el número telefónico para poder enviarle el marbete digital a su WhatsApp directamente.
+                </p>
               </div>
 
               {/* Status */}

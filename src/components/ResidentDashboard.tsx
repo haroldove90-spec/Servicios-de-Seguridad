@@ -17,6 +17,20 @@ interface ResidentDashboardProps {
   onRefresh?: () => void;
 }
 
+const getCleanVehiculoInfo = (fullInfo?: string) => {
+  if (!fullInfo) return '';
+  return fullInfo
+    .replace(/\[WA:[^\]]+\]/g, '')
+    .replace(/\[CREATOR:[^\]]+\]/g, '')
+    .trim();
+};
+
+const getMarbeteVisitaWhatsapp = (fullInfo?: string) => {
+  if (!fullInfo) return '';
+  const match = fullInfo.match(/\[WA:([^\]]+)\]/);
+  return match ? match[1].trim() : '';
+};
+
 export default function ResidentDashboard({ currentResidentUser, onRefresh }: ResidentDashboardProps) {
   const [visits, setVisits] = useState<AuthorizedUser[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -55,6 +69,10 @@ export default function ResidentDashboard({ currentResidentUser, onRefresh }: Re
       };
 
       const residentMarbetes = allMarbetes.filter(m => {
+        // Match by [CREATOR:uid] inside vehicleInfo first to be 100% bulletproof for resident-created marbetes!
+        const hasCreatorTag = m.vehiculoInfo && m.vehiculoInfo.includes(`[CREATOR:${currentResidentUser.uid}]`);
+        if (hasCreatorTag) return true;
+
         const matchesResidence = (currentResidentUser.residenciaId && m.residenciaId === currentResidentUser.residenciaId);
         const matchesResidentUID = m.residenteId === currentResidentUser.uid;
         const matchesResidentName = (currentResidentUser.name && normalizeName(m.residenteNombre).includes(normalizeName(currentResidentUser.name)));
@@ -74,11 +92,17 @@ export default function ResidentDashboard({ currentResidentUser, onRefresh }: Re
           log.status === 'success'
         );
 
+        const cleanInfo = getCleanVehiculoInfo(m.vehiculoInfo);
+        const visitorWA = getMarbeteVisitaWhatsapp(m.vehiculoInfo);
+
+        // Deduplicate and output phone cleanly
+        const displayPhone = visitorWA || (cleanInfo ? `${cleanInfo} ${m.vehiculoPlacas ? `[Placas: ${m.vehiculoPlacas}]` : ''}` : '(Vehículo - Sin placas)');
+
         return {
           id: 'mar_dash_' + m.id,
           name: `${m.residenteNombre} (Marbete #${m.consecutivo})`,
           documentId: 'MARBETE-' + m.consecutivo,
-          phone: m.vehiculoInfo ? `${m.vehiculoInfo} ${m.vehiculoPlacas ? `[Placas: ${m.vehiculoPlacas}]` : ''}` : '(Vehículo - Sin placas)',
+          phone: displayPhone,
           status: isExpired ? UserStatus.EXPIRED : (hasEntered ? UserStatus.ACTIVE : UserStatus.ACTIVE),
           qrcodeToken: m.qrcodeToken,
           oneTime: false,
@@ -96,7 +120,10 @@ export default function ResidentDashboard({ currentResidentUser, onRefresh }: Re
           createdBy: currentResidentUser.uid,
           residentName: currentResidentUser.name,
           residentPhone: currentResidentUser.phone || '',
-          isMarbeteItem: true
+          isMarbeteItem: true,
+          visitorWhatsapp: visitorWA,
+          cleanVehicleInfo: cleanInfo,
+          vehiculoPlacas: m.vehiculoPlacas || ''
         } as any;
       });
 
@@ -223,16 +250,24 @@ export default function ResidentDashboard({ currentResidentUser, onRefresh }: Re
   const handleShareWhatsApp = (visit: AuthorizedUser) => {
     const isMarbete = (visit as any).isMarbeteItem;
     const passUrl = `${window.location.origin}${window.location.pathname}?pass=${visit.qrcodeToken}`;
-    const cleanPhone = visit.phone.replace(/\+/g, '').replace(/\s+/g, '');
     
     let message = '';
+    let cleanPhone = '';
+    
     if (isMarbete) {
-      message = `Hola ${visit.name.split(' (')[0]}, te comparto tu Pase Digital de Acceso Vehicular (Marbete) para la villa/residencia:\n🏠 *${visit.residenciaNombre}*\n🚗 *Vehículo:* ${visit.phone}\n⏰ Válido hasta el ${new Date(visit.validUntil).toLocaleDateString()} a las ${new Date(visit.validUntil).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}\n\nPresenta este QR en caseta para tu ingreso vehicular:\n👉 ${passUrl}`;
+      const visitorWA = (visit as any).visitorWhatsapp || '';
+      const cleanInfo = (visit as any).cleanVehicleInfo || '';
+      const placas = (visit as any).vehiculoPlacas || '';
+      const vehicleStr = cleanInfo ? `${cleanInfo} ${placas ? `[Placas: ${placas}]` : ''}` : '(No registrado)';
+      
+      message = `Hola, *${visit.name.split(' (')[0]}* 👋\n\nTe comparto tu *Marbete Vehicular Digital* autorizado para ingresar a la villa/residencia:\n🏠 *${visit.residenciaNombre}*\n🚗 *Vehículo:* ${vehicleStr}\n⏰ Vigencia hasta el ${new Date(visit.validUntil).toLocaleDateString()} a las ${new Date(visit.validUntil).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}\n\nPresenta este QR en caseta para tu ingreso vehicular o lector de acceso:\n👉 ${passUrl}`;
+      cleanPhone = visitorWA.replace(/\+/g, '').replace(/\s+/g, '');
     } else {
       message = `Hola ${visit.name.split(' (')[0]}, te comparto tu Pase Digital de Acceso QR para ingresar a la villa/residencia:\n🏠 *${visit.residenciaNombre}*\n⏰ Válido por 1 día (Vence el ${new Date(visit.validUntil).toLocaleDateString()} a las ${new Date(visit.validUntil).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})})\n\nPresenta este QR en caseta para tu ingreso:\n👉 ${passUrl}`;
+      cleanPhone = visit.phone.replace(/\+/g, '').replace(/\s+/g, '');
     }
     
-    const isPhoneValid = visit.phone && !visit.phone.includes('Vehículo') && /^\+?\d+$/.test(cleanPhone);
+    const isPhoneValid = cleanPhone && /^\d+$/.test(cleanPhone);
     const waUrl = isPhoneValid 
       ? `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(message)}`
       : `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
