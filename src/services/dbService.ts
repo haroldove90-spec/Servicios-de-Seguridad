@@ -1887,27 +1887,12 @@ export const dbService = {
 
     try {
       const { error } = await robustSupabaseInsert('marbetes', newMarbete);
-      if (!error) {
-        return newMarbete;
+      if (error) {
+        throw new Error(`Supabase Insert Error: ${error.message || JSON.stringify(error)} (Código: ${error.code})`);
       }
-      console.warn('Supabase createMarbete returned query error:', error);
-    } catch (err) {
-      console.warn('Supabase createMarbete exception, using fallback:', err);
-    }
-
-    if (IS_FIREBASE_DUMMY) {
-      const list = LocalDB.getMarbetes();
-      list.unshift(newMarbete);
-      LocalDB.saveMarbetes(list);
       return newMarbete;
-    }
-
-    try {
-      const docRef = doc(db, 'marbetes', id);
-      await setDoc(docRef, newMarbete);
-      return newMarbete;
-    } catch (err) {
-      handleFirestoreError(err, OperationType.CREATE, `marbetes/${id}`);
+    } catch (err: any) {
+      console.error('Supabase createMarbete exception occurred:', err);
       throw err;
     }
   },
@@ -1916,31 +1901,13 @@ export const dbService = {
     try {
       const updatesWithTimestamp = { ...updates, updatedAt: new Date().toISOString() };
       const { error } = await robustSupabaseUpdate('marbetes', updatesWithTimestamp, 'id', id);
-      if (!error) {
-        return;
+      if (error) {
+        throw new Error(`Supabase Update Error: ${error.message || JSON.stringify(error)} (Código: ${error.code})`);
       }
-      console.warn('Supabase updateMarbete returned query error:', error);
-    } catch (err) {
-      console.warn('Supabase updateMarbete exception, using fallback:', err);
-    }
-
-    if (IS_FIREBASE_DUMMY) {
-      const list = LocalDB.getMarbetes();
-      const updated = list.map(item => {
-        if (item.id === id) {
-          return normalizeMarbeteRow({ ...item, ...updates, updatedAt: new Date().toISOString() });
-        }
-        return item;
-      });
-      LocalDB.saveMarbetes(updated);
       return;
-    }
-
-    try {
-      const docRef = doc(db, 'marbetes', id);
-      await updateDoc(docRef, { ...updates, updatedAt: new Date().toISOString() });
-    } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, `marbetes/${id}`);
+    } catch (err: any) {
+      console.error('Supabase updateMarbete exception occurred:', err);
+      throw err;
     }
   },
 
@@ -1951,26 +1918,13 @@ export const dbService = {
         .delete()
         .eq('id', id);
 
-      if (!error) {
-        return;
+      if (error) {
+        throw new Error(`Supabase Delete Error: ${error.message || JSON.stringify(error)} (Código: ${error.code})`);
       }
-      console.warn('Supabase deleteMarbete returned query error:', error);
-    } catch (err) {
-      console.warn('Supabase deleteMarbete exception, using fallback:', err);
-    }
-
-    if (IS_FIREBASE_DUMMY) {
-      const list = LocalDB.getMarbetes();
-      const filtered = list.filter(item => item.id !== id);
-      LocalDB.saveMarbetes(filtered);
       return;
-    }
-
-    try {
-      const docRef = doc(db, 'marbetes', id);
-      await deleteDoc(docRef);
-    } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, `marbetes/${id}`);
+    } catch (err: any) {
+      console.error('Supabase deleteMarbete exception occurred:', err);
+      throw err;
     }
   },
 

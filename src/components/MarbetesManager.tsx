@@ -32,6 +32,7 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
   const [selectedResidentId, setSelectedResidentId] = useState<string>('');
   const [vehiculoPlacas, setVehiculoPlacas] = useState<string>('');
   const [vehiculoInfo, setVehiculoInfo] = useState<string>('');
+  const [visitaNombre, setVisitaNombre] = useState<string>('');
   const [status, setStatus] = useState<UserStatus>(UserStatus.ACTIVE);
   const [validFrom, setValidFrom] = useState<string>('');
   const [validUntil, setValidUntil] = useState<string>('');
@@ -98,6 +99,7 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
     setSelectedResidentId(defaultResId);
     setVehiculoPlacas('');
     setVehiculoInfo('');
+    setVisitaNombre('');
     setStatus(UserStatus.ACTIVE);
 
     // Default dates - from today until exactly 1 month from now, or 1 day if resident
@@ -120,6 +122,7 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
     setSelectedResidentId(marbete.residenteId);
     setVehiculoPlacas(marbete.vehiculoPlacas || '');
     setVehiculoInfo(marbete.vehiculoInfo || '');
+    setVisitaNombre(marbete.residenteNombre || '');
     setStatus(marbete.status);
     setValidFrom(new Date(marbete.validFrom).toISOString().slice(0, 16));
     setValidUntil(new Date(marbete.validUntil).toISOString().slice(0, 16));
@@ -188,7 +191,7 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
 
     const rawPayload = {
       residenteId: res.id,
-      residenteNombre: res.nombre,
+      residenteNombre: currentUser?.role === 'residente' ? (visitaNombre.trim() || res.nombre) : res.nombre,
       residenciaId: res.residenciaId,
       residenciaNombre: res.residenciaNombre || 'Residencial',
       vehiculoPlacas: vehiculoPlacas.trim().toUpperCase(),
@@ -212,9 +215,10 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
       setIsFormOpen(false);
       loadData();
       if (onRefresh) onRefresh();
-    } catch (err) {
+      alert(editingId ? '¡Marbete modificado con éxito!' : '¡Marbete generado con éxito!');
+    } catch (err: any) {
       console.error('Failed to save Marbete:', err);
-      alert('Hubo un error al guardar el Marbete. Intente de nuevo.');
+      alert('Hubo un error al guardar el Marbete: ' + (err.message || err));
     }
   };
 
@@ -619,13 +623,20 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
               {/* Resident Selector */}
               <div>
                 <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">
-                  {currentUser?.role === 'residente' ? 'Residente Solicitante' : 'Seleccionar Residente Asociado *'}
+                  {currentUser?.role === 'residente' ? 'Nombre Completo de la Visita (Beneficiario) *' : 'Seleccionar Residente Asociado *'}
                 </label>
-                {editingId || currentUser?.role === 'residente' ? (
+                {currentUser?.role === 'residente' ? (
+                  <input
+                    type="text"
+                    required
+                    placeholder="Escribe el nombre de tu visita..."
+                    value={visitaNombre}
+                    onChange={(e) => setVisitaNombre(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-[#1B1B1F] border border-zinc-800 rounded-xl text-slate-100 font-bold placeholder-zinc-700 focus:outline-none focus:border-red-550 focus:ring-1 focus:ring-red-550/30 transition shadow-inner"
+                  />
+                ) : editingId ? (
                   <div className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-slate-100 font-bold">
-                    {editingId 
-                      ? marbetes.find(m => m.id === editingId)?.residenteNombre 
-                      : (residents.find(r => r.id === selectedResidentId)?.nombre || currentUser.name || 'Mi Cuenta')}
+                    {marbetes.find(m => m.id === editingId)?.residenteNombre}
                   </div>
                 ) : (
                   <select
@@ -646,7 +657,7 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
                 )}
                 <p className="text-[10px] text-slate-500 mt-1">
                   {currentUser?.role === 'residente' 
-                    ? 'El marbete digital se vinculará a tu cuenta residencial y domicilio de forma automática.' 
+                    ? 'El marbete digital se registrará a nombre de tu visita y se vinculará a tu domicilio.' 
                     : 'El marbete digital incluirá automáticamente la residencia y contacto del residente.'}
                 </p>
               </div>
