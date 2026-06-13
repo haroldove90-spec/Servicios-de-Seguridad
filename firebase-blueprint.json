@@ -52,7 +52,7 @@
         "uid": { "type": "string" },
         "email": { "type": "string" },
         "name": { "type": "string" },
-        "role": { "type": "string", "enum": ["admin", "guard"] },
+        "role": { "type": "string", "enum": ["admin", "guard", "supervisor", "auditor", "residente"] },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["email", "name", "role", "createdAt"]
@@ -104,6 +104,28 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["nombre", "residenciaId", "residenciaNombre", "isActive", "createdAt", "updatedAt"]
+    },
+    "Marbete": {
+      "title": "Marbete",
+      "description": "A digital badge for vehicle access associated with a specific resident.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "consecutivo": { "type": "integer" },
+        "residenteId": { "type": "string" },
+        "residenteNombre": { "type": "string" },
+        "residenciaId": { "type": "string" },
+        "residenciaNombre": { "type": "string" },
+        "vehiculoPlacas": { "type": "string" },
+        "vehiculoInfo": { "type": "string" },
+        "qrcodeToken": { "type": "string" },
+        "validFrom": { "type": "string", "format": "date-time" },
+        "validUntil": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["active", "suspended", "expired"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["residenteId", "residenteNombre", "residenciaId", "residenciaNombre", "qrcodeToken", "validFrom", "validUntil", "status", "createdAt", "updatedAt"]
     }
   },
   "firestore": {
@@ -130,6 +152,10 @@
     "/casetas/{casetaId}": {
       "schema": "Caseta",
       "description": "Guard control terminals list"
+    },
+    "/marbetes/{marbeteId}": {
+      "schema": "Marbete",
+      "description": "Vehicular digital badge passes"
     }
   }
 }

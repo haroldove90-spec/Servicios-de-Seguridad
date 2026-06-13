@@ -77,18 +77,36 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
 
   const handleOpenCreateForm = () => {
     setEditingId(null);
-    setSelectedResidentId(residents.length > 0 ? residents[0].id : '');
+    let defaultResId = '';
+    if (currentUser?.role === 'residente') {
+      let boundRes = residents.find(r => 
+        r.nombre.toLowerCase() === currentUser.name?.toLowerCase() || 
+        r.accessUserId === currentUser.uid
+      );
+      if (!boundRes) {
+        const subRes = residents.filter(r => r.residenciaId === currentUser.residenciaId);
+        if (subRes.length > 0) boundRes = subRes[0];
+      }
+      defaultResId = boundRes ? boundRes.id : 'residente-self';
+    } else {
+      defaultResId = residents.length > 0 ? residents[0].id : '';
+    }
+    setSelectedResidentId(defaultResId);
     setVehiculoPlacas('');
     setVehiculoInfo('');
     setStatus(UserStatus.ACTIVE);
 
-    // Default dates - from today until exactly 1 month from now
+    // Default dates - from today until exactly 1 month from now, or 1 day if resident
     const nowLocal = new Date();
     setValidFrom(new Date(nowLocal.getTime() - (nowLocal.getTimezoneOffset() * 60000)).toISOString().slice(0, 16));
     
     const oneMonthLater = new Date(nowLocal);
-    oneMonthLater.setMonth(oneMonthLater.getMonth() + 1);
-    setValidUntil(new Date(oneMonthLater.getTime() - (oneMonthLater.getTimezoneOffset() * 60000)).toISOString().slice(0, 16));
+    if (currentUser?.role === 'residente') {
+      oneMonthLater.setDate(oneMonthLater.getDate() + 1);
+    } else {
+      oneMonthLater.setMonth(oneMonthLater.getMonth() + 1);
+    }
+    setValidUntil(new Date(oneMonthLater.getTime() - (nowLocal.getTimezoneOffset() * 60000)).toISOString().slice(0, 16));
 
     setIsFormOpen(true);
   };
@@ -107,12 +125,31 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
   const handleSaveMarbete = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!selectedResidentId) {
-      alert('Por favor selecciona un Residente de la lista.');
-      return;
+    let res: any = null;
+    if (currentUser?.role === 'residente') {
+      let boundRes = residents.find(r => 
+        r.id === selectedResidentId ||
+        r.nombre.toLowerCase() === currentUser.name?.toLowerCase() || 
+        r.accessUserId === currentUser.uid
+      );
+      if (!boundRes) {
+        const subRes = residents.filter(r => r.residenciaId === currentUser.residenciaId);
+        if (subRes.length > 0) boundRes = subRes[0];
+      }
+      res = boundRes || {
+        id: currentUser.uid || 'residente-self',
+        nombre: currentUser.name || 'Residente',
+        residenciaId: currentUser.residenciaId || 'res-demo-1',
+        residenciaNombre: currentUser.residenciaNombre || 'Lomas de Chapultepec'
+      };
+    } else {
+      if (!selectedResidentId) {
+        alert('Por favor selecciona un Residente de la lista.');
+        return;
+      }
+      res = residents.find(r => r.id === selectedResidentId);
     }
 
-    const res = residents.find(r => r.id === selectedResidentId);
     if (!res) {
       alert('El residente seleccionado no es válido.');
       return;
@@ -124,6 +161,14 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
       ? marbetes.find(m => m.id === editingId)?.qrcodeToken || `mar_token_${randomHex()}${randomHex()}`
       : `mar_token_${randomHex()}${randomHex()}`;
 
+    // Force 1-day validity logic if resident
+    let finalValidUntil = validUntil;
+    if (currentUser?.role === 'residente') {
+      const fromDate = new Date(validFrom);
+      const toDate = new Date(fromDate.getTime() + 24 * 60 * 60 * 1000); // 1-day limit
+      finalValidUntil = toDate.toISOString();
+    }
+
     const rawPayload = {
       residenteId: res.id,
       residenteNombre: res.nombre,
@@ -133,7 +178,7 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
       vehiculoInfo: vehiculoInfo.trim(),
       status,
       validFrom: new Date(validFrom).toISOString(),
-      validUntil: new Date(validUntil).toISOString(),
+      validUntil: new Date(finalValidUntil).toISOString(),
       qrcodeToken,
       createdAt: editingId ? (marbetes.find(m => m.id === editingId)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -201,7 +246,15 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
       m.consecutivo?.toString().includes(q)
     );
     const matchesResidence = currentUser?.residenciaId ? m.residenciaId === currentUser.residenciaId : true;
-    return matchesSearch && matchesResidence;
+    const isResidentRole = currentUser?.role === 'residente';
+    const matchesResidentSelf = isResidentRole
+      ? (
+          m.residenteId === currentUser.uid ||
+          m.residenteNombre?.toLowerCase().includes(currentUser.name?.toLowerCase().split(' ')[0]) ||
+          residents.some(r => r.id === m.residenteId && (r.accessUserId === currentUser.uid || r.nombre?.toLowerCase().includes(currentUser.name?.toLowerCase().split(' ')[0])))
+        )
+      : true;
+    return matchesSearch && matchesResidence && matchesResidentSelf;
   });
 
   return (
@@ -218,8 +271,14 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
               <Car className="w-5.5 h-5.5 text-red-500" />
             </div>
             <div>
-              <h2 className="text-xl font-extrabold text-white tracking-tight">Administración de Marbetes</h2>
-              <p className="text-xs text-slate-400">Genera marbetes digitales e imágenes QR con vigencia mensual para acceso de residentes.</p>
+              <h2 className="text-xl font-extrabold text-white tracking-tight">
+                {currentUser?.role === 'residente' ? 'Mis Marbetes de Visita' : 'Administración de Marbetes'}
+              </h2>
+              <p className="text-xs text-slate-400">
+                {currentUser?.role === 'residente'
+                  ? 'Genera marbetes digitales de 1 día para el acceso de tus visitas o vehículos autorizados.'
+                  : 'Genera marbetes digitales e imágenes QR con vigencia mensual para acceso de residentes.'}
+              </p>
             </div>
           </div>
         </div>
@@ -247,8 +306,14 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
       <div className="mb-6 bg-slate-900/60 border border-slate-800 p-4 rounded-2xl flex items-start gap-3">
         <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
         <div className="text-xs text-slate-300 leading-relaxed">
-          <p className="font-bold text-slate-100 mb-0.5">Vigencia y Visualización de Logo</p>
-          Los marbetes se generan con vigencia configurable (recomendado: 1 mes) y muestran automáticamente el escudo oficial de la corporación. Se exportan como imagen JPEG lista para que el residente la guarde en su móvil, permitiendo compartirla directamente a través de WhatsApp.
+          <p className="font-bold text-slate-100 mb-0.5">
+            {currentUser?.role === 'residente' ? 'Vigencia de Marbetes de Visita' : 'Vigencia y Visualización de Logo'}
+          </p>
+          {currentUser?.role === 'residente' ? (
+            <>Los marbetes para visitas creados por residentes tienen una <strong>vigencia automática de 1 día</strong> (24 horas desde la fecha de inicio). Una vez emitido, puedes exportar el código QR con el logotipo oficial y enviarlo directamente por WhatsApp.</>
+          ) : (
+            <>Los marbetes se generan con vigencia configurable (recomendado: 1 mes) y muestran automáticamente el escudo oficial de la corporación. Se exportan como imagen JPEG lista para que el residente la guarde en su móvil, permitiendo compartirla directamente a través de WhatsApp.</>
+          )}
         </div>
       </div>
 
@@ -522,11 +587,13 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
               {/* Resident Selector */}
               <div>
                 <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">
-                  Seleccionar Residente Asociado *
+                  {currentUser?.role === 'residente' ? 'Residente Solicitante' : 'Seleccionar Residente Asociado *'}
                 </label>
-                {editingId ? (
+                {editingId || currentUser?.role === 'residente' ? (
                   <div className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-slate-100 font-bold">
-                    {marbetes.find(m => m.id === editingId)?.residenteNombre}
+                    {editingId 
+                      ? marbetes.find(m => m.id === editingId)?.residenteNombre 
+                      : (residents.find(r => r.id === selectedResidentId)?.nombre || currentUser.name || 'Mi Cuenta')}
                   </div>
                 ) : (
                   <select
@@ -545,7 +612,11 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
                       ))}
                   </select>
                 )}
-                <p className="text-[10px] text-slate-500 mt-1">El marbete digital incluirá automáticamente la residencia y contacto del residente.</p>
+                <p className="text-[10px] text-slate-500 mt-1">
+                  {currentUser?.role === 'residente' 
+                    ? 'El marbete digital se vinculará a tu cuenta residencial y domicilio de forma automática.' 
+                    : 'El marbete digital incluirá automáticamente la residencia y contacto del residente.'}
+                </p>
               </div>
 
               {/* Placas */}
@@ -592,33 +663,57 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
               </div>
 
               {/* Validity Dates */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">
-                    Vigente Desde
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={validFrom}
-                    onChange={(e) => setValidFrom(e.target.value)}
-                    required
-                    className="w-full px-3 py-2 bg-[#1B1B1F] border border-zinc-800 rounded-xl text-slate-200 focus:outline-none focus:border-red-550 transition"
-                  />
+              {currentUser?.role === 'residente' ? (
+                <div className="bg-slate-950/60 border border-slate-800/80 p-3.5 rounded-xl">
+                  <div className="flex items-center gap-2 mb-1.5 text-[11px] font-bold text-red-400 uppercase tracking-wider">
+                    <AlertCircle className="w-4 h-4 text-red-500" />
+                    Vigencia Restringida (1 Día de Visita)
+                  </div>
+                  <p className="text-[10px] text-slate-400 leading-normal mb-3">
+                    Como residente, tus pases de marbete vehicular se emiten con vigencia exacta de 24 horas a partir del momento de inicio. No requieres configurar fecha de término.
+                  </p>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">
+                      Fecha y Hora de Inicio
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={validFrom}
+                      onChange={(e) => setValidFrom(e.target.value)}
+                      required
+                      className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-slate-200 focus:outline-none focus:border-red-550 transition font-mono"
+                    />
+                  </div>
                 </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">
+                      Vigente Desde
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={validFrom}
+                      onChange={(e) => setValidFrom(e.target.value)}
+                      required
+                      className="w-full px-3 py-2 bg-[#1B1B1F] border border-zinc-800 rounded-xl text-slate-200 focus:outline-none focus:border-red-550 transition"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">
-                    Vigente Hasta (1 Mes)
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={validUntil}
-                    onChange={(e) => setValidUntil(e.target.value)}
-                    required
-                    className="w-full px-3 py-2 bg-[#1B1B1F] border border-zinc-800 rounded-xl text-slate-205 focus:outline-none focus:border-red-550 transition"
-                  />
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">
+                      Vigente Hasta
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={validUntil}
+                      onChange={(e) => setValidUntil(e.target.value)}
+                      required
+                      className="w-full px-3 py-2 bg-[#1B1B1F] border border-zinc-800 rounded-xl text-slate-200 focus:outline-none focus:border-red-550 transition"
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Final form actions */}
               <div className="flex justify-end gap-2.5 border-t border-zinc-800/80 pt-4 mt-5">

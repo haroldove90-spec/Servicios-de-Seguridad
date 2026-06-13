@@ -820,6 +820,11 @@ export default function App() {
       else if (canScan) setActiveTab('scan');
       else if (canCrud) setActiveTab('crud');
       else setActiveTab('reports');
+    } else if (current === 'marbetes' && !isAdmin && !isResidente) {
+      if (canManageYourVisits) setActiveTab('visitas');
+      else if (canScan) setActiveTab('scan');
+      else if (canCrud) setActiveTab('crud');
+      else setActiveTab('reports');
     }
   }, [userRole, activeTab, canScan, canCrud, canReports, canManageRoles, canManageResidences, canManageResidents, canManageCasetas, isAdmin, isResidente, isGuard, canManageYourVisits, canManageAllResidentVisits]);
 
@@ -1232,14 +1237,14 @@ export default function App() {
                         <Smartphone className="w-4 h-4" /> Registro de Residente
                       </button>
                     )}
-                    {isAdmin && (
+                    {(isAdmin || isResidente) && (
                       <button
                         onClick={() => { setActiveTab('marbetes'); setIsDrawerOpen(false); }}
                         className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer ${
                           activeTab === 'marbetes' ? 'bg-red-650 text-white shadow-lg shadow-red-650/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
                         }`}
                       >
-                        <Car className="w-4 h-4 text-red-400 shrink-0" /> Control de Marbetes
+                        <Car className="w-4 h-4 text-red-400 shrink-0" /> {isResidente ? 'Mis Marbetes' : 'Control de Marbetes'}
                       </button>
                     )}
                     {canManageCasetas && (
@@ -1790,7 +1795,7 @@ export default function App() {
                     />
                   )}
 
-                  {activeTab === 'marbetes' && isAdmin && (
+                   {activeTab === 'marbetes' && (isAdmin || isResidente) && (
                     <MarbetesManager 
                       onRefresh={handleLogsUpdated}
                       currentUser={computedAdminUser}

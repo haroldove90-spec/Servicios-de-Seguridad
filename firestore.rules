@@ -65,7 +65,7 @@ service cloud.firestore {
     function isValidSystemRole(data) {
       return data.email is string && data.email.size() <= 150 &&
              data.name is string && data.name.size() <= 200 &&
-             data.role in ['admin', 'guard'];
+             data.role in ['admin', 'guard', 'supervisor', 'auditor', 'residente'];
     }
 
     // Validation Blueprint for Residencia
@@ -92,6 +92,18 @@ service cloud.firestore {
              data.residenciaId is string && data.residenciaId.size() > 0 &&
              data.residenciaNombre is string && data.residenciaNombre.size() > 0 &&
              data.isActive is bool;
+    }
+
+    // Validation Blueprint for Marbete
+    function isValidMarbete(data) {
+      return data.residenteId is string && data.residenteId.size() > 0 &&
+             data.residenteNombre is string && data.residenteNombre.size() > 0 &&
+             data.residenciaId is string && data.residenciaId.size() > 0 &&
+             data.residenciaNombre is string && data.residenciaNombre.size() > 0 &&
+             data.status in ['active', 'suspended', 'expired'] &&
+             data.qrcodeToken is string && data.qrcodeToken.size() > 0 &&
+             data.validFrom is string && data.validFrom.size() <= 100 &&
+             data.validUntil is string && data.validUntil.size() <= 100;
     }
 
     // 2. Collection Rules with Master Gates
@@ -165,6 +177,14 @@ service cloud.firestore {
       // Only admins can create, update, or delete subdivision terminals
       allow create, update: if isAdmin() && isValidId(casetaId) && isValidCaseta(incoming());
       allow delete: if isAdmin() && isValidId(casetaId);
+    }
+
+    // Collection: marbetes
+    match /marbetes/{marbeteId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(marbeteId) && isValidMarbete(incoming());
+      allow update: if isSignedIn() && isValidId(marbeteId) && isValidMarbete(incoming());
+      allow delete: if isSignedIn() && isValidId(marbeteId);
     }
   }
 }
