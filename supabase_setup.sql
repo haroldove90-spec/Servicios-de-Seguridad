@@ -154,6 +154,34 @@ VALUES (
 SET username = EXCLUDED.username, password = EXCLUDED.password, "isActive" = EXCLUDED."isActive";
 
 -- ====================================================================
+-- SEED DEFAULT DEMO DATA FOR FOREIGN KEY INTEGRITY
+-- ====================================================================
+INSERT INTO public.residencias (id, nombre, administrador, "numResidencias", "isActive", "createdAt", "updatedAt")
+VALUES (
+    'res-demo-1',
+    'Lomas de Chapultepec',
+    'Software AI Admin',
+    120,
+    TRUE,
+    NOW(),
+    NOW()
+) ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.residentes (id, nombre, "residenciaId", "residenciaNombre", direccion, "qrcodeToken", whatsapp, "accessUserId", "createdAt", "updatedAt")
+VALUES (
+    'resd-demo-1',
+    'Mariana Sosa',
+    'res-demo-1',
+    'Lomas de Chapultepec',
+    'Calle Roble #14',
+    'residente_mariana_token',
+    '+525512345678',
+    'usr-resd-demo-1',
+    NOW(),
+    NOW()
+) ON CONFLICT (id) DO NOTHING;
+
+-- ====================================================================
 -- REPAIR / MIGRATION SCRIPT FOR EXISTING DATABASES
 -- Runs safely even if columns already exist.
 -- ====================================================================

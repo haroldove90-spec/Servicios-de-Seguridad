@@ -131,6 +131,24 @@ export function normalizeMarbeteRow(raw: any): Marbete {
   };
 }
 
+export function normalizeRoleRow(raw: any): SystemRole {
+  if (!raw) return raw;
+  return {
+    uid: raw.uid,
+    email: raw.email,
+    name: raw.name,
+    role: raw.role,
+    createdAt: raw.createdAt ?? raw.created_at ?? raw.createdat,
+    phone: raw.phone,
+    password: raw.password,
+    isActive: raw.isActive ?? raw.is_active ?? raw.isactive ?? true,
+    residenciaId: raw.residenciaId ?? raw.residencia_id ?? raw.residenciaid,
+    residenciaNombre: raw.residenciaNombre ?? raw.residencia_nombre ?? raw.residencianombre,
+    username: raw.username,
+    avatar: raw.avatar
+  };
+}
+
 // ----------------------------------------------------
 // MULTI-CASING DATABASE INTELLIGENCE HELPERS
 // ----------------------------------------------------
@@ -587,33 +605,62 @@ const LocalDB = {
 
   getRoles(): SystemRole[] {
     const data = localStorage.getItem(LS_ROLES_KEY);
+    const defaultRoles: SystemRole[] = [
+      {
+        uid: 'admin-demo-uid',
+        name: 'Software AI Admin',
+        email: 'softwareai569@gmail.com',
+        username: 'admin',
+        role: SystemUserRole.ADMIN,
+        isActive: true,
+        password: 'Admin_123',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        uid: 'guard-demo-uid',
+        name: 'Guardia Pérez',
+        email: 'guardia@seguridad.local',
+        username: 'guardia',
+        role: SystemUserRole.SUPERVISOR, // set as supervisor for caseta
+        isActive: true,
+        password: 'Caseta_123',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        uid: 'residente-demo-uid',
+        name: 'Mariana Sosa',
+        email: 'residente@local.casa',
+        username: 'residente',
+        role: SystemUserRole.RESIDENTE,
+        isActive: true,
+        password: 'Residente_123',
+        createdAt: new Date().toISOString(),
+        residenciaId: 'res-demo-1',
+        residenciaNombre: 'Lomas de Chapultepec'
+      }
+    ];
+
     if (!data) {
-      const demoRoles: SystemRole[] = [
-        {
-          uid: 'admin-demo-uid',
-          name: 'Software AI Admin',
-          email: 'softwareai569@gmail.com',
-          username: 'admin',
-          role: SystemUserRole.ADMIN,
-          isActive: true,
-          password: 'Admin_123',
-          createdAt: new Date().toISOString(),
-        },
-        {
-          uid: 'guard-demo-uid',
-          name: 'Guardia Pérez',
-          email: 'guardia@seguridad.local',
-          username: 'guardia',
-          role: SystemUserRole.SUPERVISOR, // set as supervisor for caseta
-          isActive: true,
-          password: 'Caseta_123',
-          createdAt: new Date().toISOString(),
-        }
-      ];
-      localStorage.setItem(LS_ROLES_KEY, JSON.stringify(demoRoles));
-      return demoRoles;
+      localStorage.setItem(LS_ROLES_KEY, JSON.stringify(defaultRoles));
+      return defaultRoles;
     }
-    return JSON.parse(data);
+    try {
+      const currentRoles: SystemRole[] = JSON.parse(data);
+      let updated = false;
+      for (const r of defaultRoles) {
+        if (!currentRoles.some(cr => cr.username === r.username || cr.uid === r.uid)) {
+          currentRoles.push(r);
+          updated = true;
+        }
+      }
+      if (updated) {
+        localStorage.setItem(LS_ROLES_KEY, JSON.stringify(currentRoles));
+      }
+      return currentRoles;
+    } catch (e) {
+      localStorage.setItem(LS_ROLES_KEY, JSON.stringify(defaultRoles));
+      return defaultRoles;
+    }
   },
 
   saveRoles(roles: SystemRole[]) {
@@ -743,7 +790,7 @@ export const dbService = {
         .maybeSingle();
 
       if (!error && data) {
-        return data as SystemRole;
+        return normalizeRoleRow(data);
       }
       if (error) {
         console.warn('Supabase getSystemRole returned query error. Code:', error.code, 'Msg:', error.message);
@@ -761,7 +808,7 @@ export const dbService = {
       const docRef = doc(db, 'system_roles', uid);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
-        return docSnap.data() as SystemRole;
+        return normalizeRoleRow(docSnap.data());
       }
       return null;
     } catch (err) {
@@ -806,11 +853,12 @@ export const dbService = {
         .order('createdAt', { ascending: false });
 
       if (!error && data) {
-        const roles = data as SystemRole[];
+        const roles = (data as any[]).map(normalizeRoleRow);
         const hasAdmin = roles.some(r => r.username === 'admin');
         const hasGuard = roles.some(r => r.username === 'guardia');
+        const hasResident = roles.some(r => r.username === 'residente');
         
-        if (!hasAdmin || !hasGuard) {
+        if (!hasAdmin || !hasGuard || !hasResident) {
           const demoRoles = LocalDB.getRoles();
           for (const demo of demoRoles) {
             try {
@@ -822,7 +870,9 @@ export const dbService = {
                 username: demo.username,
                 password: demo.password,
                 isActive: demo.isActive,
-                createdAt: demo.createdAt
+                createdAt: demo.createdAt,
+                residenciaId: demo.residenciaId,
+                residenciaNombre: demo.residenciaNombre
               });
             } catch (ex) {
               console.warn('Auto-seed role to Supabase failed silently:', ex);
@@ -833,7 +883,7 @@ export const dbService = {
             .select('*')
             .order('createdAt', { ascending: false });
           if (refreshed && refreshed.length > 0) {
-            return refreshed as SystemRole[];
+            return (refreshed as any[]).map(normalizeRoleRow);
           }
         }
         return roles;
@@ -855,7 +905,7 @@ export const dbService = {
       const snap = await getDocs(q);
       const results: SystemRole[] = [];
       snap.forEach(d => {
-        results.push(d.data() as SystemRole);
+        results.push(normalizeRoleRow(d.data()));
       });
       return results;
     } catch (err) {
@@ -1206,6 +1256,19 @@ export const dbService = {
         .order('createdAt', { ascending: false });
 
       if (!error && data) {
+        if (data.length === 0) {
+          const defaultRes = {
+            id: 'res-demo-1',
+            nombre: 'Lomas de Chapultepec',
+            administrador: 'Software AI Admin',
+            numResidencias: 120,
+            isActive: true,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+          await supabase.from('residencias').insert(defaultRes);
+          return [defaultRes];
+        }
         return data as Residencia[];
       }
       if (error) {
@@ -1340,6 +1403,22 @@ export const dbService = {
         .order('createdAt', { ascending: false });
 
       if (!error && data) {
+        if (data.length === 0) {
+          const defaultResidente = {
+            id: 'resd-demo-1',
+            nombre: 'Mariana Sosa',
+            residenciaId: 'res-demo-1',
+            residenciaNombre: 'Lomas de Chapultepec',
+            direccion: 'Calle Roble #14',
+            qrcodeToken: 'residente_mariana_token',
+            whatsapp: '+525512345678',
+            accessUserId: 'usr-resd-demo-1',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+          await supabase.from('residentes').insert(defaultResidente);
+          return [defaultResidente];
+        }
         return (data as any[]).map(normalizeResidentRow);
       }
       if (error) {

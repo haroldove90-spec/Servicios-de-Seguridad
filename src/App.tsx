@@ -371,13 +371,14 @@ export default function App() {
       // Fetch all system roles/employees
       const registeredRoles = await dbService.getAllSystemRoles();
       
-      // Match on username OR email, checking password exactly
+      // Match on username OR email OR display name, checking password exactly
       const matched = registeredRoles.find(r => {
         const inputStr = loginUsername.trim().toLowerCase();
-        const rEmail = r.email?.toLowerCase();
-        const rUsername = r.username?.toLowerCase();
+        const rEmail = r.email?.trim().toLowerCase();
+        const rUsername = r.username?.trim().toLowerCase();
+        const rName = r.name?.trim().toLowerCase();
         
-        let isUsernameOrEmailMatch = (rUsername === inputStr || rEmail === inputStr);
+        let isUsernameOrEmailMatch = (rUsername === inputStr || rEmail === inputStr || rName === inputStr);
         
         // Handle physical email typo gracefully mapping haroldo90/haroldo90@hotmail.com to haroldo980@hotmail.com
         if (inputStr === 'haroldo90@hotmail.com' || inputStr === 'haroldo90') {
@@ -386,7 +387,11 @@ export default function App() {
           }
         }
         
-        return isUsernameOrEmailMatch && r.password === loginPassword.trim();
+        const storedPasswordClean = (r.password || '').trim();
+        const inputPasswordClean = loginPassword.trim();
+        const isPasswordMatch = (storedPasswordClean === inputPasswordClean);
+        
+        return isUsernameOrEmailMatch && isPasswordMatch;
       });
 
       if (!matched) {
@@ -1591,6 +1596,7 @@ export default function App() {
                   <p className="font-extrabold text-slate-400 mb-1 text-[10px] uppercase tracking-wider">Credenciales de Pruebas Rápidas:</p>
                   <p className="font-mono mt-0.5">• Para Director General: user <b className="text-zinc-300 text-[10px]">admin</b> / pass <b className="text-red-400 text-[10px]">Admin_123</b></p>
                   <p className="font-mono mt-0.5">• Para Guardia Caseta: user <b className="text-zinc-300 text-[10px]">guardia</b> / pass <b className="text-red-400 text-[10px]">Caseta_123</b></p>
+                  <p className="font-mono mt-0.5">• Para Residente Autogestión: user <b className="text-zinc-300 text-[10px]">residente</b> / pass <b className="text-red-400 text-[10px]">Residente_123</b></p>
                   <p className="font-sans text-[8.5px] text-zinc-500 inline-block mt-2 font-medium">Nota: Puedes dar de alta más empleados en el módulo de Administración General para que ingresen auto-detectados.</p>
                 </div>
 
