@@ -136,13 +136,19 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
     setVisitaWhatsapp('');
     setStatus(UserStatus.ACTIVE);
 
-    // Default dates - from today until exactly 1 month from now, or 1 day if resident
+    // Default dates - 1 month by default (for admin), but 1 day if resident
     const nowLocal = new Date();
     setValidFrom(new Date(nowLocal.getTime() - (nowLocal.getTimezoneOffset() * 60000)).toISOString().slice(0, 16));
     
-    const oneMonthLater = new Date(nowLocal);
-    oneMonthLater.setMonth(oneMonthLater.getMonth() + 1);
-    setValidUntil(new Date(oneMonthLater.getTime() - (nowLocal.getTimezoneOffset() * 60000)).toISOString().slice(0, 16));
+    if (currentUser?.role === 'residente') {
+      const oneDayLater = new Date(nowLocal);
+      oneDayLater.setDate(oneDayLater.getDate() + 1);
+      setValidUntil(new Date(oneDayLater.getTime() - (nowLocal.getTimezoneOffset() * 60000)).toISOString().slice(0, 16));
+    } else {
+      const oneMonthLater = new Date(nowLocal);
+      oneMonthLater.setMonth(oneMonthLater.getMonth() + 1);
+      setValidUntil(new Date(oneMonthLater.getTime() - (nowLocal.getTimezoneOffset() * 60000)).toISOString().slice(0, 16));
+    }
 
     setIsFormOpen(true);
   };
@@ -215,11 +221,11 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
       ? marbetes.find(m => m.id === editingId)?.qrcodeToken || `mar_token_${randomHex()}${randomHex()}`
       : `mar_token_${randomHex()}${randomHex()}`;
 
-    // Limit to 1-month validity if resident (up to 31 days)
+    // Limit to 1-day validity if resident (up to 24 hours / 1 day)
     let finalValidUntil = validUntil;
     if (currentUser?.role === 'residente') {
       const fromDate = new Date(validFrom);
-      const allowedMaxDate = new Date(fromDate.getTime() + 31 * 24 * 60 * 60 * 1000); // 31-day limit
+      const allowedMaxDate = new Date(fromDate.getTime() + 24 * 60 * 60 * 1000); // 1-day limit
       const currentValidUntil = new Date(validUntil);
       if (currentValidUntil > allowedMaxDate) {
         finalValidUntil = allowedMaxDate.toISOString();
@@ -371,8 +377,8 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
               </h2>
               <p className="text-xs text-slate-400">
                 {currentUser?.role === 'residente'
-                  ? 'Genera marbetes digitales con vigencia de 1 mes para el acceso de tus vehículos autorizados o visitas.'
-                  : 'Genera marbetes digitales e imágenes QR con vigencia mensual para acceso de residentes.'}
+                  ? 'Genera marbetes digitales con vigencia de 1 día para el acceso temporal de tus visitas o vehículos autorizados.'
+                  : 'Genera marbetes digitales e imágenes QR con vigencia mensual (1 mes) para acceso de residentes.'}
               </p>
             </div>
           </div>

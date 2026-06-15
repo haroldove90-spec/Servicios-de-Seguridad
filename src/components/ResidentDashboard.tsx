@@ -344,11 +344,15 @@ export default function ResidentDashboard({ currentResidentUser, onRefresh }: Re
             <div className="mt-1.5 flex flex-col gap-1 text-[11px] font-semibold text-slate-350">
               <span className="flex items-center gap-1">
                 <Clock className="w-3 h-3 text-red-500" />
-                <span>Marbetes: 1 Mes (30 d)</span>
+                <span>Marbete Admin: 1 Mes (30d)</span>
+              </span>
+              <span className="flex items-center gap-1">
+                <Clock className="w-3 h-3 text-emerald-400" />
+                <span>Marbete Visita: 1 Día (24h)</span>
               </span>
               <span className="flex items-center gap-1">
                 <Clock className="w-3 h-3 text-blue-400" />
-                <span>Visitas: 1 Día (24 h)</span>
+                <span>Pase Peatonal: 1 Día (24h)</span>
               </span>
             </div>
           </div>
