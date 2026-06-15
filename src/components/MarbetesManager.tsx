@@ -141,11 +141,7 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
     setValidFrom(new Date(nowLocal.getTime() - (nowLocal.getTimezoneOffset() * 60000)).toISOString().slice(0, 16));
     
     const oneMonthLater = new Date(nowLocal);
-    if (currentUser?.role === 'residente') {
-      oneMonthLater.setDate(oneMonthLater.getDate() + 1);
-    } else {
-      oneMonthLater.setMonth(oneMonthLater.getMonth() + 1);
-    }
+    oneMonthLater.setMonth(oneMonthLater.getMonth() + 1);
     setValidUntil(new Date(oneMonthLater.getTime() - (nowLocal.getTimezoneOffset() * 60000)).toISOString().slice(0, 16));
 
     setIsFormOpen(true);
@@ -219,12 +215,15 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
       ? marbetes.find(m => m.id === editingId)?.qrcodeToken || `mar_token_${randomHex()}${randomHex()}`
       : `mar_token_${randomHex()}${randomHex()}`;
 
-    // Force 1-day validity logic if resident
+    // Limit to 1-month validity if resident (up to 31 days)
     let finalValidUntil = validUntil;
     if (currentUser?.role === 'residente') {
       const fromDate = new Date(validFrom);
-      const toDate = new Date(fromDate.getTime() + 24 * 60 * 60 * 1000); // 1-day limit
-      finalValidUntil = toDate.toISOString();
+      const allowedMaxDate = new Date(fromDate.getTime() + 31 * 24 * 60 * 60 * 1000); // 31-day limit
+      const currentValidUntil = new Date(validUntil);
+      if (currentValidUntil > allowedMaxDate) {
+        finalValidUntil = allowedMaxDate.toISOString();
+      }
     }
 
     let finalVehiculoInfo = vehiculoInfo.trim();
@@ -372,7 +371,7 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
               </h2>
               <p className="text-xs text-slate-400">
                 {currentUser?.role === 'residente'
-                  ? 'Genera marbetes digitales de 1 día para el acceso de tus visitas o vehículos autorizados.'
+                  ? 'Genera marbetes digitales con vigencia de 1 mes para el acceso de tus vehículos autorizados o visitas.'
                   : 'Genera marbetes digitales e imágenes QR con vigencia mensual para acceso de residentes.'}
               </p>
             </div>

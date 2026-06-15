@@ -9,8 +9,9 @@ import {
   MapPin, User, Calendar, Clock, RefreshCw, Send, Trash2, ShieldCheck, Smartphone, Car
 } from 'lucide-react';
 import { dbService } from '../services/dbService';
-import { AuthorizedUser, SystemRole, UserStatus } from '../types';
+import { AuthorizedUser, SystemRole, UserStatus, Marbete } from '../types';
 import { generateQRWithLogo } from '../utils/qrWithLogo';
+import { exportMarbeteToJPG } from '../utils/marbeteExporter';
 
 interface ResidentDashboardProps {
   currentResidentUser: SystemRole;
@@ -68,6 +69,13 @@ export default function ResidentDashboard({ currentResidentUser, onRefresh }: Re
         return nameStr.replace(/\s*\(Visita\)/g, '').replace(/\s*\(Residente\)/g, '').trim().toLowerCase();
       };
 
+      const isNameMatch = (n1: string, n2: string) => {
+        const norm1 = normalizeName(n1);
+        const norm2 = normalizeName(n2);
+        if (!norm1 || !norm2) return false;
+        return norm1.includes(norm2) || norm2.includes(norm1);
+      };
+
       const residentMarbetes = allMarbetes.filter(m => {
         // Match by [CREATOR:uid] inside vehicleInfo first to be 100% bulletproof for resident-created marbetes!
         const hasCreatorTag = m.vehiculoInfo && m.vehiculoInfo.includes(`[CREATOR:${currentResidentUser.uid}]`);
@@ -75,13 +83,13 @@ export default function ResidentDashboard({ currentResidentUser, onRefresh }: Re
 
         const matchesResidence = (currentResidentUser.residenciaId && m.residenciaId === currentResidentUser.residenciaId);
         const matchesResidentUID = m.residenteId === currentResidentUser.uid;
-        const matchesResidentName = (currentResidentUser.name && normalizeName(m.residenteNombre).includes(normalizeName(currentResidentUser.name)));
+        const matchesResidentName = (currentResidentUser.name && isNameMatch(m.residenteNombre, currentResidentUser.name));
         const matchesResidentInCollection = listResidents.some(r => r.id === m.residenteId && (
           r.accessUserId === currentResidentUser.uid ||
-          (currentResidentUser.name && normalizeName(r.nombre).includes(normalizeName(currentResidentUser.name)))
+          (currentResidentUser.name && isNameMatch(r.nombre, currentResidentUser.name))
         ));
         
-        return matchesResidence || matchesResidentUID || matchesResidentName || matchesResidentInCollection;
+        return (matchesResidence && matchesResidentName) || matchesResidentUID || matchesResidentName || matchesResidentInCollection;
       });
 
       const convertedMarbetes: AuthorizedUser[] = residentMarbetes.map(m => {
@@ -333,10 +341,16 @@ export default function ResidentDashboard({ currentResidentUser, onRefresh }: Re
           </div>
           <div className="col-span-2 sm:col-span-1 bg-[#1c1c22] p-4 rounded-2xl border border-[#2a2a30]">
             <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider font-mono">Vigencia Predeterminada</p>
-            <p className="text-xl font-bold text-slate-350 mt-1 flex items-center gap-1.5 text-xs font-semibold">
-              <Clock className="w-3.5 h-3.5 text-slate-400" />
-              <span>1 Día Completo (24 hrs)</span>
-            </p>
+            <div className="mt-1.5 flex flex-col gap-1 text-[11px] font-semibold text-slate-350">
+              <span className="flex items-center gap-1">
+                <Clock className="w-3 h-3 text-red-500" />
+                <span>Marbetes: 1 Mes (30 d)</span>
+              </span>
+              <span className="flex items-center gap-1">
+                <Clock className="w-3 h-3 text-blue-400" />
+                <span>Visitas: 1 Día (24 h)</span>
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -625,6 +639,40 @@ export default function ResidentDashboard({ currentResidentUser, onRefresh }: Re
                 </span>
               </div>
             </div>
+
+            {/* Download Marbete Button */}
+            {(selectedVisitQR as any).isMarbeteItem && (
+              <button
+                id="btn-download-marbete-dashboard"
+                onClick={() => {
+                  const consecutivoMatch = selectedVisitQR.documentId.match(/MARBETE-(\d+)/);
+                  const consecutivoValue = consecutivoMatch ? parseInt(consecutivoMatch[1], 10) : 1001;
+                  
+                  const marbeteObj: Marbete = {
+                    id: selectedVisitQR.id.replace('mar_dash_', ''),
+                    consecutivo: consecutivoValue,
+                    residenteId: selectedVisitQR.createdBy || '',
+                    residenteNombre: selectedVisitQR.name.split(' (Marbete')[0],
+                    residenciaId: selectedVisitQR.residenciaId || '',
+                    residenciaNombre: selectedVisitQR.residenciaNombre || '',
+                    vehiculoPlacas: (selectedVisitQR as any).vehiculoPlacas || '',
+                    vehiculoInfo: (selectedVisitQR as any).cleanVehicleInfo || '',
+                    qrcodeToken: selectedVisitQR.qrcodeToken,
+                    status: selectedVisitQR.status as any,
+                    validFrom: selectedVisitQR.validFrom,
+                    validUntil: selectedVisitQR.validUntil,
+                    createdAt: selectedVisitQR.createdAt || new Date().toISOString(),
+                    updatedAt: selectedVisitQR.updatedAt || new Date().toISOString()
+                  };
+                  if (generatedQRUrl) {
+                    exportMarbeteToJPG(marbeteObj, generatedQRUrl);
+                  }
+                }}
+                className="w-full flex items-center justify-center gap-1.5 px-4 py-3 bg-red-650 hover:bg-red-600 text-white font-bold text-xs rounded-2xl shadow-lg transition cursor-pointer mb-3 uppercase tracking-wider"
+              >
+                <Download className="w-4 h-4" /> Descargar Imagen Marbete (JPG)
+              </button>
+            )}
 
             {/* Share action bar */}
             <div className="grid grid-cols-2 gap-3 w-full font-sans">
