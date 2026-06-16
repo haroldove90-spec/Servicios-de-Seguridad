@@ -496,8 +496,8 @@ export default function App() {
       // Retrieve selected subdivision info
       const matchedRes = residenciasList.find(r => r.id === regResidenciaId);
 
-      // Register with role matching selected target or defaulting to RESIDENTE, and inactive by default
-      const defaultRole = selectedLoginTarget?.role || SystemUserRole.RESIDENTE;
+      // Register with default role of SystemUserRole.SUPERVISOR (Caseta / Guardia) as requested by the user, and inactive by default
+      const defaultRole = SystemUserRole.SUPERVISOR;
 
       const newUser: SystemRole = {
         uid: 'user_reg_' + Math.random().toString(36).substring(2, 9),
@@ -514,7 +514,7 @@ export default function App() {
       };
 
       await dbService.saveSystemRole(newUser);
-      setRegSuccess('¡Pre-registro Exitoso! Tu cuenta ha sido guardada en estado "Pendiente de Aprobación". Por seguridad, un Administrador debe autorizar tu acceso y activar tu cuenta desde el Dashboard de Roles antes de poder iniciar sesión.');
+      setRegSuccess('¡Pre-registro Exitoso! Tu cuenta ha sido registrada con el rol de Caseta (Guardia de Caseta) en estado "Pendiente de Aprobación". Por seguridad, un Administrador debe autorizar tu acceso y activar tu cuenta o cambiar tu rol desde el Dashboard de Roles antes de poder iniciar sesión.');
       
       // Cleanup
       setRegName('');
