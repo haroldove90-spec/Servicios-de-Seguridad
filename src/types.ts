@@ -78,8 +78,8 @@ export interface SystemRole {
   phone?: string;
   password?: string;
   isActive?: boolean;
-  residenciaId?: string;
-  residenciaNombre?: string;
+  residenciaId?: string | null;
+  residenciaNombre?: string | null;
   username?: string;
   avatar?: string;
 }

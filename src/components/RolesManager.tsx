@@ -218,8 +218,8 @@ export default function RolesManager({
       isActive: editingUid 
         ? (roles.find(r => r.uid === editingUid)?.isActive !== false)
         : true,
-      residenciaId: formResidenciaId || undefined,
-      residenciaNombre: matchedRes ? matchedRes.nombre : undefined
+      residenciaId: formResidenciaId || null,
+      residenciaNombre: matchedRes ? matchedRes.nombre : null
     };
 
     await dbService.saveSystemRole(payload);
