@@ -201,3 +201,81 @@ ALTER TABLE public.system_roles ADD COLUMN IF NOT EXISTS "residenciaNombre" TEXT
 -- Panic Alert System Synchronization Support
 ALTER TABLE public.residencias ADD COLUMN IF NOT EXISTS "panicActive" BOOLEAN NOT NULL DEFAULT FALSE;
 
+-- ====================================================================
+-- CASE-SENSITIVITY & SNAKE_CASE COMPATIBILITY REPAIR (FOR SYSTEM_ROLES)
+-- Ensures SELECT id, is_active, created_at, residencia_id works cleanly for queries and SQL UI
+-- ====================================================================
+ALTER TABLE public.system_roles ADD COLUMN IF NOT EXISTS id TEXT;
+ALTER TABLE public.system_roles ADD COLUMN IF NOT EXISTS is_active BOOLEAN;
+ALTER TABLE public.system_roles ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMP WITH TIME ZONE;
+ALTER TABLE public.system_roles ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE public.system_roles ADD COLUMN IF NOT EXISTS residencia_id TEXT;
+ALTER TABLE public.system_roles ADD COLUMN IF NOT EXISTS residencia_nombre TEXT;
+
+-- Initial data migration and alignment
+UPDATE public.system_roles 
+SET 
+  id = COALESCE(id, uid),
+  is_active = COALESCE(is_active, "isActive", TRUE),
+  created_at = COALESCE(created_at, "createdAt", NOW()),
+  residencia_id = COALESCE(residencia_id, "residenciaId"),
+  residencia_nombre = COALESCE(residencia_nombre, "residenciaNombre");
+
+UPDATE public.system_roles 
+SET 
+  uid = COALESCE(uid, id),
+  "isActive" = COALESCE("isActive", is_active, TRUE),
+  "createdAt" = COALESCE("createdAt", created_at, NOW()),
+  "residenciaId" = COALESCE("residenciaId", residencia_id),
+  "residenciaNombre" = COALESCE("residenciaNombre", residencia_nombre);
+
+-- Trigger to dynamically sync all columns during insertions or edits
+CREATE OR REPLACE FUNCTION public.sync_system_roles_columns()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Sync uid and id
+  IF NEW.id IS NULL AND NEW.uid IS NOT NULL THEN
+    NEW.id := NEW.uid;
+  ELSIF NEW.uid IS NULL AND NEW.id IS NOT NULL THEN
+    NEW.uid := NEW.id;
+  END IF;
+
+  -- Sync isActive and is_active
+  IF NEW.is_active IS NULL AND NEW."isActive" IS NOT NULL THEN
+    NEW.is_active := NEW."isActive";
+  ELSIF NEW."isActive" IS NULL AND NEW.is_active IS NOT NULL THEN
+    NEW."isActive" := NEW.is_active;
+  END IF;
+
+  -- Sync createdAt and created_at
+  IF NEW.created_at IS NULL AND NEW."createdAt" IS NOT NULL THEN
+    NEW.created_at := NEW."createdAt";
+  ELSIF NEW."createdAt" IS NULL AND NEW.created_at IS NOT NULL THEN
+    NEW."createdAt" := NEW.created_at;
+  END IF;
+
+  -- Sync residenciaId and residencia_id
+  IF NEW.residencia_id IS NULL AND NEW."residenciaId" IS NOT NULL THEN
+    NEW.residencia_id := NEW."residenciaId";
+  ELSIF NEW."residenciaId" IS NULL AND NEW.residencia_id IS NOT NULL THEN
+    NEW."residenciaId" := NEW.residencia_id;
+  END IF;
+
+  -- Sync residenciaNombre and residencia_nombre
+  IF NEW.residencia_nombre IS NULL AND NEW."residenciaNombre" IS NOT NULL THEN
+    NEW.residencia_nombre := NEW."residenciaNombre";
+  ELSIF NEW."residenciaNombre" IS NULL AND NEW.residencia_nombre IS NOT NULL THEN
+    NEW."residenciaNombre" := NEW.residencia_nombre;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_sync_system_roles ON public.system_roles;
+CREATE TRIGGER trg_sync_system_roles
+BEFORE INSERT OR UPDATE ON public.system_roles
+FOR EACH ROW
+EXECUTE FUNCTION public.sync_system_roles_columns();
+
+
