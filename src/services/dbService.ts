@@ -870,7 +870,7 @@ export const dbService = {
       const docRef = doc(db, 'system_roles', role.uid);
       await setDoc(docRef, role);
     } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, `system_roles/${role.uid}`);
+      console.warn('Firestore write failed, relying on Supabase/Local state:', err);
     }
   },
 
@@ -883,11 +883,9 @@ export const dbService = {
 
       if (!error && data) {
         const roles = (data as any[]).map(normalizeRoleRow);
-        const hasAdmin = roles.some(r => r.username === 'admin');
-        const hasGuard = roles.some(r => r.username === 'guardia');
-        const hasResident = roles.some(r => r.username === 'residente');
         
-        if (!hasAdmin || !hasGuard || !hasResident) {
+        // Seed initial demo data only if there are no system roles configured in the database yet
+        if (roles.length === 0) {
           const demoRoles = LocalDB.getRoles();
           for (const demo of demoRoles) {
             try {
@@ -1014,7 +1012,7 @@ export const dbService = {
       const docRef = doc(db, 'system_roles', uid);
       await deleteDoc(docRef);
     } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, `system_roles/${uid}`);
+      console.warn('Firestore delete failed, relying on Supabase/Local state:', err);
     }
   },
 
