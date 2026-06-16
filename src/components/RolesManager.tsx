@@ -79,46 +79,8 @@ export default function RolesManager({
 
   // Load operators list
   const loadRoles = () => {
-    dbService.getAllSystemRoles().then(async (list) => {
-      // If there are only basic roles, let's inject a few realistic security team members to showcase seed data
-      if (list.length <= 2) {
-        const seedRoles: SystemRole[] = [
-          ...list,
-          {
-            uid: 'supervisor-demo-uid',
-            name: 'Elena Rostova (Seguridad)',
-            email: 'elena@seguridad.local',
-            username: 'elena',
-            role: SystemUserRole.SUPERVISOR,
-            createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-            phone: '+525544332211',
-            password: 'ElenaSecurePass2026',
-            isActive: true
-          },
-          {
-            uid: 'auditor-demo-uid',
-            name: 'Lic. Francisco Gómez',
-            email: 'francisco@auditoria.local',
-            username: 'francisco',
-            role: SystemUserRole.AUDITOR,
-            createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-            phone: '+525599887766',
-            password: 'FranciscoPass_998',
-            isActive: true
-          }
-        ];
-        
-        // Save these seeds locally
-        for (const r of seedRoles) {
-          const exists = list.some(existing => existing.uid === r.uid);
-          if (!exists) {
-            await dbService.saveSystemRole(r);
-          }
-        }
-        setRoles(seedRoles);
-      } else {
-        setRoles(list);
-      }
+    dbService.getAllSystemRoles().then((list) => {
+      setRoles(list || []);
     });
 
     // Also fetch residencias list
