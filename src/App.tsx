@@ -337,8 +337,9 @@ export default function App() {
 
   const loadResidenciasForHome = async () => {
     try {
-      // Residencias are hidden from the home page. Only the general administrator can see/manage them on their dashboard.
-      setResidenciasList([]);
+      // Fetch residencias to allow selecting them on registration dropdowns
+      const list = await dbService.getResidencias();
+      setResidenciasList(list || []);
     } catch (e) {
       console.warn("Failed fetching residencias for home screen selector:", e);
     }
@@ -357,6 +358,16 @@ export default function App() {
   const [loginPassword, setLoginPassword] = useState<string>('');
   const [loginError, setLoginError] = useState<string>('');
   const [showPassword, setShowPassword] = useState<boolean>(false);
+
+  // Custom live user registration form states
+  const [isRegistering, setIsRegistering] = useState<boolean>(false);
+  const [regName, setRegName] = useState<string>('');
+  const [regEmail, setRegEmail] = useState<string>('');
+  const [regUsername, setRegUsername] = useState<string>('');
+  const [regPassword, setRegPassword] = useState<string>('');
+  const [regPhone, setRegPhone] = useState<string>('');
+  const [regResidenciaId, setRegResidenciaId] = useState<string>('');
+  const [regSuccess, setRegSuccess] = useState<string>('');
 
   const handleCredentialLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -400,6 +411,19 @@ export default function App() {
         return;
       }
 
+      // Block access with default seed accounts "admin", "guardia", "residente"
+      const matchedUsername = (matched.username || '').trim().toLowerCase();
+      if (matchedUsername === 'admin' || matchedUsername === 'guardia' || matchedUsername === 'residente') {
+        setLoginError('Acceso Demo Inhabilitado: El ingreso con las credenciales por defecto ("admin", "guardia", "residente") está desactivado temporalmente. Por favor, regístrese o use su cuenta personalizada.');
+        return;
+      }
+
+      // Check if user is active
+      if (matched.isActive === false) {
+        setLoginError('Acceso Denegado: Su cuenta está desactivada o aún se encuentra pendiente de autorización por el Administrador.');
+        return;
+      }
+
       // Automatically determine user role and assign active values
       setDemoRole(matched.role);
       setDemoName(matched.name);
@@ -433,6 +457,75 @@ export default function App() {
     } catch (err) {
       console.error('Error on dynamic login handler:', err);
       setLoginError('Error crítico con la base de datos de seguridad residencial.');
+    }
+  };
+
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError('');
+    setRegSuccess('');
+
+    if (!regName.trim() || !regEmail.trim() || !regUsername.trim() || !regPassword.trim()) {
+      setLoginError('Por favor completa todos los campos del registro.');
+      return;
+    }
+
+    const cleanedUsername = regUsername.trim().toLowerCase();
+    
+    // Check if registering with a reserved name
+    if (cleanedUsername === 'admin' || cleanedUsername === 'guardia' || cleanedUsername === 'residente') {
+      setLoginError('El nombre de usuario ingresado está reservado para el sistema demo. Ingrese un usuario diferente.');
+      return;
+    }
+
+    try {
+      const registeredRoles = await dbService.getAllSystemRoles();
+      
+      const usernameExists = registeredRoles.some(r => (r.username || '').toLowerCase() === cleanedUsername);
+      if (usernameExists) {
+        setLoginError(`El nombre de usuario "${regUsername}" ya está en uso.`);
+        return;
+      }
+
+      const emailExists = registeredRoles.some(r => r.email.toLowerCase() === regEmail.trim().toLowerCase());
+      if (emailExists) {
+        setLoginError(`El correo electrónico "${regEmail}" ya se encuentra registrado.`);
+        return;
+      }
+
+      // Retrieve selected subdivision info
+      const matchedRes = residenciasList.find(r => r.id === regResidenciaId);
+
+      // Register with role matching selected target or defaulting to RESIDENTE, and inactive by default
+      const defaultRole = selectedLoginTarget?.role || SystemUserRole.RESIDENTE;
+
+      const newUser: SystemRole = {
+        uid: 'user_reg_' + Math.random().toString(36).substring(2, 9),
+        name: regName.trim(),
+        email: regEmail.trim().toLowerCase(),
+        username: cleanedUsername,
+        role: defaultRole,
+        isActive: false, // Inactive so admin can approve and toggle active from RolesManager dashboard
+        password: regPassword.trim(),
+        phone: regPhone.trim(),
+        createdAt: new Date().toISOString(),
+        residenciaId: regResidenciaId || undefined,
+        residenciaNombre: matchedRes ? matchedRes.nombre : undefined
+      };
+
+      await dbService.saveSystemRole(newUser);
+      setRegSuccess('¡Pre-registro Exitoso! Tu cuenta ha sido guardada en estado "Pendiente de Aprobación". Por seguridad, un Administrador debe autorizar tu acceso y activar tu cuenta desde el Dashboard de Roles antes de poder iniciar sesión.');
+      
+      // Cleanup
+      setRegName('');
+      setRegEmail('');
+      setRegUsername('');
+      setRegPassword('');
+      setRegPhone('');
+      setRegResidenciaId('');
+    } catch (err) {
+      console.error('Error on dynamic register handler:', err);
+      setLoginError('Error al guardar el nuevo usuario en el sistema.');
     }
   };
 
@@ -1486,20 +1579,20 @@ export default function App() {
             </div>
 
             {selectedLoginTarget ? (
-              /* High fidelity credentials login validation dialog requested by user */
+              /* High fidelity credentials login and registration validation dialog requested by user */
               <div className="max-w-md mx-auto bg-[#2A2A2E] border border-[#3e3e42] hover:border-red-500/40 rounded-[2.5rem] p-6 sm:p-8 text-left shadow-2xl relative overflow-hidden animate-fade-in-up">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-red-650/5 blur-3xl rounded-full pointer-events-none"></div>
                 
                 <div className="inline-flex items-center gap-1.5 bg-red-500/10 border border-red-500/15 rounded-lg px-2.5 py-1 text-red-400 text-[10px] font-bold uppercase tracking-widest mb-6">
                   <ShieldCheck className="w-3.5 h-3.5 text-red-500 shrink-0" />
-                  Iniciar Sesión de Seguridad
+                  {isRegistering ? "Registro de Nueva Cuenta" : "Iniciar Sesión de Seguridad"}
                 </div>
 
                 <h3 className="text-xl font-bold text-white tracking-tight leading-snug">
-                  Acceso al Panel Residencial
+                  {isRegistering ? "Registrar Nueva Cuenta" : "Acceso al Panel Residencial"}
                 </h3>
                 <p className="text-xs text-slate-400 mt-2">
-                  Destino: <span className="text-amber-500 uppercase font-black tracking-wide bg-[#1e1e24] px-2.5 py-1 rounded-lg ml-1 inline-block text-[11px] font-mono border border-amber-500/15">{selectedLoginTarget.label}</span>
+                  Destino / Perfil: <span className="text-amber-500 uppercase font-black tracking-wide bg-[#1e1e24] px-2.5 py-1 rounded-lg ml-1 inline-block text-[11px] font-mono border border-amber-500/15">{selectedLoginTarget.label}</span>
                 </p>
 
                 {loginError && (
@@ -1509,96 +1602,236 @@ export default function App() {
                   </div>
                 )}
 
-                <form onSubmit={handleCredentialLoginSubmit} className="space-y-4 py-2 mt-4">
-                  <div>
-                    <label htmlFor="login-username-input" className="block text-[10px] font-black uppercase tracking-wider text-slate-350 mb-1.5 leading-none">
-                      Nombre de Usuario o Email (Login)
-                    </label>
-                    <div className="relative">
-                      <UserCircle className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                {regSuccess && (
+                  <div className="mt-4 p-4 bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 text-xs font-semibold rounded-2xl flex flex-col gap-2.5 animate-fade-in">
+                    <div className="flex items-center gap-2">
+                      <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                      <span className="font-bold text-slate-100">¡Registro Guardado!</span>
+                    </div>
+                    <p className="leading-relaxed text-slate-300">
+                      {regSuccess}
+                    </p>
+                  </div>
+                )}
+
+                {isRegistering ? (
+                  /* Formulario de registro dinámico para usuarios sin credenciales */
+                  <form onSubmit={handleRegisterSubmit} className="space-y-3.5 py-2 mt-4">
+                    <div>
+                      <label className="block text-[10px] font-black uppercase tracking-wider text-slate-350 mb-1.5 leading-none">
+                        Nombre Completo
+                      </label>
                       <input
-                        id="login-username-input"
                         type="text"
                         required
-                        placeholder="Ej. guardia o cbarrientos"
-                        value={loginUsername}
-                        onChange={(e) => setLoginUsername(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 bg-[#1A1A1E] border border-[#3e3e42] text-white text-sm rounded-xl focus:border-red-500 focus:outline-hidden font-mono"
+                        placeholder="Ej. Carlos Barrientos"
+                        value={regName}
+                        onChange={(e) => setRegName(e.target.value)}
+                        className="w-full px-4 py-2 bg-[#1A1A1E] border border-[#3e3e42] text-white text-xs rounded-xl focus:border-red-500 focus:outline-hidden"
                       />
                     </div>
-                  </div>
 
-                  <div>
-                    <label htmlFor="login-password-input" className="block text-[10px] font-black uppercase tracking-wider text-slate-350 mb-1.5 leading-none">
-                      Contraseña de Acceso
-                    </label>
-                    <div className="relative">
-                      <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                    <div>
+                      <label className="block text-[10px] font-black uppercase tracking-wider text-slate-350 mb-1.5 leading-none">
+                        Correo Electrónico
+                      </label>
                       <input
-                        id="login-password-input"
-                        type={showPassword ? "text" : "password"}
+                        type="email"
                         required
-                        placeholder="••••••••"
-                        value={loginPassword}
-                        onChange={(e) => setLoginPassword(e.target.value)}
-                        className="w-full pl-10 pr-10 py-2.5 bg-[#1A1A1E] border border-[#3e3e42] text-white text-sm rounded-xl focus:border-red-500 focus:outline-hidden font-mono"
+                        placeholder="ejemplo@correo.com"
+                        value={regEmail}
+                        onChange={(e) => setRegEmail(e.target.value)}
+                        className="w-full px-4 py-2 bg-[#1A1A1E] border border-[#3e3e42] text-white text-xs rounded-xl focus:border-red-500 focus:outline-hidden"
                       />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] font-black uppercase tracking-wider text-slate-350 mb-1.5 leading-none">
+                          Usuario (Login)
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="Ej. cbarrientos"
+                          value={regUsername}
+                          onChange={(e) => setRegUsername(e.target.value)}
+                          className="w-full px-4 py-2 bg-[#1A1A1E] border border-[#3e3e42] text-white text-xs rounded-xl focus:border-red-500 focus:outline-hidden font-mono text-sm"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-black uppercase tracking-wider text-slate-350 mb-1.5 leading-none">
+                          Contraseña
+                        </label>
+                        <input
+                          type="password"
+                          required
+                          placeholder="Mín. 6 caracteres"
+                          value={regPassword}
+                          onChange={(e) => setRegPassword(e.target.value)}
+                          className="w-full px-4 py-2 bg-[#1A1A1E] border border-[#3e3e42] text-white text-xs rounded-xl focus:border-red-500 focus:outline-hidden font-mono text-sm"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-black uppercase tracking-wider text-slate-350 mb-1.5 leading-none">
+                        Teléfono / WhatsApp (Opcional)
+                      </label>
+                      <input
+                        type="tel"
+                        placeholder="Ej. +52 5599887766"
+                        value={regPhone}
+                        onChange={(e) => setRegPhone(e.target.value)}
+                        className="w-full px-4 py-2 bg-[#1A1A1E] border border-[#3e3e42] text-white text-xs rounded-xl focus:border-red-500 focus:outline-hidden"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-black uppercase tracking-wider text-slate-350 mb-1.5 leading-none">
+                        Residencial / Fraccionamiento
+                      </label>
+                      <select
+                        value={regResidenciaId}
+                        onChange={(e) => setRegResidenciaId(e.target.value)}
+                        className="w-full px-4 py-2 bg-[#1A1A1E] border border-[#3e3e42] text-white text-xs rounded-xl focus:border-red-500 focus:outline-hidden"
+                      >
+                        <option value="" className="bg-[#1A1A1E]">-- Ninguno / Corporativo General --</option>
+                        {residenciasList.map((res: any) => (
+                          <option key={res.id} value={res.id} className="bg-[#1A1A1E]">
+                            🏡 {res.nombre}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="pt-2 flex flex-col gap-2">
+                      <button
+                        type="submit"
+                        className="w-full py-2.5 bg-red-650 hover:bg-red-600 text-white font-bold rounded-xl transition cursor-pointer text-xs uppercase"
+                      >
+                        Registrar Cuenta
+                      </button>
+
                       <button
                         type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition cursor-pointer"
-                        title={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                        onClick={() => {
+                          setIsRegistering(false);
+                          setRegSuccess('');
+                          setLoginError('');
+                        }}
+                        className="w-full text-center text-slate-400 hover:text-slate-200 transition text-[10px] font-bold py-1.5 underline cursor-pointer"
                       >
-                        {showPassword ? (
-                          <EyeOff className="w-4 h-4" />
-                        ) : (
-                          <Eye className="w-4 h-4" />
-                        )}
+                        ← REGRESAR AL ACCESO
                       </button>
                     </div>
-                  </div>
+                  </form>
+                ) : (
+                  /* Formulario de Inicio de Sesión normal */
+                  <form onSubmit={handleCredentialLoginSubmit} className="space-y-4 py-2 mt-4">
+                    <div>
+                      <label htmlFor="login-username-input" className="block text-[10px] font-black uppercase tracking-wider text-slate-350 mb-1.5 leading-none">
+                        Nombre de Usuario o Email (Login)
+                      </label>
+                      <div className="relative">
+                        <UserCircle className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                        <input
+                          id="login-username-input"
+                          type="text"
+                          required
+                          placeholder="Ej. cbarrientos o guardia_real"
+                          value={loginUsername}
+                          onChange={(e) => setLoginUsername(e.target.value)}
+                          className="w-full pl-10 pr-4 py-2.5 bg-[#1A1A1E] border border-[#3e3e42] text-white text-sm rounded-xl focus:border-red-500 focus:outline-hidden font-mono"
+                        />
+                      </div>
+                    </div>
 
-                  <div className="pt-2.5 flex flex-col gap-2.5">
-                    <button
-                      id="submit-login-real-btn"
-                      type="submit"
-                      className="w-full py-3 bg-red-650 hover:bg-red-600 text-white font-bold rounded-xl transition cursor-pointer text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-red-950/20 uppercase"
-                    >
-                      <Shield className="w-4 h-4" /> Ingresar con Credenciales
-                    </button>
+                    <div>
+                      <label htmlFor="login-password-input" className="block text-[10px] font-black uppercase tracking-wider text-slate-350 mb-1.5 leading-none">
+                        Contraseña de Acceso
+                      </label>
+                      <div className="relative">
+                        <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                        <input
+                          id="login-password-input"
+                          type={showPassword ? "text" : "password"}
+                          required
+                          placeholder="••••••••"
+                          value={loginPassword}
+                          onChange={(e) => setLoginPassword(e.target.value)}
+                          className="w-full pl-10 pr-10 py-2.5 bg-[#1A1A1E] border border-[#3e3e42] text-white text-sm rounded-xl focus:border-red-500 focus:outline-hidden font-mono"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition cursor-pointer"
+                          title={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                        >
+                          {showPassword ? (
+                            <EyeOff className="w-4 h-4" />
+                          ) : (
+                            <Eye className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
 
-                    <button
-                      id="bypass-login-sandbox-btn"
-                      type="button"
-                      onClick={handleBypassLogin}
-                      className="w-full py-3 bg-slate-800 hover:bg-slate-700 hover:text-white text-slate-300 font-bold rounded-xl transition cursor-pointer text-xs flex items-center justify-center gap-1.5 uppercase"
-                    >
-                      <Sparkles className="w-4 h-4 text-amber-500 animate-pulse" /> Omitir Clave (Acceder Modo Sandbox)
-                    </button>
+                    <div className="pt-2.5 flex flex-col gap-2.5">
+                      <button
+                        id="submit-login-real-btn"
+                        type="submit"
+                        className="w-full py-3 bg-red-650 hover:bg-red-600 text-white font-bold rounded-xl transition cursor-pointer text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-red-950/20 uppercase"
+                      >
+                        <Shield className="w-4 h-4" /> Ingresar con Credenciales
+                      </button>
 
-                    <button
-                      id="cancel-login-btn"
-                      type="button"
-                      onClick={() => {
-                        setSelectedLoginTarget(null);
-                        setLoginUsername('');
-                        setLoginPassword('');
-                        setLoginError('');
-                        setShowPassword(false);
-                      }}
-                      className="w-full text-center text-slate-500 hover:text-slate-300 transition text-[10px] font-bold py-2 mt-1 cursor-pointer"
-                    >
-                      ← VOLVER AL SELECTOR DE ROLES
-                    </button>
-                  </div>
-                </form>
+                      {/* Decoupled sandbox bypass option message to force authentication */}
+                      <div className="w-full py-2.5 px-3 bg-amber-500/10 border border-amber-500/15 text-amber-400 rounded-xl text-[9px] text-center font-bold font-sans">
+                        🔒 Acceso Libre Deshabilitado: Para ingresar, cree su cuenta personalizada o use sus credenciales registradas.
+                      </div>
+
+                      <div className="text-center text-xs font-sans mt-1 text-slate-400">
+                        ¿No tienes una cuenta de acceso?{" "}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsRegistering(true);
+                            setLoginError('');
+                            setRegSuccess('');
+                          }}
+                          className="text-red-400 hover:text-red-300 font-extrabold underline cursor-pointer"
+                        >
+                          Regístrate Aquí
+                        </button>
+                      </div>
+
+                      <button
+                        id="cancel-login-btn"
+                        type="button"
+                        onClick={() => {
+                          setSelectedLoginTarget(null);
+                          setLoginUsername('');
+                          setLoginPassword('');
+                          setLoginError('');
+                          setShowPassword(false);
+                          setIsRegistering(false);
+                          setRegSuccess('');
+                        }}
+                        className="w-full text-center text-slate-500 hover:text-slate-300 transition text-[10px] font-bold py-2 mt-1 cursor-pointer"
+                      >
+                        ← VOLVER AL SELECTOR DE ROLES
+                      </button>
+                    </div>
+                  </form>
+                )}
 
                 <div className="mt-6 pt-5 border-t border-[#3e3e42] text-[9.5px] text-slate-500 leading-normal bg-black/15 p-3.5 rounded-2xl">
-                  <p className="font-extrabold text-slate-400 mb-1 text-[10px] uppercase tracking-wider">Credenciales de Pruebas Rápidas:</p>
-                  <p className="font-mono mt-0.5">• Para Director General: user <b className="text-zinc-300 text-[10px]">admin</b> / pass <b className="text-red-400 text-[10px]">Admin_123</b></p>
-                  <p className="font-mono mt-0.5">• Para Guardia Caseta: user <b className="text-zinc-300 text-[10px]">guardia</b> / pass <b className="text-red-400 text-[10px]">Caseta_123</b></p>
-                  <p className="font-mono mt-0.5">• Para Residente Autogestión: user <b className="text-zinc-300 text-[10px]">residente</b> / pass <b className="text-red-400 text-[10px]">Residente_123</b></p>
-                  <p className="font-sans text-[8.5px] text-zinc-500 inline-block mt-2 font-medium">Nota: Puedes dar de alta más empleados en el módulo de Administración General para que ingresen auto-detectados.</p>
+                  <p className="font-extrabold text-slate-400 mb-1 text-[10px] uppercase tracking-wider">🔒 SERVIDOR DE CREDENCIALES SEGURO:</p>
+                  <p className="mt-1 text-slate-400 leading-relaxed text-[9px]">
+                    Las credenciales de demostración predeterminadas ("admin", "guardia", "residente") se encuentran desactivadas temporalmente. Todos los nuevos usuarios deben pre-registrarse en el formulario y solicitar la activación de su rol al Administrador General del sistema.
+                  </p>
                 </div>
 
               </div>

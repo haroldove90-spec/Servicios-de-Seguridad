@@ -7,7 +7,8 @@ import React, { useState, useEffect } from 'react';
 import { 
   Plus, Search, Edit2, Trash2, CheckCircle, XCircle, Home, User, Shield, 
   Info, Check, X, ChevronDown, ChevronUp, Users, Calendar, Clock, 
-  Sparkles, MessageSquare, QrCode, Download, Copy, ExternalLink, RefreshCw, Smartphone, Eye
+  Sparkles, MessageSquare, QrCode, Download, Copy, ExternalLink, RefreshCw, Smartphone, Eye,
+  Power
 } from 'lucide-react';
 import { dbService } from '../services/dbService';
 import { Residencia, Residente, AuthorizedUser, UserStatus, SystemUserRole } from '../types';
@@ -561,6 +562,18 @@ export default function ResidenciasManager({ onRefresh, onVisitResidencia }: Res
                                 <span>Visitar Residencia</span>
                               </button>
                             )}
+                            <button
+                              id={`btn-toggle-active-res-${item.id}`}
+                              onClick={() => handleToggleActive(item)}
+                              className={`p-2 rounded-lg transition-all ${
+                                item.isActive 
+                                  ? 'text-emerald-500 hover:text-red-400 hover:bg-red-500/10' 
+                                  : 'text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10'
+                              }`}
+                              title={item.isActive ? "Desactivar Residencia" : "Activar Residencia"}
+                            >
+                              <Power className="w-3.5 h-3.5" />
+                            </button>
                             <button
                               onClick={() => handleOpenEditForm(item)}
                               className="p-2 text-slate-400 hover:text-white hover:bg-[#1e1e24] rounded-lg transition-all"
