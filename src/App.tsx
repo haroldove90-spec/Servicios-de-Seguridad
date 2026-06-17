@@ -636,17 +636,57 @@ export default function App() {
   // Listen to Auth State
   useEffect(() => {
     if (IS_FIREBASE_DUMMY) {
-      // Seed sandbox role simulated details
-      const mockRoleRecord: SystemRole = {
-        uid: 'admin-demo-uid',
-        name: demoName,
-        email: 'softwareai569@gmail.com',
-        role: demoRole,
-        createdAt: new Date().toISOString()
+      const updateOrSeedUserRole = async () => {
+        setLoading(true);
+        try {
+          // Fetch all system roles in database
+          const registeredRoles = await dbService.getAllSystemRoles();
+          
+          // Get saved user role from localStorage
+          const savedUserRoleJson = localStorage.getItem('cnls_user_role');
+          let currentActiveRole: SystemRole | null = null;
+          if (savedUserRoleJson) {
+            try {
+              currentActiveRole = JSON.parse(savedUserRoleJson);
+            } catch {}
+          }
+
+          // Try to match active user
+          let matched: SystemRole | undefined;
+          if (currentActiveRole) {
+            matched = registeredRoles.find(r => r.uid === currentActiveRole?.uid);
+            
+            // Fallback match on email or username if UID is demo but name matches
+            if (!matched && currentActiveRole.uid === 'admin-demo-uid') {
+              matched = registeredRoles.find(r => r.email === currentActiveRole.email || r.username === currentActiveRole.username);
+            }
+          }
+
+          if (matched) {
+            // Found matched registered custom employee! Load full db row
+            setUserRole(matched);
+            setDemoRole(matched.role);
+            setDemoName(matched.name);
+          } else {
+            // Fallback: Seed basic/sandbox role simulated details if not logged in with custom credentials
+            const mockRoleRecord: SystemRole = {
+              uid: 'admin-demo-uid',
+              name: demoName,
+              email: 'softwareai569@gmail.com',
+              role: demoRole,
+              createdAt: new Date().toISOString()
+            };
+            setUserRole(mockRoleRecord);
+          }
+        } catch (err) {
+          console.error('Error fetching registered roles in simulation:', err);
+        } finally {
+          setLoading(false);
+          reloadAccessLogs();
+        }
       };
-      setUserRole(mockRoleRecord);
-      setLoading(false);
-      reloadAccessLogs();
+
+      updateOrSeedUserRole();
       return;
     }
 
