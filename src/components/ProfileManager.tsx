@@ -32,7 +32,7 @@ const PRESET_AVATARS = [
 export const ProfileManager: React.FC<ProfileManagerProps> = ({ currentUser, onProfileUpdated }) => {
   const [name, setName] = useState(currentUser.name || '');
   const [email, setEmail] = useState(currentUser.email || '');
-  const [username, setUsername] = useState(currentUser.username || '');
+  const [username, setUsername] = useState(currentUser.username || (currentUser.email ? currentUser.email.split('@')[0] : ''));
   const [phone, setPhone] = useState(currentUser.phone || '');
   const [password, setPassword] = useState(currentUser.password || '');
   const [avatar, setAvatar] = useState(currentUser.avatar || '');
@@ -41,7 +41,7 @@ export const ProfileManager: React.FC<ProfileManagerProps> = ({ currentUser, onP
   useEffect(() => {
     setName(currentUser.name || '');
     setEmail(currentUser.email || '');
-    setUsername(currentUser.username || '');
+    setUsername(currentUser.username || (currentUser.email ? currentUser.email.split('@')[0] : ''));
     setPhone(currentUser.phone || '');
     setPassword(currentUser.password || '');
     setAvatar(currentUser.avatar || '');
@@ -175,6 +175,14 @@ export const ProfileManager: React.FC<ProfileManagerProps> = ({ currentUser, onP
           </div>
           <h2 className="text-xl font-bold text-white tracking-tight">Editar Datos del Servidor</h2>
           <p className="text-xs text-slate-400 mt-1">Configura tus credenciales reales y personaliza tu perfil de seguridad digital.</p>
+          <div className="mt-3.5 flex flex-wrap items-center gap-2">
+            <span className="text-[10.5px] font-mono font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-lg">
+              Usuario: @{username || (email ? email.split('@')[0] : 'operador')}
+            </span>
+            <span className="text-[10.5px] font-mono text-slate-350 bg-[#1A1A1E] px-2.5 py-1 rounded-lg border border-[#3e3e42]">
+              {email}
+            </span>
+          </div>
         </div>
         
         <div className="px-4 py-2.5 bg-[#1A1A1E] border border-[#3e3e42] rounded-2xl flex items-center gap-2.5 shrink-0 shadow-inner">

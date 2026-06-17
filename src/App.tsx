@@ -386,15 +386,21 @@ export default function App() {
       // Match on username OR email OR display name, checking password exactly
       const matched = registeredRoles.find(r => {
         const inputStr = loginUsername.trim().toLowerCase();
-        const rEmail = r.email?.trim().toLowerCase();
-        const rUsername = r.username?.trim().toLowerCase();
-        const rName = r.name?.trim().toLowerCase();
+        const rEmail = (r.email || '').trim().toLowerCase();
+        const rUsername = (r.username || '').trim().toLowerCase();
+        const rName = (r.name || '').trim().toLowerCase();
+        const emailLocalPart = rEmail.includes('@') ? rEmail.split('@')[0] : '';
         
-        let isUsernameOrEmailMatch = (rUsername === inputStr || rEmail === inputStr || rName === inputStr);
+        let isUsernameOrEmailMatch = (
+          rUsername === inputStr || 
+          rEmail === inputStr || 
+          rName === inputStr ||
+          (emailLocalPart && emailLocalPart === inputStr)
+        );
         
         // Handle physical email typo gracefully mapping haroldo90/haroldo90@hotmail.com to haroldo980@hotmail.com
         if (inputStr === 'haroldo90@hotmail.com' || inputStr === 'haroldo90') {
-          if (rEmail === 'haroldo980@hotmail.com' || rUsername === 'haroldo980') {
+          if (rEmail === 'haroldo980@hotmail.com' || rUsername === 'haroldo980' || emailLocalPart === 'haroldo980') {
             isUsernameOrEmailMatch = true;
           }
         }
@@ -2027,7 +2033,10 @@ export default function App() {
                   </div>
                   <div className="text-left">
                     <p className="text-xs font-bold text-slate-200 leading-none">{userRole?.name}</p>
-                    <p className="text-[10px] text-slate-400 leading-none mt-1.5 uppercase font-semibold font-sans">
+                    <p className="text-[9.5px] text-amber-400 font-mono font-bold mt-1 leading-none">
+                      @{userRole?.username || (userRole?.email ? userRole.email.split('@')[0] : 'usuario')}
+                    </p>
+                    <p className="text-[9px] text-slate-400 leading-none mt-1.5 uppercase font-semibold font-sans">
                       Rol: {userRole?.role === SystemUserRole.ADMIN 
                         ? (userRole?.residenciaNombre ? `Admin - ${userRole.residenciaNombre} 🛡️` : 'Administración General 🛡️')
                         : userRole?.role === SystemUserRole.SUPERVISOR 
