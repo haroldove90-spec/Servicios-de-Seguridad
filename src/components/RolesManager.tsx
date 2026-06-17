@@ -490,7 +490,7 @@ export default function RolesManager({
 
           <div id="operators-reactive-list" className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
             {filteredRoles.map(r => {
-              const isSimulatingThis = activeSimulatedRole === r.role;
+              const isSimulatingThis = false;
               const isDeactivated = r.isActive === false;
               const isMainAdmin = r.uid === 'admin-demo-uid';
               const showPass = !!showPasswordMap[r.uid];
@@ -503,9 +503,7 @@ export default function RolesManager({
                   className={`p-3.5 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
                     isDeactivated
                       ? 'bg-[#151518] border-red-900/20 opacity-70'
-                      : isSimulatingThis 
-                        ? 'bg-red-950/20 border-red-500/30 shadow-inner' 
-                        : 'bg-[#1A1A1E] border-[#3e3e42] hover:border-slate-650'
+                      : 'bg-[#1A1A1E] border-[#3e3e42] hover:border-slate-650'
                   }`}
                 >
                   <div className="space-y-1.5 flex-1 min-w-0">
@@ -572,21 +570,6 @@ export default function RolesManager({
                   </div>
 
                   <div className="flex items-center gap-1.5 justify-end shrink-0">
-                    {onSimulateRole && !isDeactivated && (
-                      <button
-                        id={`btn-simulate-${r.uid}`}
-                        onClick={() => onSimulateRole(r.role, r.name)}
-                        className={`px-2 py-1 text-[10px] font-bold rounded-lg transition-all border cursor-pointer ${
-                          isSimulatingThis 
-                            ? 'bg-red-600 text-white border-red-500' 
-                            : 'bg-slate-950 text-slate-400 border-slate-850 hover:text-white hover:bg-slate-900'
-                        }`}
-                        title="Probar comportamiento del sistema con este rol"
-                      >
-                        {isSimulatingThis ? '🛒 Simulado' : '🔌 Probar'}
-                      </button>
-                    )}
-
                     {/* Edit button */}
                     <button
                       id={`btn-edit-role-${r.uid}`}

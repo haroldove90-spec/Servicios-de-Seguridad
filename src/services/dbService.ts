@@ -993,18 +993,19 @@ export const dbService = {
         .delete()
         .eq('uid', uid);
 
-      if (!error) {
-        return;
+      if (error) {
+        console.warn('Supabase deleteSystemRole returned query error. Code:', error.code, 'Msg:', error.message);
       }
-      console.warn('Supabase deleteSystemRole returned query error. Code:', error.code, 'Msg:', error.message);
     } catch (err) {
       console.warn('Supabase deleteSystemRole critical exception, using fallback:', err);
     }
 
+    // Always keep LocalDB in sync
+    const roles = LocalDB.getRoles();
+    const filtered = roles.filter(r => r.uid !== uid);
+    LocalDB.saveRoles(filtered);
+
     if (IS_FIREBASE_DUMMY) {
-      const roles = LocalDB.getRoles();
-      const filtered = roles.filter(r => r.uid !== uid);
-      LocalDB.saveRoles(filtered);
       return;
     }
 

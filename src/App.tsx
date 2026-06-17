@@ -1397,7 +1397,7 @@ export default function App() {
                           activeTab === 'roles' ? 'bg-red-650 text-white shadow-lg shadow-red-650/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
                         }`}
                       >
-                        <Shield className="w-4 h-4" /> Privilegios y Roles
+                        <Shield className="w-4 h-4" /> Registros de empleados
                       </button>
                     )}
                     {canManageYourVisits && (
