@@ -267,7 +267,10 @@ export default function AuditLogs({ logs: rawLogs, onRefresh, currentUser }: Aud
                     </td>
                     <td className="py-3.5 px-5 whitespace-nowrap text-right text-slate-400">
                       <span className="font-semibold text-slate-200">{(log.guardName || '').replace(/\s*\(Simulado\)/gi, '')}</span>
-                      <span className="block text-[9.5px] text-slate-400 font-mono">{log.guardId}</span>
+                      <span className="block text-[9.5px] text-slate-400 font-mono">
+                        {log.guardId}
+                        {(log as any).casetaNombre && ` • 🚏 ${(log as any).casetaNombre}`}
+                      </span>
                     </td>
                   </tr>
                 ))}

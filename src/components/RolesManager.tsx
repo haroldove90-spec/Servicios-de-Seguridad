@@ -50,6 +50,8 @@ export default function RolesManager({
   const [formUsername, setFormUsername] = useState<string>('');
   const [formResidenciaId, setFormResidenciaId] = useState<string>('');
   const [residencias, setResidencias] = useState<any[]>([]);
+  const [formCasetaId, setFormCasetaId] = useState<string>('');
+  const [casetas, setCasetas] = useState<any[]>([]);
 
   // Track newly registered operator credentials to display in "share" modal
   const [newCreatedCreds, setNewCreatedCreds] = useState<{
@@ -87,6 +89,11 @@ export default function RolesManager({
     dbService.getResidencias().then((list) => {
       setResidencias(list || []);
     });
+
+    // Fetch casetas list
+    dbService.getCasetas().then((list) => {
+      setCasetas(list || []);
+    });
   };
 
   useEffect(() => {
@@ -111,6 +118,7 @@ export default function RolesManager({
     setFormPhone('');
     setFormPassword('');
     setFormResidenciaId(currentUser?.residenciaId || '');
+    setFormCasetaId('');
     setFormAlert('');
     setIsFormOpen(true);
   };
@@ -124,6 +132,7 @@ export default function RolesManager({
     setFormPhone(role.phone || '');
     setFormPassword(role.password || '');
     setFormResidenciaId(role.residenciaId || '');
+    setFormCasetaId(role.casetaId || '');
     setFormAlert('');
     setIsFormOpen(true);
   };
@@ -163,8 +172,9 @@ export default function RolesManager({
       }
     }
 
-    // Retrieve subdivision info
+    // Retrieve subdivision and caseta info
     const matchedRes = residencias.find(res => res.id === formResidenciaId);
+    const matchedCas = casetas.find(cas => cas.id === formCasetaId);
 
     const payload: SystemRole = {
       uid: editingUid || ('operator_' + Math.random().toString(36).substring(2, 9)),
@@ -181,7 +191,9 @@ export default function RolesManager({
         ? (roles.find(r => r.uid === editingUid)?.isActive !== false)
         : true,
       residenciaId: formResidenciaId || null,
-      residenciaNombre: matchedRes ? matchedRes.nombre : null
+      residenciaNombre: matchedRes ? matchedRes.nombre : null,
+      casetaId: formCasetaId || null,
+      casetaNombre: matchedCas ? matchedCas.nombre : null
     };
 
     await dbService.saveSystemRole(payload);
@@ -192,7 +204,13 @@ export default function RolesManager({
     if (!editingUid) {
       const appUrl = window.location.origin || 'https://servicios-de-seguridad.vercel.app/';
       const cleanPhone = payload.phone ? payload.phone.replace(/[^0-9]/g, '') : '';
-      const templateMsg = `🔐 *SISTEMA DE SEGURIDAD DIGITAL - CONTROL DE ACCESOS*\n\nHola *${payload.name}*,\nTe damos la bienvenida al panel oficial de control de accesos. Tus credenciales de ingreso son:\n\n👤 *Usuario*: ${payload.username || '(Utilizar Correo)'}\n✉️ *Correo*: ${payload.email}\n🔑 *Contraseña asignada*: ${payload.password || '(Sin contraseña)'}\n🏠 *Asignación*: ${payload.residenciaNombre || 'Administración / Caseta General 🏢'}\n\n🔗 *Link de acceso directo al Panel*:\n${appUrl}\n\nFavor de resguardar esta información de forma confidencial.`;
+      
+      const assignedTarget = [
+        payload.residenciaNombre ? `Subdivisión: ${payload.residenciaNombre}` : null,
+        payload.casetaNombre ? `Caseta: ${payload.casetaNombre}` : null
+      ].filter(Boolean).join(' | ') || 'Administración / Caseta General 🏢';
+
+      const templateMsg = `🔐 *SISTEMA DE SEGURIDAD DIGITAL - CONTROL DE ACCESOS*\n\nHola *${payload.name}*,\nTe damos la bienvenida al panel oficial de control de accesos. Tus credenciales de ingreso son:\n\n👤 *Usuario*: ${payload.username || '(Utilizar Correo)'}\n✉️ *Correo*: ${payload.email}\n🔑 *Contraseña asignada*: ${payload.password || '(Sin contraseña)'}\n🏠 *Asignación*: ${assignedTarget}\n\n🔗 *Link de acceso directo al Panel*:\n${appUrl}\n\nFavor de resguardar esta información de forma confidencial.`;
       const whatsappUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(templateMsg)}` : '';
 
       setNewCreatedCreds({
@@ -201,7 +219,7 @@ export default function RolesManager({
         correo: payload.email,
         contrasena: payload.password || '(Sin contraseña)',
         rol: payload.role === SystemUserRole.ADMIN ? 'Director Administrador 🛡️' : 'Oficial de Seguridad / Caseta 👮',
-        residencia: payload.residenciaNombre || 'Administración / Caseta General 🏢',
+        residencia: assignedTarget,
         url: appUrl,
         whatsappUrl: whatsappUrl,
         phone: payload.phone || ''
@@ -539,6 +557,13 @@ export default function RolesManager({
                       </p>
                     )}
                     
+                    {r.casetaNombre && (
+                      <p className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
+                        <span>🚏 Caseta:</span>
+                        <span className="uppercase text-emerald-300">{r.casetaNombre}</span>
+                      </p>
+                    )}
+                    
                     {/* Phone field */}
                     {r.phone && (
                       <p className="text-[10px] text-slate-300 font-mono flex items-center gap-1.5">
@@ -816,7 +841,12 @@ export default function RolesManager({
                   disabled={!!currentUser?.residenciaId}
                   id="select-operator-residencia"
                   value={formResidenciaId}
-                  onChange={(e) => setFormResidenciaId(e.target.value)}
+                  onChange={(e) => {
+                    const newResId = e.target.value;
+                    setFormResidenciaId(newResId);
+                    // Reset caseta if selected residence changes
+                    setFormCasetaId('');
+                  }}
                   className="w-full px-3 py-2 bg-[#1A1A1E] border border-[#3e3e42] text-white rounded-xl focus:border-red-500 focus:outline-hidden cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <option value="" className="bg-[#1A1A1E]">🏢 Administración / Caseta General (Todas)</option>
@@ -827,6 +857,24 @@ export default function RolesManager({
                   ))}
                 </select>
                 <p className="text-[9.5px] text-slate-400 mt-1">El sistema asignará el usuario exclusivamente a este fraccionamiento al iniciar sesión de forma automática.</p>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-white uppercase tracking-widest mb-1.5">Asignar Caseta / Entrada Específica (Opcional)</label>
+                <select
+                  id="select-operator-caseta"
+                  value={formCasetaId}
+                  onChange={(e) => setFormCasetaId(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#1A1A1E] border border-[#3e3e42] text-white rounded-xl focus:border-red-500 focus:outline-hidden cursor-pointer"
+                >
+                  <option value="" className="bg-[#1A1A1E]">🚨 Cualquier Caseta / Acceso General</option>
+                  {(formResidenciaId ? casetas.filter(c => c.residenciaId === formResidenciaId) : casetas).map((cas: any) => (
+                    <option key={cas.id} value={cas.id} className="bg-[#1A1A1E]">
+                      🚏 {cas.nombre} {cas.residenciaNombre ? `(${cas.residenciaNombre})` : ''}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[9.5px] text-slate-400 mt-1">Asigna de forma específica al guardia de seguridad o personal a un punto de control registrado.</p>
               </div>
 
               <div className="p-3 bg-red-500/10 border border-red-500/15 rounded-xl flex gap-2">

@@ -26,6 +26,8 @@ interface ScannerInterfaceProps {
     role?: SystemUserRole; 
     residenciaId?: string; 
     residenciaNombre?: string; 
+    casetaId?: string | null;
+    casetaNombre?: string | null;
   } | null;
   onScanLogged: () => void;
 }
@@ -203,7 +205,9 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
       guardId,
       guardName,
       residenciaId: userResId,
-      residenciaNombre: userResNombre
+      residenciaNombre: userResNombre,
+      casetaId: currentGuard?.casetaId || undefined,
+      casetaNombre: currentGuard?.casetaNombre || undefined
     });
     
     reloadOnsitePeople();
@@ -686,7 +690,9 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
           guardId,
           guardName,
           residenciaId: currentGuardRef.current?.residenciaId,
-          residenciaNombre: currentGuardRef.current?.residenciaNombre
+          residenciaNombre: currentGuardRef.current?.residenciaNombre,
+          casetaId: currentGuardRef.current?.casetaId,
+          casetaNombre: currentGuardRef.current?.casetaNombre
         });
         onScanLogged();
         return false;
@@ -712,7 +718,9 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
           guardId,
           guardName,
           residenciaId: currentGuardRef.current?.residenciaId,
-          residenciaNombre: currentGuardRef.current?.residenciaNombre
+          residenciaNombre: currentGuardRef.current?.residenciaNombre,
+          casetaId: currentGuardRef.current?.casetaId,
+          casetaNombre: currentGuardRef.current?.casetaNombre
         });
         onScanLogged();
         return false;
@@ -914,7 +922,9 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
       guardId: currentGuard?.uid || 'anonymous-guard',
       guardName: currentGuard?.name || 'Guardia de Seguridad',
       residenciaId: user.residenciaId,
-      residenciaNombre: user.residenciaNombre
+      residenciaNombre: user.residenciaNombre,
+      casetaId: currentGuard?.casetaId || undefined,
+      casetaNombre: currentGuard?.casetaNombre || undefined
     };
     await dbService.createAccessLog(logData);
     onScanLogged();
@@ -1494,7 +1504,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            📖 Bitácora en Vivo de Accesos (Caseta 7)
+            📖 Bitácora en Vivo de Accesos ({currentGuard?.casetaNombre || 'Caseta General'})
           </h3>
           <p className="text-xs text-slate-400 mt-1 leading-relaxed">
             Muestra el registro cronológico en tiempo real de residentes y visitantes autorizados que cruzan el punto de acceso.

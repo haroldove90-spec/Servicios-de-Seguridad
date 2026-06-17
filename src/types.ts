@@ -67,6 +67,8 @@ export interface AccessLog {
   guardName: string;
   residenciaId?: string;
   residenciaNombre?: string;
+  casetaId?: string;
+  casetaNombre?: string;
 }
 
 export interface SystemRole {
@@ -80,6 +82,8 @@ export interface SystemRole {
   isActive?: boolean;
   residenciaId?: string | null;
   residenciaNombre?: string | null;
+  casetaId?: string | null;
+  casetaNombre?: string | null;
   username?: string;
   avatar?: string;
 }
