@@ -15,12 +15,14 @@ import { generateQRWithLogo } from '../utils/qrWithLogo';
 
 interface AdminDashboardProps {
   onUsersUpdated: () => void;
+  currentUser?: any;
 }
 
-export default function AdminDashboard({ onUsersUpdated }: AdminDashboardProps) {
+export default function AdminDashboard({ onUsersUpdated, currentUser }: AdminDashboardProps) {
   // Visitor CRUD Lists
   const [visitors, setVisitors] = useState<AuthorizedUser[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [residencias, setResidencias] = useState<any[]>([]);
   
   // Create / Edit Form State
   const [isFormOpen, setIsFormOpen] = useState<boolean>(false);
@@ -36,6 +38,7 @@ export default function AdminDashboard({ onUsersUpdated }: AdminDashboardProps) 
   const [formDays, setFormDays] = useState<number[]>([]); // Empty = All days
   const [formStartTime, setFormStartTime] = useState<string>('08:00');
   const [formEndTime, setFormEndTime] = useState<string>('18:00');
+  const [formResidenciaId, setFormResidenciaId] = useState<string>('');
 
   // QR Modal Overlay
   const [selectedQRUser, setSelectedQRUser] = useState<AuthorizedUser | null>(null);
@@ -53,6 +56,9 @@ export default function AdminDashboard({ onUsersUpdated }: AdminDashboardProps) 
 
   useEffect(() => {
     loadVisitors();
+    dbService.getResidencias().then(resList => {
+      setResidencias(resList || []);
+    });
   }, []);
 
   // Sync QR generation when visitor is selected for QR popup
@@ -85,6 +91,7 @@ export default function AdminDashboard({ onUsersUpdated }: AdminDashboardProps) 
     setFormDays([]);
     setFormStartTime('08:00');
     setFormEndTime('18:00');
+    setFormResidenciaId(currentUser?.residenciaId || '');
     setIsFormOpen(true);
   };
 
@@ -103,6 +110,7 @@ export default function AdminDashboard({ onUsersUpdated }: AdminDashboardProps) 
     setFormDays(user.days || []);
     setFormStartTime(user.startTime || '08:00');
     setFormEndTime(user.endTime || '18:00');
+    setFormResidenciaId(user.residenciaId || '');
     setIsFormOpen(true);
   };
 
@@ -127,6 +135,9 @@ export default function AdminDashboard({ onUsersUpdated }: AdminDashboardProps) 
       return;
     }
 
+    const assignedRes = residencias.find(r => r.id === formResidenciaId);
+    const resNombre = assignedRes ? assignedRes.nombre : (currentUser?.residenciaId ? currentUser.residenciaNombre : '');
+
     const payload = {
       name: formName.trim(),
       documentId: formDocumentId.trim(),
@@ -141,11 +152,19 @@ export default function AdminDashboard({ onUsersUpdated }: AdminDashboardProps) 
       startTime: formStartTime,
       endTime: formEndTime,
       updatedAt: new Date().toISOString(),
+      residenciaId: formResidenciaId || currentUser?.residenciaId || undefined,
+      residenciaNombre: resNombre || undefined
     };
 
     if (editingId) {
       // Update
-      await dbService.updateAuthorizedUser(editingId, payload);
+      const existing = visitors.find(v => v.id === editingId);
+      await dbService.updateAuthorizedUser(editingId, {
+        ...payload,
+        isResidentCreated: existing?.isResidentCreated || false,
+        residentName: existing?.residentName || undefined,
+        residentPhone: existing?.residentPhone || undefined,
+      });
     } else {
       // Create new: generate unique random access token
       const secureToken = 'qrpass_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
@@ -153,7 +172,7 @@ export default function AdminDashboard({ onUsersUpdated }: AdminDashboardProps) 
         ...payload,
         qrcodeToken: secureToken,
         createdAt: new Date().toISOString(),
-        createdBy: 'admin-current-active',
+        createdBy: currentUser?.uid || 'admin-current-active',
       });
     }
 
@@ -177,7 +196,11 @@ export default function AdminDashboard({ onUsersUpdated }: AdminDashboardProps) 
     }
   };
 
-  const filteredVisitors = visitors.filter(v => 
+  const rawVisitors = currentUser?.residenciaId
+    ? visitors.filter(v => v.residenciaId === currentUser.residenciaId)
+    : visitors;
+
+  const filteredVisitors = rawVisitors.filter(v => 
     v.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     v.documentId.toLowerCase().includes(searchTerm.toLowerCase()) ||
     v.email.toLowerCase().includes(searchTerm.toLowerCase())
@@ -433,6 +456,28 @@ export default function AdminDashboard({ onUsersUpdated }: AdminDashboardProps) 
                     <option value={UserStatus.EXPIRED}>✗ Expirado / Caducado</option>
                   </select>
                 </div>
+              </div>
+
+              {/* Residence Row Selection */}
+              <div className="border-t border-slate-800 pt-3">
+                <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Fraccionamiento / Residencia Asignada</label>
+                <select
+                  disabled={!!currentUser?.residenciaId}
+                  id="select-form-residencia"
+                  value={formResidenciaId}
+                  onChange={(e) => setFormResidenciaId(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 text-slate-202 rounded-xl focus:border-red-500 focus:outline-hidden cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  <option value="">-- Sin Residencia (Acceso Global) --</option>
+                  {residencias.map(r => (
+                    <option key={r.id} value={r.id}>
+                      🏡 {r.nombre} (ID: {r.id})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-slate-500 font-serif italic mt-1">
+                  El pase se limitará a la validación de accesos en este desarrollo habitacional.
+                </p>
               </div>
 
               {/* Schedule and Temporal Dates Range */}

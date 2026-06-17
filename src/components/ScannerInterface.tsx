@@ -692,6 +692,32 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
         return false;
       }
 
+      // Check if guard/active operator is bound to a specific residence range:
+      if (currentGuardRef.current?.residenciaId && matchedUser.residenciaId && matchedUser.residenciaId !== currentGuardRef.current.residenciaId) {
+        const mismatchResult = {
+          success: false,
+          message: `✗ ACCESO DENEGADO: El pase pertenece a otra residencia (${matchedUser.residenciaNombre || 'ID: ' + matchedUser.residenciaId}). Este detector solo está autorizado para ${currentGuardRef.current.residenciaNombre}.`,
+          status: LogStatus.REVOKED_USER
+        };
+        setScanResult(mismatchResult);
+        
+        // Log unauthorized attempt for this residence guard
+        await dbService.createAccessLog({
+          userId: matchedUser.id,
+          userName: matchedUser.name,
+          documentId: matchedUser.documentId,
+          timestamp: new Date().toISOString(),
+          type: validationTypeRef.current,
+          status: LogStatus.REVOKED_USER,
+          guardId,
+          guardName,
+          residenciaId: currentGuardRef.current?.residenciaId,
+          residenciaNombre: currentGuardRef.current?.residenciaNombre
+        });
+        onScanLogged();
+        return false;
+      }
+
       // Determine resident and automatic transition rule
       const isResident = matchedUser.name.includes('(Residente)') || matchedUser.id.startsWith('usr_resd_');
       let detectedType = validationTypeRef.current;

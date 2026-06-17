@@ -10,12 +10,18 @@ import { AccessLog, LogType, LogStatus } from '../types';
 interface AuditLogsProps {
   logs: AccessLog[];
   onRefresh: () => void;
+  currentUser?: any;
 }
 
-export default function AuditLogs({ logs, onRefresh }: AuditLogsProps) {
+export default function AuditLogs({ logs: rawLogs, onRefresh, currentUser }: AuditLogsProps) {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+
+  // Filter rawLogs based on residence boundary if applicable
+  const logs = currentUser?.residenciaId 
+    ? rawLogs.filter(l => l.residenciaId === currentUser.residenciaId)
+    : rawLogs;
 
   // Multi-criteria filtering logic
   const filteredLogs = logs.filter((log) => {

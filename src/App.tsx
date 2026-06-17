@@ -943,11 +943,14 @@ export default function App() {
   const isResidente = userRole?.role === SystemUserRole.RESIDENTE;
 
   // Strict role separation for custom dashboards
+  const isGeneralAdmin = isAdmin && !userRole?.residenciaId;
+  const isResidenceAdmin = isAdmin && !!userRole?.residenciaId;
+
   const canScan = isGuard || isSupervisor || isAdmin;
   const canCrud = isAdmin || isSupervisor;
   const canReports = isAdmin || isSupervisor || isAuditor;
   const canManageRoles = isAdmin;
-  const canManageResidences = isAdmin;
+  const canManageResidences = isGeneralAdmin;
   const canManageResidents = isAdmin;
   const canManageCasetas = isAdmin;
 
@@ -2106,6 +2109,7 @@ export default function App() {
                   {activeTab === 'crud' && canCrud && (
                     <AdminDashboard 
                       onUsersUpdated={handleLogsUpdated} 
+                      currentUser={computedAdminUser}
                     />
                   )}
 
@@ -2113,6 +2117,7 @@ export default function App() {
                     <AuditLogs 
                       logs={accessLogs} 
                       onRefresh={reloadAccessLogs} 
+                      currentUser={computedAdminUser}
                     />
                   )}
 
