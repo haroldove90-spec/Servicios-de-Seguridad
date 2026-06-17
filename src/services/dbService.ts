@@ -811,6 +811,11 @@ export const dbService = {
   // System Roles Management (RBAC)
   // --------------------------------------------------
   async getSystemRole(uid: string): Promise<SystemRole | null> {
+    if (IS_FIREBASE_DUMMY) {
+      const roles = LocalDB.getRoles();
+      return roles.find(r => r.uid === uid) || null;
+    }
+
     try {
       const { data, error } = await supabase
         .from('system_roles')
@@ -828,11 +833,6 @@ export const dbService = {
       console.warn('Supabase getSystemRole critical exception, using fallback:', err);
     }
 
-    if (IS_FIREBASE_DUMMY) {
-      const roles = LocalDB.getRoles();
-      return roles.find(r => r.uid === uid) || null;
-    }
-
     try {
       const docRef = doc(db, 'system_roles', uid);
       const docSnap = await getDoc(docRef);
@@ -847,6 +847,14 @@ export const dbService = {
   },
 
   async saveSystemRole(role: SystemRole): Promise<void> {
+    if (IS_FIREBASE_DUMMY) {
+      const roles = LocalDB.getRoles();
+      const filtered = roles.filter(r => r.uid !== role.uid);
+      filtered.push(role);
+      LocalDB.saveRoles(filtered);
+      return;
+    }
+
     try {
       const { error } = await robustSupabaseUpsert('system_roles', role);
       if (error) {
@@ -858,14 +866,6 @@ export const dbService = {
       console.warn('Supabase saveSystemRole critical exception, using fallback:', err);
     }
 
-    if (IS_FIREBASE_DUMMY) {
-      const roles = LocalDB.getRoles();
-      const filtered = roles.filter(r => r.uid !== role.uid);
-      filtered.push(role);
-      LocalDB.saveRoles(filtered);
-      return;
-    }
-
     try {
       const docRef = doc(db, 'system_roles', role.uid);
       await setDoc(docRef, role);
@@ -875,6 +875,10 @@ export const dbService = {
   },
 
   async getAllSystemRoles(): Promise<SystemRole[]> {
+    if (IS_FIREBASE_DUMMY) {
+      return LocalDB.getRoles();
+    }
+
     try {
       const { data, error } = await supabase
         .from('system_roles')
@@ -967,10 +971,6 @@ export const dbService = {
       console.warn('Supabase getAllSystemRoles critical exception, using fallback:', err);
     }
 
-    if (IS_FIREBASE_DUMMY) {
-      return LocalDB.getRoles();
-    }
-
     try {
       const colRef = collection(db, 'system_roles');
       const q = query(colRef, orderBy('createdAt', 'desc'));
@@ -987,6 +987,14 @@ export const dbService = {
   },
 
   async deleteSystemRole(uid: string): Promise<void> {
+    const roles = LocalDB.getRoles();
+    const filtered = roles.filter(r => r.uid !== uid);
+    LocalDB.saveRoles(filtered);
+
+    if (IS_FIREBASE_DUMMY) {
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('system_roles')
@@ -998,15 +1006,6 @@ export const dbService = {
       }
     } catch (err) {
       console.warn('Supabase deleteSystemRole critical exception, using fallback:', err);
-    }
-
-    // Always keep LocalDB in sync
-    const roles = LocalDB.getRoles();
-    const filtered = roles.filter(r => r.uid !== uid);
-    LocalDB.saveRoles(filtered);
-
-    if (IS_FIREBASE_DUMMY) {
-      return;
     }
 
     try {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SystemRole } from '../types';
 import { dbService } from '../services/dbService';
 import { 
@@ -36,6 +36,16 @@ export const ProfileManager: React.FC<ProfileManagerProps> = ({ currentUser, onP
   const [phone, setPhone] = useState(currentUser.phone || '');
   const [password, setPassword] = useState(currentUser.password || '');
   const [avatar, setAvatar] = useState(currentUser.avatar || '');
+
+  // Keep state synced with any parent container modifications in the active session
+  useEffect(() => {
+    setName(currentUser.name || '');
+    setEmail(currentUser.email || '');
+    setUsername(currentUser.username || '');
+    setPhone(currentUser.phone || '');
+    setPassword(currentUser.password || '');
+    setAvatar(currentUser.avatar || '');
+  }, [currentUser]);
   
   // Status message states
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
