@@ -1314,7 +1314,7 @@ export default function App() {
                       <button
                         onClick={() => { setActiveTab('metricas'); setIsDrawerOpen(false); }}
                         className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer ${
-                          activeTab === 'metricas' ? 'bg-red-650 text-white shadow-lg shadow-red-650/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
+                          activeTab === 'metricas' ? 'bg-red-600 text-white shadow-lg shadow-red-600/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
                         }`}
                       >
                         <FileBarChart2 className="w-4 h-4 text-red-400 shrink-0" /> Métricas del Condominio
@@ -1324,7 +1324,7 @@ export default function App() {
                       <button
                         onClick={() => { setActiveTab('scan'); setIsDrawerOpen(false); }}
                         className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer ${
-                          activeTab === 'scan' ? 'bg-red-650 text-white shadow-lg shadow-red-650/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
+                          activeTab === 'scan' ? 'bg-red-600 text-white shadow-lg shadow-red-600/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
                         }`}
                       >
                         <ScanLine className="w-4 h-4" /> Acceso de Residente
@@ -1334,7 +1334,7 @@ export default function App() {
                       <button
                         onClick={() => { setActiveTab('crud'); setIsDrawerOpen(false); }}
                         className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer ${
-                          activeTab === 'crud' ? 'bg-red-655 text-white shadow-lg shadow-red-650/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
+                          activeTab === 'crud' ? 'bg-red-600 text-white shadow-lg shadow-red-600/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
                         }`}
                       >
                         <Users className="w-4 h-4" /> Control Autorizados
@@ -1344,7 +1344,7 @@ export default function App() {
                       <button
                         onClick={() => { setActiveTab('reports'); setIsDrawerOpen(false); }}
                         className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer ${
-                          activeTab === 'reports' ? 'bg-red-650 text-white shadow-lg shadow-red-650/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
+                          activeTab === 'reports' ? 'bg-red-600 text-white shadow-lg shadow-red-600/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
                         }`}
                       >
                         <FileBarChart2 className="w-4 h-4" /> Bitácora &amp; Reportes
@@ -1354,7 +1354,7 @@ export default function App() {
                       <button
                         onClick={() => { setActiveTab('residencias'); setIsDrawerOpen(false); }}
                         className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer ${
-                          activeTab === 'residencias' ? 'bg-red-650 text-white shadow-lg shadow-red-650/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
+                          activeTab === 'residencias' ? 'bg-red-600 text-white shadow-lg shadow-red-600/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
                         }`}
                       >
                         <Home className="w-4 h-4" /> Registro de Residencia
@@ -1364,7 +1364,7 @@ export default function App() {
                       <button
                         onClick={() => { setActiveTab('residentes'); setIsDrawerOpen(false); }}
                         className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer ${
-                          activeTab === 'residentes' ? 'bg-red-650 text-white shadow-lg shadow-red-650/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
+                          activeTab === 'residentes' ? 'bg-red-600 text-white shadow-lg shadow-red-600/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
                         }`}
                       >
                         <Smartphone className="w-4 h-4" /> Registro de Residente
@@ -1374,7 +1374,7 @@ export default function App() {
                       <button
                         onClick={() => { setActiveTab('marbetes'); setIsDrawerOpen(false); }}
                         className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer ${
-                          activeTab === 'marbetes' ? 'bg-red-650 text-white shadow-lg shadow-red-650/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
+                          activeTab === 'marbetes' ? 'bg-red-600 text-white shadow-lg shadow-red-600/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
                         }`}
                       >
                         <Car className="w-4 h-4 text-red-400 shrink-0" /> {isResidente ? 'Mis Marbetes' : 'Control de Marbetes'}
@@ -1384,7 +1384,7 @@ export default function App() {
                       <button
                         onClick={() => { setActiveTab('casetas'); setIsDrawerOpen(false); }}
                         className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer ${
-                          activeTab === 'casetas' ? 'bg-red-650 text-white shadow-lg shadow-red-650/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
+                          activeTab === 'casetas' ? 'bg-red-600 text-white shadow-lg shadow-red-600/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
                         }`}
                       >
                         <Shield className="w-4 h-4" /> Registro de Casetas
@@ -1394,7 +1394,7 @@ export default function App() {
                       <button
                         onClick={() => { setActiveTab('roles'); setIsDrawerOpen(false); }}
                         className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer ${
-                          activeTab === 'roles' ? 'bg-red-650 text-white shadow-lg shadow-red-650/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
+                          activeTab === 'roles' ? 'bg-red-600 text-white shadow-lg shadow-red-600/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
                         }`}
                       >
                         <Shield className="w-4 h-4" /> Registros de empleados
@@ -1404,17 +1404,17 @@ export default function App() {
                       <button
                         onClick={() => { setActiveTab('visitas'); setIsDrawerOpen(false); }}
                         className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer ${
-                          activeTab === 'visitas' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
+                          activeTab === 'visitas' ? 'bg-red-600 text-white shadow-lg shadow-red-600/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
                         }`}
                       >
-                        <QrCode className="w-4 h-4 text-blue-400 shrink-0" /> Autorizar Visitas (Mi QR)
+                        <QrCode className="w-4 h-4 text-red-400 shrink-0" /> Autorizar Visitas (Mi QR)
                       </button>
                     )}
                     {canManageAllResidentVisits && (
                       <button
                         onClick={() => { setActiveTab('visitas_admin'); setIsDrawerOpen(false); }}
                         className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer ${
-                          activeTab === 'visitas_admin' ? 'bg-red-650 text-white shadow-lg shadow-red-650/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
+                          activeTab === 'visitas_admin' ? 'bg-red-600 text-white shadow-lg shadow-red-600/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
                         }`}
                       >
                         <Users className="w-4 h-4 text-emerald-400 shrink-0" /> Visitas de Residentes
@@ -1425,7 +1425,7 @@ export default function App() {
                         id="nav-to-user-manual"
                         onClick={() => { setActiveTab('manual'); setIsDrawerOpen(false); }}
                         className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer ${
-                          activeTab === 'manual' ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-600/15' : 'text-amber-450 hover:bg-[#1A1A1E] hover:text-white'
+                          activeTab === 'manual' ? 'bg-red-600 text-white shadow-lg shadow-red-600/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
                         }`}
                       >
                         <BookOpen className="w-4 h-4 shrink-0" /> Manual del usuario
@@ -1434,7 +1434,7 @@ export default function App() {
                     <button
                       onClick={() => { setActiveTab('perfil'); setIsDrawerOpen(false); }}
                       className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer ${
-                        activeTab === 'perfil' ? 'bg-red-650 text-white shadow-lg shadow-red-650/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
+                        activeTab === 'perfil' ? 'bg-red-600 text-white shadow-lg shadow-red-600/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
                       }`}
                     >
                       <UserCircle className="w-4 h-4 text-emerald-400" /> Mi Perfil de Acceso
@@ -1961,7 +1961,22 @@ export default function App() {
                     ? 'CASETA' 
                     : 'RESIDENTE'}</span>
                 </div>
-                <h1 className="text-2xl font-extrabold text-white tracking-tight mt-1">Control de Acceso Residencial</h1>
+                <h1 className="text-2xl font-extrabold text-white tracking-tight mt-1">
+                  {activeTab === 'metricas' ? 'Métricas del Condominio' :
+                   activeTab === 'scan' ? 'Acceso de Residente' :
+                   activeTab === 'crud' ? 'Control Autorizados' :
+                   activeTab === 'reports' ? 'Bitácora & Reportes' :
+                   activeTab === 'residencias' ? 'Registro de Residencia' :
+                   activeTab === 'residentes' ? 'Registro de Residente' :
+                   activeTab === 'marbetes' ? (isResidente ? 'Mis Marbetes' : 'Control de Marbetes') :
+                   activeTab === 'casetas' ? 'Registro de Casetas' :
+                   activeTab === 'roles' ? 'Registros de empleados' :
+                   activeTab === 'visitas' ? 'Autorizar Visitas' :
+                   activeTab === 'visitas_admin' ? 'Visitas de Residentes' :
+                   activeTab === 'manual' ? 'Manual del usuario' :
+                   activeTab === 'perfil' ? 'Mi Perfil de Acceso' :
+                   'Control de Acceso Residencial'}
+                </h1>
               </div>
 
               {/* Connected Account status card & Exit/Switch Controls */}
