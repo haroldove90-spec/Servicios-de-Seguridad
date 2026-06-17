@@ -91,7 +91,8 @@ CREATE TABLE IF NOT EXISTS public.system_roles (
     password TEXT,
     "isActive" BOOLEAN DEFAULT TRUE,
     "residenciaId" TEXT REFERENCES public.residencias(id) ON DELETE SET NULL,
-    "residenciaNombre" TEXT
+    "residenciaNombre" TEXT,
+    avatar TEXT
 );
 
 -- 7. Table for Marbetes (Vehicular Digital residents passes)
@@ -197,6 +198,7 @@ ALTER TABLE public.system_roles ADD COLUMN IF NOT EXISTS username TEXT;
 ALTER TABLE public.system_roles ADD COLUMN IF NOT EXISTS "isActive" BOOLEAN DEFAULT TRUE;
 ALTER TABLE public.system_roles ADD COLUMN IF NOT EXISTS "residenciaId" TEXT REFERENCES public.residencias(id) ON DELETE SET NULL;
 ALTER TABLE public.system_roles ADD COLUMN IF NOT EXISTS "residenciaNombre" TEXT;
+ALTER TABLE public.system_roles ADD COLUMN IF NOT EXISTS avatar TEXT;
 
 -- Panic Alert System Synchronization Support
 ALTER TABLE public.residencias ADD COLUMN IF NOT EXISTS "panicActive" BOOLEAN NOT NULL DEFAULT FALSE;

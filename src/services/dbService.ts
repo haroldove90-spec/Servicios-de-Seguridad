@@ -177,6 +177,33 @@ export function toSnakeCaseKeys(obj: any): any {
   return newObj;
 }
 
+export function extractMissingColumn(code: string, message: string): string | null {
+  if (!message) return null;
+  
+  // PostgREST "Could not find the 'avatar' column..." pattern
+  const postgrestMatch = message.match(/find the '([^']+)' column/i);
+  if (postgrestMatch && postgrestMatch[1]) {
+    return postgrestMatch[1];
+  }
+
+  // PostgreSQL column "avatar" of relation...
+  const pgMatch = message.match(/column "([^"]+)"/i);
+  if (pgMatch && pgMatch[1]) {
+    return pgMatch[1];
+  }
+
+  // Generic fallback patterns
+  const altMatch = message.match(/column '([^']+)'/i) || message.match(/column ([a-zA-Z0-9_]+)/i);
+  if (altMatch && altMatch[1]) {
+    const candidate = altMatch[1];
+    if (candidate.toLowerCase() !== 'of' && candidate.toLowerCase() !== 'in' && candidate.toLowerCase() !== 'relation') {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
 export async function robustSupabaseInsert(tableName: string, camelPayload: any) {
   let payload = { ...camelPayload };
   
@@ -207,12 +234,10 @@ export async function robustSupabaseInsert(tableName: string, camelPayload: any)
       
       console.warn(`[Supabase Insert Attempt ${attempt}] failed on ${tableName}. Code: ${error.code}, Message: ${error.message}`);
       
-      // If code is 42703 (undefined_column) or message specifies a missing column
-      if (error.code === '42703' || (error.message && error.message.toLowerCase().includes('column'))) {
-        // Try extracting column name from error.message
-        const match = error.message.match(/column "([^"]+)"/i) || error.message.match(/column ([a-zA-Z0-9_]+)/i);
-        if (match && match[1]) {
-          const badCol = match[1];
+      // If code is 42703 (undefined_column) or code is PGRST204 (column missing from cache) or message specifies a missing column
+      if (error.code === '42703' || error.code === 'PGRST204' || (error.message && error.message.toLowerCase().includes('column'))) {
+        const badCol = extractMissingColumn(error.code, error.message);
+        if (badCol) {
           console.log(`Self-healing insert: Pruning missing column "${badCol}" from ${tableName} payload.`);
           
           // Delete from payload
@@ -276,10 +301,9 @@ export async function robustSupabaseUpdate(tableName: string, camelUpdates: any,
       
       console.warn(`[Supabase Update Attempt ${attempt}] failed on ${tableName}. Code: ${error.code}, Message: ${error.message}`);
       
-      if (error.code === '42703' || (error.message && error.message.toLowerCase().includes('column'))) {
-        const match = error.message.match(/column "([^"]+)"/i) || error.message.match(/column ([a-zA-Z0-9_]+)/i);
-        if (match && match[1]) {
-          const badCol = match[1];
+      if (error.code === '42703' || error.code === 'PGRST204' || (error.message && error.message.toLowerCase().includes('column'))) {
+        const badCol = extractMissingColumn(error.code, error.message);
+        if (badCol) {
           console.log(`Self-healing update: Pruning missing column "${badCol}" from ${tableName} updates.`);
           
           delete updates[badCol];
@@ -342,10 +366,9 @@ export async function robustSupabaseUpsert(tableName: string, camelPayload: any)
       
       console.warn(`[Supabase Upsert Attempt ${attempt}] failed on ${tableName}. Code: ${error.code}, Message: ${error.message}`);
       
-      if (error.code === '42703' || (error.message && error.message.toLowerCase().includes('column'))) {
-        const match = error.message.match(/column "([^"]+)"/i) || error.message.match(/column ([a-zA-Z0-9_]+)/i);
-        if (match && match[1]) {
-          const badCol = match[1];
+      if (error.code === '42703' || error.code === 'PGRST204' || (error.message && error.message.toLowerCase().includes('column'))) {
+        const badCol = extractMissingColumn(error.code, error.message);
+        if (badCol) {
           console.log(`Self-healing upsert: Pruning missing column "${badCol}" from ${tableName} payload.`);
           
           delete payload[badCol];
