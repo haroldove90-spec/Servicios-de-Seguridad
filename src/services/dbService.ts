@@ -30,7 +30,8 @@ import {
   Residencia,
   Residente,
   Caseta,
-  Marbete
+  Marbete,
+  Evidencia
 } from '../types';
 import { supabase } from '../supabase';
 
@@ -42,6 +43,7 @@ const LS_RESIDENCIAS_KEY = 'qr_residencias';
 const LS_RESIDENTES_KEY = 'qr_residentes';
 const LS_CASETAS_KEY = 'qr_casetas';
 const LS_MARBETES_KEY = 'qr_marbetes';
+const LS_EVIDENCIAS_KEY = 'qr_evidencias';
 
 // Simple unique string generator
 function generateId(): string {
@@ -128,6 +130,23 @@ export function normalizeMarbeteRow(raw: any): Marbete {
     status: raw.status ?? UserStatus.ACTIVE,
     createdAt: raw.createdAt ?? raw.created_at ?? raw.createdat,
     updatedAt: raw.updatedAt ?? raw.updated_at ?? raw.updatedat
+  };
+}
+
+export function normalizeEvidenciaRow(raw: any): Evidencia {
+  if (!raw) return raw;
+  return {
+    id: raw.id,
+    residenciaId: raw.residenciaId ?? raw.residencia_id ?? raw.residenciaid,
+    residenciaNombre: raw.residenciaNombre ?? raw.residencia_nombre ?? raw.residencianombre,
+    casetaId: raw.casetaId ?? raw.caseta_id ?? raw.casetaid,
+    casetaNombre: raw.casetaNombre ?? raw.caseta_nombre ?? raw.casetanombre,
+    guardId: raw.guardId ?? raw.guard_id ?? raw.guardid,
+    guardName: raw.guardName ?? raw.guard_name ?? raw.guardname,
+    photoUrl: raw.photoUrl ?? raw.photo_url ?? raw.photourl ?? raw.photo,
+    placas: raw.placas,
+    timestamp: raw.timestamp,
+    notas: raw.notas
   };
 }
 
@@ -822,6 +841,22 @@ const LocalDB = {
 
   saveMarbetes(marbetes: Marbete[]) {
     localStorage.setItem(LS_MARBETES_KEY, JSON.stringify(marbetes));
+  },
+
+  getEvidencias(): Evidencia[] {
+    const data = localStorage.getItem(LS_EVIDENCIAS_KEY);
+    if (!data) {
+      return [];
+    }
+    try {
+      return JSON.parse(data);
+    } catch {
+      return [];
+    }
+  },
+
+  saveEvidencias(evidencias: Evidencia[]) {
+    localStorage.setItem(LS_EVIDENCIAS_KEY, JSON.stringify(evidencias));
   }
 };
 
@@ -1977,6 +2012,104 @@ export const dbService = {
     } catch (err) {
       handleFirestoreError(err, OperationType.GET, `marbetes_token/${tokenClean}`);
       return null;
+    }
+  },
+
+  async getEvidencias(): Promise<Evidencia[]> {
+    try {
+      const { data, error } = await supabase
+        .from('evidencias')
+        .select('*')
+        .order('timestamp', { ascending: false });
+
+      if (!error && data) {
+        return (data as any[]).map(normalizeEvidenciaRow);
+      }
+      if (error) {
+        console.warn('Supabase getEvidencias returned query error:', error);
+      }
+    } catch (err) {
+      console.warn('Supabase getEvidencias exception, using fallback:', err);
+    }
+
+    if (IS_FIREBASE_DUMMY) {
+      return LocalDB.getEvidencias().sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    }
+
+    try {
+      const colRef = collection(db, 'evidencias');
+      const q = query(colRef, orderBy('timestamp', 'desc'));
+      const snap = await getDocs(q);
+      const results: Evidencia[] = [];
+      snap.forEach(d => {
+        results.push(normalizeEvidenciaRow(d.data()));
+      });
+      return results;
+    } catch (err) {
+      handleFirestoreError(err, OperationType.LIST, 'evidencias');
+      return [];
+    }
+  },
+
+  async createEvidencia(evidencia: Omit<Evidencia, 'id'>): Promise<Evidencia> {
+    const id = 'evid_' + generateId();
+    const newEvidencia: Evidencia = { ...evidencia, id };
+
+    try {
+      const { error } = await robustSupabaseInsert('evidencias', newEvidencia);
+      if (error) {
+        console.warn('Supabase createEvidencia returned query error:', error);
+      } else {
+        console.log('Successfully inserted evidence to Supabase!');
+      }
+    } catch (err) {
+      console.warn('Supabase createEvidencia exception, using fallback:', err);
+    }
+
+    if (IS_FIREBASE_DUMMY) {
+      const list = LocalDB.getEvidencias();
+      list.unshift(newEvidencia);
+      LocalDB.saveEvidencias(list);
+      return newEvidencia;
+    }
+
+    try {
+      const docRef = doc(db, 'evidencias', id);
+      await setDoc(docRef, newEvidencia);
+      return newEvidencia;
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, `evidencias/${id}`);
+      throw err;
+    }
+  },
+
+  async deleteEvidencia(id: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('evidencias')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        console.warn('Supabase deleteEvidencia returned query error:', error);
+      }
+    } catch (err) {
+      console.warn('Supabase deleteEvidencia exception, using fallback:', err);
+    }
+
+    if (IS_FIREBASE_DUMMY) {
+      const list = LocalDB.getEvidencias();
+      const filtered = list.filter(e => e.id !== id);
+      LocalDB.saveEvidencias(filtered);
+      return;
+    }
+
+    try {
+      const docRef = doc(db, 'evidencias', id);
+      await deleteDoc(docRef);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, `evidencias/${id}`);
+      throw err;
     }
   }
 

@@ -15,7 +15,7 @@ import {
   ShieldAlert, ScanLine, Users, FileBarChart2, Shield, LogOut, Check, Sparkles, 
   Database, AlertCircle, Key, Lock, Laptop, CheckCircle2, UserCircle, ShieldCheck,
   QrCode, Smartphone, ExternalLink, HelpCircle, RefreshCw, ChevronDown, ChevronUp,
-  Copy, Download, Clock as ClockIcon, AlertTriangle, Menu, X, Home, BookOpen, Calendar, Car, Eye, EyeOff
+  Copy, Download, Clock as ClockIcon, AlertTriangle, Menu, X, Home, BookOpen, Calendar, Car, Eye, EyeOff, Camera
 } from 'lucide-react';
 import { auth, IS_FIREBASE_DUMMY } from './firebase';
 import { dbService } from './services/dbService';
@@ -30,6 +30,7 @@ import CasetasManager from './components/CasetasManager';
 import MarbetesManager from './components/MarbetesManager';
 import { ProfileManager } from './components/ProfileManager';
 import { ManualUsuario } from './components/ManualUsuario';
+import AdminEvidencias from './components/AdminEvidencias';
 import ResidentDashboard from './components/ResidentDashboard';
 import VisitasDeResidentes from './components/VisitasDeResidentes';
 import MetricasDashboard from './components/MetricasDashboard';
@@ -1471,6 +1472,16 @@ export default function App() {
                     )}
                     {isAdmin && (
                       <button
+                        onClick={() => { setActiveTab('evidencias'); setIsDrawerOpen(false); }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer ${
+                          activeTab === 'evidencias' ? 'bg-red-600 text-white shadow-lg shadow-red-600/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
+                        }`}
+                      >
+                        <Camera className="w-4 h-4 text-emerald-400 shrink-0" /> Evidencias de Placas 📸
+                      </button>
+                    )}
+                    {isAdmin && (
+                      <button
                         id="nav-to-user-manual"
                         onClick={() => { setActiveTab('manual'); setIsDrawerOpen(false); }}
                         className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer ${
@@ -2023,6 +2034,7 @@ export default function App() {
                    activeTab === 'visitas' ? 'Autorizar Visitas' :
                    activeTab === 'visitas_admin' ? 'Visitas de Residentes' :
                    activeTab === 'manual' ? 'Manual del usuario' :
+                   activeTab === 'evidencias' ? 'Evidencias de Placas de Entrada' :
                    activeTab === 'perfil' ? 'Mi Perfil de Acceso' :
                    'Control de Acceso Residencial'}
                 </h1>
@@ -2179,6 +2191,12 @@ export default function App() {
 
                   {activeTab === 'manual' && isAdmin && (
                     <ManualUsuario />
+                  )}
+
+                  {activeTab === 'evidencias' && isAdmin && computedAdminUser && (
+                    <AdminEvidencias 
+                      currentUser={computedAdminUser} 
+                    />
                   )}
 
                   {activeTab === 'visitas' && canManageYourVisits && userRole && (

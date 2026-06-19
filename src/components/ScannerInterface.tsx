@@ -16,7 +16,8 @@ import {
   LogType, 
   LogStatus, 
   UserStatus, 
-  SystemUserRole 
+  SystemUserRole,
+  Evidencia
 } from '../types';
 
 interface ScannerInterfaceProps {
@@ -102,6 +103,24 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
   const [votedFeatures, setVotedFeatures] = useState<string[]>([]);
   const [checklistFeedback, setChecklistFeedback] = useState<string>('');
   const [deleteConfirmLogId, setDeleteConfirmLogId] = useState<string | null>(null);
+
+  // Evidencias Module states
+  const [evidenciasList, setEvidenciasList] = useState<Evidencia[]>([]);
+  const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
+  const [platesInput, setPlatesInput] = useState<string>('');
+  const [evidenceNotesInput, setEvidenceNotesInput] = useState<string>('');
+  const [savingEvidence, setSavingEvidence] = useState<boolean>(false);
+  const [activeSubTab, setActiveSubTab] = useState<'scan' | 'evidencias'>('scan');
+
+  // Pull evidence logs
+  const reloadEvidencias = async () => {
+    try {
+      const list = await dbService.getEvidencias();
+      setEvidenciasList(list);
+    } catch (err) {
+      console.warn('Error reading evidences: ', err);
+    }
+  };
 
   // Camera & Mobile permissions manager hook
   const [cameraPermission, setCameraPermission] = useState<'prompt' | 'granted' | 'denied' | 'checking'>('checking');
@@ -249,6 +268,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
     });
     reloadOnsitePeople();
     reloadRecentLogs();
+    reloadEvidencias();
   }, [scanResult]);
 
   // Handle custom simulated scan event trigger for demo flows
@@ -930,6 +950,57 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
     onScanLogged();
   };
 
+  const handleEvidencePhotoSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setCapturedPhoto(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveEvidence = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!capturedPhoto) return;
+    if (!currentGuard?.residenciaId) {
+      alert("Error: El vigilante actual no está asignado a ninguna residencia.");
+      return;
+    }
+
+    setSavingEvidence(true);
+    try {
+      await dbService.createEvidencia({
+        residenciaId: currentGuard.residenciaId,
+        residenciaNombre: currentGuard.residenciaNombre || 'Residencia',
+        casetaId: currentGuard.casetaId || undefined,
+        casetaNombre: currentGuard.casetaNombre || undefined,
+        guardId: currentGuard.uid,
+        guardName: currentGuard.name,
+        photoUrl: capturedPhoto,
+        placas: platesInput.trim().toUpperCase() || undefined,
+        timestamp: new Date().toISOString(),
+        notas: evidenceNotesInput.trim() || undefined
+      });
+
+      // Clear states
+      setCapturedPhoto(null);
+      setPlatesInput('');
+      setEvidenceNotesInput('');
+      
+      // Reload lists
+      reloadEvidencias();
+      setActiveSubTab('evidencias');
+    } catch (err) {
+      console.error("Error saving plates evidence:", err);
+    } finally {
+      setSavingEvidence(false);
+    }
+  };
+
   const getStatusIcon = (status: LogStatus, success: boolean) => {
     if (success) return <CheckCircle id="verification-icon-check" className="w-16 h-16 text-emerald-500 animate-pulse" />;
     if (status === LogStatus.EXPIRED_TOKEN || status === LogStatus.ALREADY_USED) {
@@ -1051,9 +1122,34 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
         </div>
       )}
 
+      {/* Selector de sub-módulos para el Vigilante */}
+      <div className="flex border-b border-slate-800 pb-px gap-4 mb-2">
+        <button
+          onClick={() => setActiveSubTab('scan')}
+          className={`pb-3 text-sm font-bold border-b-2 transition-all cursor-pointer ${
+            activeSubTab === 'scan'
+              ? 'border-red-500 text-red-500'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          🔍 Validar Acceso (QR Lector)
+        </button>
+        <button
+          onClick={() => setActiveSubTab('evidencias')}
+          className={`pb-3 text-sm font-bold border-b-2 transition-all cursor-pointer ${
+            activeSubTab === 'evidencias'
+              ? 'border-emerald-500 text-emerald-400'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          📸 Evidencias de Placas ({evidenciasList.filter(e => e.residenciaId === currentGuard?.residenciaId).length})
+        </button>
+      </div>
+
       <div id="guard-security-view-container" className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-      {/* Scanning Controls Frame */}
-      <div id="scan-terminal-frame" className="lg:col-span-7 bg-[#0f172a] rounded-2xl border border-[#1e293b] p-6 shadow-2xl flex flex-col justify-between">
+      {/* Scanning Controls Frame or Evidencias Sub-Tab View */}
+      {activeSubTab === 'scan' ? (
+        <div id="scan-terminal-frame" className="lg:col-span-7 bg-[#0f172a] rounded-2xl border border-[#1e293b] p-6 shadow-2xl flex flex-col justify-between">
         <div>
           <div className="flex items-center justify-between pb-4 border-b border-[#1e293b] mb-6">
             <h2 className="text-lg font-semibold text-slate-100 tracking-tight flex items-center gap-2">
@@ -1189,6 +1285,21 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
                   </p>
                   
                   <div className="flex flex-col gap-3">
+                    {/* Direct Evidencia trigger button as requested */}
+                    <label className="flex flex-col items-center justify-center p-4 border border-dashed border-emerald-500/30 hover:border-emerald-500/50 bg-emerald-950/10 rounded-xl hover:bg-emerald-950/20 transition cursor-pointer text-center group">
+                      <Camera className="w-6 h-6 text-emerald-400 group-hover:scale-110 transition mb-1.5" />
+                      <span className="text-xs font-bold text-slate-100 flex items-center gap-1">📸 Tomar Foto de Placas (Evidencias)</span>
+                      <span className="text-[10px] text-slate-450 mt-1 font-sans">Abre la cámara de tu móvil para guardar fotos del carro en el Módulo de Evidencias</span>
+                      <input
+                        id="evidence-camera-direct-snapshot"
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={handleEvidencePhotoSelected}
+                        className="hidden"
+                      />
+                    </label>
+
                     <label className="flex flex-col items-center justify-center p-4 border border-dashed border-red-500/20 hover:border-red-500/40 rounded-xl hover:bg-red-600/5 transition cursor-pointer text-center group">
                       <Camera className="w-6 h-6 text-red-500 group-hover:scale-110 transition mb-1.5" />
                       <span className="text-xs font-bold text-slate-200">Arranque de Cámara Especial (Foto QR)</span>
@@ -1397,6 +1508,191 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
         </div>
         )}
       </div>
+      ) : (
+        <div id="evidencias-terminal-frame" className="lg:col-span-7 bg-[#0f172a] rounded-2xl border border-[#1e293b] p-6 shadow-2xl flex flex-col justify-stretch space-y-6">
+          <div className="flex items-center justify-between border-b border-[#1e293b] pb-4">
+            <div>
+              <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
+                <Camera className="w-5 h-5 text-emerald-400 animate-pulse" />
+                Módulo de Evidencias de Placas
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">Captura y visualización de matrículas de autos ingresando</p>
+            </div>
+            
+            {/* Quick Camera Action directly in header */}
+            <label className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer">
+              <Camera className="w-4 h-4" />
+              <span>Capturar Nueva</span>
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handleEvidencePhotoSelected}
+                className="hidden"
+              />
+            </label>
+          </div>
+
+          {/* Section to input plate info if a photo was captured */}
+          {capturedPhoto && (
+            <motion.form 
+              initial={{ opacity: 0, y: -10 }} 
+              animate={{ opacity: 1, y: 0 }} 
+              className="p-5 border border-emerald-550/25 bg-emerald-950/10 rounded-2xl space-y-4"
+              onSubmit={handleSaveEvidence}
+            >
+              <div className="flex items-center gap-2 pb-2 border-b border-emerald-500/10">
+                <CheckCircle className="w-4 h-4 text-emerald-400" />
+                <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-wider font-sans">Foto capturada correctamente. Completa los datos:</h4>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-4">
+                {/* Thumbnail preview */}
+                <div className="w-full sm:w-1/3 aspect-video sm:aspect-square bg-slate-950 border border-slate-800 rounded-xl overflow-hidden relative">
+                  <img src={capturedPhoto} referrerPolicy="no-referrer" alt="Placa capturada" className="w-full h-full object-cover" />
+                </div>
+                
+                <div className="flex-1 space-y-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-405 uppercase tracking-wider mb-1">Cargar placas del auto (Obligatorio):</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ej. ABC123A o 456-XYZ"
+                      value={platesInput}
+                      onChange={(e) => setPlatesInput(e.target.value)}
+                      className="w-full px-3 py-2 text-sm bg-slate-950 border border-slate-800 rounded-xl text-white font-bold placeholder-slate-600 focus:border-red-500 focus:outline-hidden"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-405 uppercase tracking-wider mb-1">Notas / Observaciones adicionales (Opcional):</label>
+                    <textarea
+                      placeholder="Ej. Camioneta gris Nissan, chofer con playera roja."
+                      value={evidenceNotesInput}
+                      onChange={(e) => setEvidenceNotesInput(e.target.value)}
+                      className="w-full px-3 py-1.5 text-xs bg-slate-950 border border-slate-850 rounded-xl text-slate-200 placeholder-slate-600 focus:border-red-500 focus:outline-hidden min-h-[60px]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-2 justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCapturedPhoto(null);
+                    setPlatesInput('');
+                    setEvidenceNotesInput('');
+                  }}
+                  className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 text-xs font-bold rounded-lg transition"
+                >
+                  Cancelar
+                </button>
+                
+                <button
+                  type="submit"
+                  disabled={savingEvidence}
+                  className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {savingEvidence ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : null}
+                  {savingEvidence ? 'Guardando...' : 'Guardar en Bitácora'}
+                </button>
+              </div>
+            </motion.form>
+          )}
+
+          {/* Evidencias List / Grid */}
+          <div className="flex-1 overflow-y-auto max-h-[480px] space-y-4 pr-1">
+            <div className="flex items-center justify-between text-[11px] text-slate-400 font-semibold mb-2 bg-[#020617] p-2 rounded-xl border border-slate-900">
+              <span>Evidencias Registradas de la Residencia: {currentGuard?.residenciaNombre}</span>
+              <button 
+                type="button"
+                onClick={reloadEvidencias}
+                className="hover:text-red-400 transition"
+                title="Actualizar lista de evidencias"
+              >
+                <RefreshCw className="w-3.5 h-3.5 animate-pulse" />
+              </button>
+            </div>
+
+            {evidenciasList.filter(ev => ev.residenciaId === currentGuard?.residenciaId).map((ev) => {
+              const parsedTime = new Date(ev.timestamp).toLocaleString([], {
+                day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+              });
+              return (
+                <div key={ev.id} className="bg-[#020617] p-4 rounded-xl border border-slate-850 flex flex-col sm:flex-row gap-4 hover:border-slate-800 transition">
+                  {/* Photo Thumbnail */}
+                  <div className="w-full sm:w-28 h-28 bg-slate-950 rounded-xl overflow-hidden shrink-0 border border-slate-800 relative group cursor-pointer">
+                    <img src={ev.photoUrl} alt="Foto de placas" referrerPolicy="no-referrer" className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
+                    <div 
+                      onClick={() => {
+                        const win = window.open();
+                        if (win) {
+                          win.document.write(`<img src="${ev.photoUrl}" style="max-width:100%; max-height:100vh; display:block; margin:auto;" />`);
+                        }
+                      }}
+                      className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition text-[10px] text-white font-bold"
+                    >
+                      Ver Imagen ↗
+                    </div>
+                  </div>
+
+                  {/* Evidence descriptions */}
+                  <div className="flex-1 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        {/* Plate Graphic Box */}
+                        <span className="px-2 py-0.5 bg-white border-2 border-slate-900 border-b-4 font-mono font-black text-slate-800 rounded-md text-[11px] shadow-xs uppercase tracking-wide">
+                          {ev.placas || 'S/PLACA'}
+                        </span>
+                        
+                        <span className="text-[10px] font-mono text-slate-500">{parsedTime}</span>
+                      </div>
+                      
+                      {ev.notas ? (
+                        <p className="text-xs text-slate-300 italic mb-2">"{ev.notas}"</p>
+                      ) : (
+                        <p className="text-xs text-slate-550 mb-2">Sin observaciones registradas.</p>
+                      )}
+                    </div>
+
+                    <div className="text-[10px] text-slate-400 flex flex-wrap gap-2 border-t border-slate-900 pt-2 bg-slate-950/20 px-2 rounded-lg">
+                      <span>Vigilante: <strong className="text-slate-200">{ev.guardName}</strong></span>
+                      {ev.casetaNombre && (
+                        <>
+                          <span className="text-slate-650">•</span>
+                          <span>Caseta: <strong className="text-slate-200">{ev.casetaNombre}</strong></span>
+                        </>
+                      )}
+                      <span className="text-slate-650">•</span>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (confirm("¿Estás seguro de que deseas eliminar esta evidencia?")) {
+                            await dbService.deleteEvidencia(ev.id);
+                            reloadEvidencias();
+                          }
+                        }}
+                        className="text-red-500 hover:text-red-400 hover:underline cursor-pointer ml-auto font-bold"
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+            {evidenciasList.filter(ev => ev.residenciaId === currentGuard?.residenciaId).length === 0 && (
+              <div className="text-center py-12 bg-[#020617]/50 rounded-2xl border border-slate-900 text-slate-500 text-xs">
+                <Camera className="w-6 h-6 mx-auto mb-2 text-slate-600" />
+                No se registran evidencias de placas para esta residencia aún.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Access Verdict Results Frame */}
       <div id="verdict-outcome-panel" className="lg:col-span-5 flex flex-col justify-stretch">

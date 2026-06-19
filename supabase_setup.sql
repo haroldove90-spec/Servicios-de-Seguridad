@@ -65,7 +65,26 @@ CREATE TABLE IF NOT EXISTS public.access_logs (
     type TEXT NOT NULL,
     status TEXT NOT NULL,
     "guardId" TEXT NOT NULL,
-    "guardName" TEXT NOT NULL
+    "guardName" TEXT NOT NULL,
+    "residenciaId" TEXT,
+    "residenciaNombre" TEXT,
+    "casetaId" TEXT,
+    "casetaNombre" TEXT
+);
+
+-- 4b. Table for Evidencias (Registro fotográfico de matrículas/placas)
+CREATE TABLE IF NOT EXISTS public.evidencias (
+    id TEXT PRIMARY KEY,
+    "residenciaId" TEXT NOT NULL REFERENCES public.residencias(id) ON DELETE CASCADE,
+    "residenciaNombre" TEXT NOT NULL,
+    "casetaId" TEXT REFERENCES public.casetas(id) ON DELETE SET NULL,
+    "casetaNombre" TEXT,
+    "guardId" TEXT NOT NULL,
+    "guardName" TEXT NOT NULL,
+    "photoUrl" TEXT NOT NULL,
+    placas TEXT,
+    timestamp TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    notas TEXT
 );
 
 -- 5. Table for Casetas de Vigilancia (Puntos de control asignados a residencias)
@@ -199,6 +218,15 @@ ALTER TABLE public.system_roles ADD COLUMN IF NOT EXISTS "isActive" BOOLEAN DEFA
 ALTER TABLE public.system_roles ADD COLUMN IF NOT EXISTS "residenciaId" TEXT REFERENCES public.residencias(id) ON DELETE SET NULL;
 ALTER TABLE public.system_roles ADD COLUMN IF NOT EXISTS "residenciaNombre" TEXT;
 ALTER TABLE public.system_roles ADD COLUMN IF NOT EXISTS avatar TEXT;
+
+-- Repair columns for access_logs table
+ALTER TABLE public.access_logs ADD COLUMN IF NOT EXISTS "residenciaId" TEXT;
+ALTER TABLE public.access_logs ADD COLUMN IF NOT EXISTS "residenciaNombre" TEXT;
+ALTER TABLE public.access_logs ADD COLUMN IF NOT EXISTS "casetaId" TEXT;
+ALTER TABLE public.access_logs ADD COLUMN IF NOT EXISTS "casetaNombre" TEXT;
+
+-- Disable RLS for evidencias
+ALTER TABLE public.evidencias DISABLE ROW LEVEL SECURITY;
 
 -- Panic Alert System Synchronization Support
 ALTER TABLE public.residencias ADD COLUMN IF NOT EXISTS "panicActive" BOOLEAN NOT NULL DEFAULT FALSE;

@@ -160,3 +160,18 @@ export interface FirestoreErrorInfo {
     isAnonymous?: boolean | null;
   };
 }
+
+export interface Evidencia {
+  id: string;
+  residenciaId: string;
+  residenciaNombre: string;
+  casetaId?: string;
+  casetaNombre?: string;
+  guardId: string;
+  guardName: string;
+  photoUrl: string;
+  placas?: string;
+  timestamp: string;
+  notas?: string;
+}
+
