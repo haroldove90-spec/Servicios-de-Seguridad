@@ -97,6 +97,11 @@ export interface Residencia {
   createdAt: string; // ISO DateTime
   updatedAt: string; // ISO DateTime
   panicActive?: boolean; // Real-time panico sync across admins & guards
+  panicLatitude?: number | null;
+  panicLongitude?: number | null;
+  panicTriggeredBy?: string | null;
+  panicTriggeredByRole?: string | null;
+  panicTriggeredAt?: string | null;
 }
 
 export interface Residente {

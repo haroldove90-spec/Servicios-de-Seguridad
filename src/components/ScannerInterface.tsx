@@ -1109,7 +1109,14 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
               }
               if (currentGuard?.residenciaId) {
                 try {
-                  await dbService.updateResidencia(currentGuard.residenciaId, { panicActive: false });
+                  await dbService.updateResidencia(currentGuard.residenciaId, { 
+                    panicActive: false,
+                    panicLatitude: null,
+                    panicLongitude: null,
+                    panicTriggeredBy: null,
+                    panicTriggeredByRole: null,
+                    panicTriggeredAt: null
+                  });
                 } catch (e) {
                   console.warn("Failed to sync panic active deactivation to database:", e);
                 }
@@ -1946,6 +1953,33 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
           id="panic-toggle-actuator-btn"
           onClick={async () => {
             const nextState = !panicActive;
+            
+            let lat: number | null = null;
+            let lng: number | null = null;
+
+            if (nextState) {
+              if (navigator.geolocation) {
+                try {
+                  const position = await new Promise<GeolocationPosition | null>((resolve) => {
+                    navigator.geolocation.getCurrentPosition(
+                      (pos) => resolve(pos),
+                      (err) => {
+                        console.warn("[Scanner Panic] Geolocation error/denied:", err);
+                        resolve(null);
+                      },
+                      { enableHighAccuracy: true, timeout: 6000, maximumAge: 0 }
+                    );
+                  });
+                  if (position) {
+                    lat = position.coords.latitude;
+                    lng = position.coords.longitude;
+                  }
+                } catch (e) {
+                  console.warn("[Scanner Panic] Geolocation fetch error:", e);
+                }
+              }
+            }
+
             setPanicActive(nextState);
             setUseCamera(false);
             
@@ -1957,7 +1991,14 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
 
             if (currentGuard?.residenciaId) {
               try {
-                await dbService.updateResidencia(currentGuard.residenciaId, { panicActive: nextState });
+                await dbService.updateResidencia(currentGuard.residenciaId, { 
+                  panicActive: nextState,
+                  panicLatitude: nextState ? lat : null,
+                  panicLongitude: nextState ? lng : null,
+                  panicTriggeredBy: nextState ? (currentGuard?.name || 'Vigilante') : null,
+                  panicTriggeredByRole: nextState ? (currentGuard?.role || 'guard') : null,
+                  panicTriggeredAt: nextState ? new Date().toISOString() : null
+                });
               } catch (e) {
                 console.warn("Failed to sync panic active to database:", e);
               }

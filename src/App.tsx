@@ -15,11 +15,11 @@ import {
   ShieldAlert, ScanLine, Users, FileBarChart2, Shield, LogOut, Check, Sparkles, 
   Database, AlertCircle, Key, Lock, Laptop, CheckCircle2, UserCircle, ShieldCheck,
   QrCode, Smartphone, ExternalLink, HelpCircle, RefreshCw, ChevronDown, ChevronUp,
-  Copy, Download, Clock as ClockIcon, AlertTriangle, Menu, X, Home, BookOpen, Calendar, Car, Eye, EyeOff, Camera
+  Copy, Download, Clock as ClockIcon, AlertTriangle, Menu, X, Home, BookOpen, Calendar, Car, Eye, EyeOff, Camera, MapPin
 } from 'lucide-react';
 import { auth, IS_FIREBASE_DUMMY } from './firebase';
 import { dbService } from './services/dbService';
-import { SystemUserRole, SystemRole, AccessLog } from './types';
+import { SystemUserRole, SystemRole, AccessLog, Residencia } from './types';
 import ScannerInterface from './components/ScannerInterface';
 import AdminDashboard from './components/AdminDashboard';
 import AuditLogs from './components/AuditLogs';
@@ -268,6 +268,7 @@ export default function App() {
   // Master Access logs (cached/shared states)
   const [accessLogs, setAccessLogs] = useState<AccessLog[]>([]);
   const [globalPanicActive, setGlobalPanicActive] = useState<boolean>(false);
+  const [activePanicResidencia, setActivePanicResidencia] = useState<Residencia | null>(null);
 
   useEffect(() => {
     (window as any).globalPanicActive = globalPanicActive;
@@ -286,39 +287,50 @@ export default function App() {
     };
   }, [globalPanicActive]);
 
-  // Real-time Database Poller for Residence Panic status (syncs panic triggered by guards instantly)
+  // Real-time Database Poller for Residence Panic status (syncs panic triggered by residents or guards instantly)
   useEffect(() => {
-    if (!activeResidenciaId) return;
-
     let isMounted = true;
     const pollPanicStatus = async () => {
       try {
         const residencias = await dbService.getResidencias();
         if (!isMounted) return;
-        const currentRes = residencias.find(r => r.id === activeResidenciaId);
-        if (currentRes) {
-          const remotePanic = !!currentRes.panicActive;
-          if (remotePanic !== globalPanicActive) {
-            console.log(`[Panic Sync] Remote panic state detected from DB: ${remotePanic}. Updating local siren.`);
-            setGlobalPanicActive(remotePanic);
+
+        // Determine if there is an active panic corresponding to our scope
+        const isGlobalAdmin = userRole?.role === SystemUserRole.ADMIN && !userRole?.residenciaId;
+        const myResId = userRole?.residenciaId;
+
+        const panicRes = residencias.find(r => {
+          if (!r.panicActive) return false;
+          if (isGlobalAdmin) return true; // Global admin sees all
+          return r.id === myResId; // Assigned admin/guard/resident sees their own residence
+        });
+
+        if (panicRes) {
+          if (!globalPanicActive) {
+            console.log(`[Panic Sync] Panic detected for residency: ${panicRes.nombre}. Activating local siren.`);
+            setGlobalPanicActive(true);
           }
+          setActivePanicResidencia(panicRes);
+        } else {
+          if (globalPanicActive) {
+            console.log(`[Panic Sync] Panic cleared. Disabling siren.`);
+            setGlobalPanicActive(false);
+          }
+          setActivePanicResidencia(null);
         }
       } catch (err) {
         console.warn('Silent error polling panic flag from DB:', err);
       }
     };
 
-    // Run immediately on residency load
     pollPanicStatus();
-    
-    // Poll every 3500ms
     const intervalId = setInterval(pollPanicStatus, 3500);
 
     return () => {
       isMounted = false;
       clearInterval(intervalId);
     };
-  }, [activeResidenciaId, globalPanicActive]);
+  }, [userRole, globalPanicActive]);
   
   // Navigation tabs - activated with profile view as well
   const [activeTab, setActiveTab] = useState<'scan' | 'crud' | 'reports' | 'roles' | 'residencias' | 'residentes' | 'casetas' | 'perfil' | 'manual' | 'visitas' | 'visitas_admin' | 'marbetes' | 'metricas'>(() => {
@@ -2238,6 +2250,35 @@ export default function App() {
         id="global-floating-panic-actuator"
         onClick={async () => {
           const nextState = !globalPanicActive;
+          
+          let lat: number | null = null;
+          let lng: number | null = null;
+
+          if (nextState) {
+            // Check for Geolocation Support
+            if (navigator.geolocation) {
+              try {
+                const position = await new Promise<GeolocationPosition | null>((resolve) => {
+                  navigator.geolocation.getCurrentPosition(
+                    (pos) => resolve(pos),
+                    (err) => {
+                      console.warn("[Global Panic] Geolocation error/denied:", err);
+                      resolve(null);
+                    },
+                    { enableHighAccuracy: true, timeout: 6000, maximumAge: 0 }
+                  );
+                });
+                if (position) {
+                  lat = position.coords.latitude;
+                  lng = position.coords.longitude;
+                  console.log(`[Global Panic] Coords obtained: ${lat}, ${lng}`);
+                }
+              } catch (e) {
+                console.warn("[Global Panic] Failed to fetch coordinates:", e);
+              }
+            }
+          }
+
           setGlobalPanicActive(nextState);
           (window as any).globalPanicActive = nextState;
           if ((window as any).onGlobalPanicChange) {
@@ -2245,7 +2286,14 @@ export default function App() {
           }
           if (activeResidenciaId) {
             try {
-              await dbService.updateResidencia(activeResidenciaId, { panicActive: nextState });
+              await dbService.updateResidencia(activeResidenciaId, { 
+                panicActive: nextState,
+                panicLatitude: nextState ? lat : null,
+                panicLongitude: nextState ? lng : null,
+                panicTriggeredBy: nextState ? (userRole?.name || 'Usuario Residente') : null,
+                panicTriggeredByRole: nextState ? (userRole?.role || 'residente') : null,
+                panicTriggeredAt: nextState ? new Date().toISOString() : null
+              });
             } catch (e) {
               console.warn("Failed to sync global panic trigger to database:", e);
             }
@@ -2264,6 +2312,139 @@ export default function App() {
           <span className="absolute inset-0 rounded-full bg-red-600/30 animate-ping z-[-1]" />
         )}
       </button>
+
+      {/* Flashy Panic Emergency Popup Alert for Admins / Guard / Supervisor */}
+      {activePanicResidencia && userRole && (
+        userRole.role === SystemUserRole.ADMIN ||
+        userRole.role === SystemUserRole.SUPERVISOR ||
+        userRole.role === SystemUserRole.GUARD
+      ) && (
+        <div 
+          id="panic-emergency-alert-overlay" 
+          className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-red-950/85 backdrop-blur-lg overflow-y-auto"
+        >
+          {/* Animated red alarm background pulses */}
+          <div className="absolute inset-0 bg-red-600/10 animate-ping pointer-events-none" />
+
+          <div 
+            id="panic-emergency-alert-card" 
+            className="bg-[#1a1212] border-4 border-rose-600 rounded-3xl p-6 md:p-8 max-w-lg w-full text-white shadow-2xl relative z-10 space-y-6"
+          >
+            {/* Header Alarm Siren Symbol */}
+            <div className="flex flex-col items-center justify-center text-center space-y-2">
+              <div className="w-16 h-16 bg-rose-600 rounded-full flex items-center justify-center animate-pulse shadow-lg shadow-rose-600/30">
+                <AlertTriangle className="w-8 h-8 text-white animate-bounce" />
+              </div>
+              <h3 className="text-xl font-black text-rose-500 uppercase tracking-widest mt-2 animate-pulse">
+                🚨 ALERTA DE PÁNICO ACTIVA 🚨
+              </h3>
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider font-mono bg-red-950/40 px-3 py-1 rounded-full border border-red-900/30">
+                Emergencia en Tiempo Real Detectada
+              </p>
+            </div>
+
+            {/* Emergency Info Grid */}
+            <div className="bg-[#120a0a] border border-red-900/40 rounded-2xl p-4 space-y-3.5">
+              <div className="flex items-start justify-between border-b border-red-950/50 pb-2.5">
+                <span className="text-[10px] uppercase text-rose-400 font-bold tracking-wider block">Fraccionamiento:</span>
+                <span className="text-sm font-black text-white text-right">
+                  {activePanicResidencia.nombre}
+                </span>
+              </div>
+
+              <div className="flex items-start justify-between border-b border-red-950/50 pb-2.5">
+                <span className="text-[10px] uppercase text-rose-400 font-bold tracking-wider block">Activado Por:</span>
+                <span className="text-sm font-black text-slate-100 text-right">
+                  {activePanicResidencia.panicTriggeredBy || "Usuario Residente"}
+                </span>
+              </div>
+
+              <div className="flex items-start justify-between border-b border-red-950/50 pb-2.5">
+                <span className="text-[10px] uppercase text-rose-400 font-bold tracking-wider block">Rol del Emisor:</span>
+                <span className="px-2 py-0.5 bg-rose-900/40 text-rose-300 border border-rose-500/20 rounded-md font-mono text-xs font-bold">
+                  {activePanicResidencia.panicTriggeredByRole === 'residente' 
+                    ? '🏡 RESIDENTE' 
+                    : activePanicResidencia.panicTriggeredByRole === 'guard' 
+                      ? '🛡️ SEGURIDAD/CASETA' 
+                      : '⚙️ ADMINISTRADOR'}
+                </span>
+              </div>
+
+              <div className="flex items-start justify-between">
+                <span className="text-[10px] uppercase text-rose-400 font-bold tracking-wider block">Hora de Activación:</span>
+                <span className="text-xs font-bold text-slate-300 text-right font-mono">
+                  {activePanicResidencia.panicTriggeredAt 
+                    ? new Date(activePanicResidencia.panicTriggeredAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) 
+                    : 'Recientemente'}
+                </span>
+              </div>
+            </div>
+
+            {/* Geolocation Section */}
+            <div className="bg-[#120a0a] border border-red-900/40 rounded-2xl p-4 space-y-3">
+              <h4 className="text-[10.5px] font-black text-rose-500 uppercase tracking-widest flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-rose-500" /> Coordenadas de Ubicación
+              </h4>
+              
+              {activePanicResidencia.panicLatitude && activePanicResidencia.panicLongitude ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-xs font-mono text-slate-300 bg-red-950/20 p-2 rounded-lg border border-red-950">
+                    <span>Latitud: {activePanicResidencia.panicLatitude.toFixed(6)}</span>
+                    <span>Longitud: {activePanicResidencia.panicLongitude.toFixed(6)}</span>
+                  </div>
+                  
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${activePanicResidencia.panicLatitude},${activePanicResidencia.panicLongitude}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-550 text-white font-extrabold text-xs rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/30 transition duration-300 text-center cursor-pointer uppercase tracking-widest border border-emerald-500/20"
+                  >
+                    📍 Ver Ubicación en Google Maps
+                  </a>
+                </div>
+              ) : (
+                <div className="p-3 bg-amber-950/30 border border-amber-900/30 rounded-xl text-amber-300 text-xs leading-relaxed flex items-start gap-2">
+                  <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
+                  <div>
+                    <span className="font-bold block uppercase tracking-wider text-[9.5px]">GPS No Compartido</span>
+                    El dispositivo emisor no compartió coordenadas de ubicación (permiso denegado, GPS apagado o cargando). Contacte de inmediato.
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Solver Action Button */}
+            <div className="space-y-2 pt-2">
+              <button
+                onClick={async () => {
+                  if (activePanicResidencia) {
+                    try {
+                      await dbService.updateResidencia(activePanicResidencia.id, {
+                        panicActive: false,
+                        panicLatitude: null,
+                        panicLongitude: null,
+                        panicTriggeredBy: null,
+                        panicTriggeredByRole: null,
+                        panicTriggeredAt: null
+                      });
+                      setActivePanicResidencia(null);
+                      setGlobalPanicActive(false);
+                    } catch (err) {
+                      console.warn("Failed to solve panic emergency:", err);
+                    }
+                  }
+                }}
+                className="w-full py-3.5 bg-white hover:bg-slate-100 text-slate-950 font-black text-xs rounded-xl transition uppercase tracking-widest shadow-xl cursor-pointer hover:scale-[1.01] active:scale-95 duration-200"
+              >
+                ✅ Resolver Emergencia y Silenciar Alarma
+              </button>
+              <p className="text-[10px] text-slate-400 text-center font-medium">
+                Al presionar resolver se desactivará el lockdown en el perímetro residencial.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

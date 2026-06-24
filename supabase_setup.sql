@@ -230,6 +230,24 @@ ALTER TABLE public.evidencias DISABLE ROW LEVEL SECURITY;
 
 -- Panic Alert System Synchronization Support
 ALTER TABLE public.residencias ADD COLUMN IF NOT EXISTS "panicActive" BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE public.residencias ADD COLUMN IF NOT EXISTS "panicLatitude" DOUBLE PRECISION;
+ALTER TABLE public.residencias ADD COLUMN IF NOT EXISTS "panicLongitude" DOUBLE PRECISION;
+ALTER TABLE public.residencias ADD COLUMN IF NOT EXISTS "panicTriggeredBy" TEXT;
+ALTER TABLE public.residencias ADD COLUMN IF NOT EXISTS "panicTriggeredByRole" TEXT;
+ALTER TABLE public.residencias ADD COLUMN IF NOT EXISTS "panicTriggeredAt" TEXT;
+
+-- Lowercase and Snake_case duplicates for complete robust alignment with self-healing updates
+ALTER TABLE public.residencias ADD COLUMN IF NOT EXISTS paniclatitude DOUBLE PRECISION;
+ALTER TABLE public.residencias ADD COLUMN IF NOT EXISTS paniclongitude DOUBLE PRECISION;
+ALTER TABLE public.residencias ADD COLUMN IF NOT EXISTS panictriggeredby TEXT;
+ALTER TABLE public.residencias ADD COLUMN IF NOT EXISTS panictriggeredbyrole TEXT;
+ALTER TABLE public.residencias ADD COLUMN IF NOT EXISTS panictriggeredat TEXT;
+
+ALTER TABLE public.residencias ADD COLUMN IF NOT EXISTS panic_latitude DOUBLE PRECISION;
+ALTER TABLE public.residencias ADD COLUMN IF NOT EXISTS panic_longitude DOUBLE PRECISION;
+ALTER TABLE public.residencias ADD COLUMN IF NOT EXISTS panic_triggered_by TEXT;
+ALTER TABLE public.residencias ADD COLUMN IF NOT EXISTS panic_triggered_by_role TEXT;
+ALTER TABLE public.residencias ADD COLUMN IF NOT EXISTS panic_triggered_at TEXT;
 
 -- ====================================================================
 -- CASE-SENSITIVITY & SNAKE_CASE COMPATIBILITY REPAIR (FOR SYSTEM_ROLES)
