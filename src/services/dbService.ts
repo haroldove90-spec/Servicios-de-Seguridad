@@ -168,6 +168,25 @@ export function normalizeRoleRow(raw: any): SystemRole {
   };
 }
 
+export function normalizeResidenciaRow(raw: any): Residencia {
+  if (!raw) return raw;
+  return {
+    id: raw.id,
+    nombre: raw.nombre,
+    administrador: raw.administrador,
+    numResidencias: Number(raw.numResidencias ?? raw.num_residencias ?? raw.numresidencias ?? 0),
+    isActive: raw.isActive ?? raw.is_active ?? raw.isactive ?? true,
+    createdAt: raw.createdAt ?? raw.created_at ?? raw.createdat,
+    updatedAt: raw.updatedAt ?? raw.updated_at ?? raw.updatedat,
+    panicActive: raw.panicActive ?? raw.panic_active ?? raw.panicactive ?? false,
+    panicLatitude: raw.panicLatitude !== undefined ? raw.panicLatitude : (raw.panic_latitude !== undefined ? raw.panic_latitude : (raw.paniclatitude !== undefined ? raw.paniclatitude : null)),
+    panicLongitude: raw.panicLongitude !== undefined ? raw.panicLongitude : (raw.panic_longitude !== undefined ? raw.panic_longitude : (raw.paniclongitude !== undefined ? raw.paniclongitude : null)),
+    panicTriggeredBy: raw.panicTriggeredBy ?? raw.panic_triggered_by ?? raw.panictriggeredby ?? null,
+    panicTriggeredByRole: raw.panicTriggeredByRole ?? raw.panic_triggered_by_role ?? raw.panictriggeredbyrole ?? null,
+    panicTriggeredAt: raw.panicTriggeredAt ?? raw.panic_triggered_at ?? raw.panictriggeredat ?? null
+  };
+}
+
 // ----------------------------------------------------
 // MULTI-CASING DATABASE INTELLIGENCE HELPERS
 // ----------------------------------------------------
@@ -1393,7 +1412,7 @@ export const dbService = {
           await supabase.from('residencias').insert(defaultRes);
           return [defaultRes];
         }
-        return data as Residencia[];
+        return (data as any[]).map(normalizeResidenciaRow);
       }
       if (error) {
         console.warn('Supabase getResidencias returned query error. Code:', error.code, 'Msg:', error.message);
@@ -1403,7 +1422,7 @@ export const dbService = {
     }
 
     if (IS_FIREBASE_DUMMY) {
-      return LocalDB.getResidencias();
+      return LocalDB.getResidencias().map(normalizeResidenciaRow);
     }
 
     try {
@@ -1412,7 +1431,7 @@ export const dbService = {
       const snap = await getDocs(q);
       const results: Residencia[] = [];
       snap.forEach(d => {
-        results.push(d.data() as Residencia);
+        results.push(normalizeResidenciaRow(d.data()));
       });
       return results;
     } catch (err) {

@@ -138,7 +138,7 @@ export default function AdminEvidencias({ currentUser }: AdminEvidenciasProps) {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
           {filteredEvidencias.map((ev) => {
             const formattedDate = new Date(ev.timestamp).toLocaleString([], {
               day: '2-digit',
@@ -151,45 +151,46 @@ export default function AdminEvidencias({ currentUser }: AdminEvidenciasProps) {
             return (
               <div 
                 key={ev.id} 
-                className="bg-[#1E1E22] rounded-3xl border border-[#2D2D30] p-4 flex flex-col justify-between hover:border-slate-700/80 hover:shadow-xl transition relative group overflow-hidden"
+                className="bg-[#1E1E22] rounded-3xl border border-[#2D2D30] p-3 md:p-4 flex flex-col justify-between hover:border-slate-700/80 hover:shadow-xl transition relative group overflow-hidden"
               >
                 <div>
-                  {/* Photo Section */}
-                  <div className="aspect-video bg-[#0C0C0E] rounded-2xl overflow-hidden relative border border-[#2D2D30] mb-4">
+                  {/* Photo Section - Made fully clickable with touch support */}
+                  <div 
+                    onClick={() => setSelectedImage(ev.photoUrl)}
+                    className="aspect-video bg-[#0C0C0E] rounded-2xl overflow-hidden relative border border-[#2D2D30] mb-3 cursor-pointer group/photo"
+                    title="Toca para ampliar foto 🔍"
+                  >
                     <img 
                       src={ev.photoUrl} 
                       referrerPolicy="no-referrer" 
                       alt="Captura placa" 
-                      className="w-full h-full object-cover group-hover:scale-102 transition duration-500" 
+                      className="w-full h-full object-cover group-hover/photo:scale-105 transition duration-500" 
                     />
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition gap-2">
-                      <button
-                        onClick={() => setSelectedImage(ev.photoUrl)}
-                        className="px-3 py-1.5 bg-white text-slate-900 font-bold text-xs rounded-xl hover:bg-slate-100 transition shadow-lg cursor-pointer"
-                      >
-                        Ampliar Foto
-                      </button>
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/photo:opacity-100 flex items-center justify-center transition">
+                      <span className="px-2.5 py-1.5 bg-black/75 backdrop-blur-xs text-white text-[10px] font-bold rounded-lg tracking-wide border border-white/10">
+                        🔍 Tocar para Ampliar
+                      </span>
                     </div>
                   </div>
 
                   {/* Plates Graphic Representation & Timestamp */}
-                  <div className="flex items-center justify-between mb-3 border-b border-[#2A2A2E] pb-2">
-                    <div className="px-2.5 py-1 bg-white border-2 border-slate-950 border-b-4 font-mono font-black text-slate-900 rounded-md text-xs shadow-xs uppercase tracking-wider select-none">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 mb-3 border-b border-[#2A2A2E] pb-2">
+                    <div className="inline-block px-2 py-0.5 bg-white border-2 border-slate-950 border-b-[3px] font-mono font-black text-slate-900 rounded text-[10.5px] uppercase tracking-wider select-none w-max">
                       {ev.placas || 'S/PLACA'}
                     </div>
-                    <span className="text-[10px] text-slate-500 flex items-center gap-1 font-semibold font-mono">
-                      <Calendar className="w-3 h-3 text-red-500" />
+                    <span className="text-[9px] text-slate-550 flex items-center gap-1 font-semibold font-mono">
+                      <Calendar className="w-2.5 h-2.5 text-red-500 shrink-0" />
                       {formattedDate}
                     </span>
                   </div>
 
                   {/* Notes / Observaciones */}
-                  <div className="space-y-2 mb-4 bg-[#121214] p-3 rounded-xl border border-[#202022]">
-                    <div className="flex items-start gap-1.5">
-                      <FileText className="w-3.5 h-3.5 text-slate-500 shrink-0 mt-0.5" />
+                  <div className="space-y-1.5 mb-3 bg-[#121214] p-2.5 rounded-xl border border-[#202022]">
+                    <div className="flex items-start gap-1">
+                      <FileText className="w-3 h-3 text-slate-500 shrink-0 mt-0.5" />
                       <div>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">Observaciones:</span>
-                        <p className="text-xs text-slate-350 italic mt-0.5">
+                        <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wide block leading-none mb-0.5">Observaciones:</span>
+                        <p className="text-[11px] leading-relaxed text-slate-350 italic">
                           {ev.notas ? `"${ev.notas}"` : 'Sin comentarios adicionales.'}
                         </p>
                       </div>
@@ -198,29 +199,28 @@ export default function AdminEvidencias({ currentUser }: AdminEvidenciasProps) {
                 </div>
 
                 {/* Footer metadata */}
-                <div className="border-t border-[#2A2A2E] pt-3.5 text-[10px] text-slate-400 space-y-2 mt-auto">
+                <div className="border-t border-[#2A2A2E] pt-3 text-[9px] text-slate-500 space-y-1.5 mt-auto">
                   <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1.5">
-                      <User className="w-3 h-3 text-slate-450" />
-                      Vigilante: <strong className="text-slate-200">{ev.guardName}</strong>
+                    <span className="flex items-center gap-1 shrink-0 overflow-hidden">
+                      <User className="w-2.5 h-2.5 text-slate-600 shrink-0" />
+                      <span className="truncate max-w-[80px]" title={ev.guardName}>Val: <strong className="text-slate-350">{ev.guardName}</strong></span>
                     </span>
                     <button
                       onClick={() => handleDelete(ev.id)}
-                      className="p-1 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
+                      className="p-1 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer shrink-0"
                       title="Eliminar evidencia"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                   
-                  <div className="flex flex-wrap items-center justify-between gap-1 mt-1 bg-[#121214]/50 p-2 rounded-lg text-slate-450">
-                    <span className="flex items-center gap-1">
-                      <MapPin className="w-3 h-3" />
-                      Residencia: <strong className="text-slate-300">{ev.residenciaNombre}</strong>
+                  <div className="flex flex-col gap-0.5 mt-1 bg-[#121214]/40 p-1.5 rounded-lg text-slate-500 font-mono text-[8.5px]">
+                    <span className="truncate" title={ev.residenciaNombre}>
+                      🏡 {ev.residenciaNombre}
                     </span>
                     {ev.casetaNombre && (
-                      <span className="block">
-                        Caseta: <strong className="text-slate-300">{ev.casetaNombre}</strong>
+                      <span className="truncate" title={ev.casetaNombre}>
+                        🛡️ {ev.casetaNombre}
                       </span>
                     )}
                   </div>
@@ -231,25 +231,40 @@ export default function AdminEvidencias({ currentUser }: AdminEvidenciasProps) {
         </div>
       )}
 
-      {/* Enlarged Image Modal */}
+      {/* Enlarged Image Modal with Double-Zoom Tap Toggle support */}
       {selectedImage && (
-        <div 
-          onClick={() => setSelectedImage(null)}
-          className="fixed inset-0 z-[9999] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 cursor-zoom-out"
-        >
-          <div className="relative max-w-4xl w-full h-full max-h-[85vh] flex items-center justify-center">
-            <img 
-              src={selectedImage} 
-              referrerPolicy="no-referrer" 
-              alt="Placa ampliada" 
-              className="max-w-full max-h-full rounded-2xl border border-slate-800 shadow-2xl object-contain select-none" 
-            />
-          </div>
-          <div className="absolute top-4 right-4 bg-slate-900 border border-slate-800 rounded-full p-2 text-white font-bold text-xs select-none shadow-xl">
-            Toca en cualquier parte para cerrar
-          </div>
-        </div>
+        <ZoomableModal src={selectedImage} onClose={() => setSelectedImage(null)} />
       )}
+    </div>
+  );
+}
+
+// Subcomponent to handle double-tap or tap magnification inside the modal
+function ZoomableModal({ src, onClose }: { src: string; onClose: () => void }) {
+  const [zoomedIn, setZoomedIn] = useState<boolean>(false);
+
+  return (
+    <div 
+      className="fixed inset-0 z-[9999] bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 select-none"
+      onClick={onClose}
+    >
+      <div 
+        className="relative max-w-4xl w-full h-full max-h-[85vh] flex items-center justify-center overflow-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <img 
+          src={src} 
+          referrerPolicy="no-referrer" 
+          alt="Placa ampliada" 
+          onClick={() => setZoomedIn(!zoomedIn)}
+          className={`rounded-2xl border border-slate-800 shadow-2xl object-contain select-none max-w-full max-h-full transition-transform duration-300 cursor-zoom-in ${
+            zoomedIn ? 'scale-[1.6] cursor-zoom-out' : 'scale-100 hover:scale-[1.02]'
+          }`} 
+        />
+      </div>
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-slate-900/90 border border-slate-800 rounded-full px-4 py-2 text-white font-bold text-xs select-none shadow-xl pointer-events-none text-center">
+        {zoomedIn ? "🔍 Toca la foto para quitar zoom" : "🔍 Toca la foto para 1.5x zoom • Toca fuera para cerrar"}
+      </div>
     </div>
   );
 }
