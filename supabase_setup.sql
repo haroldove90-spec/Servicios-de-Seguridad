@@ -327,3 +327,10 @@ FOR EACH ROW
 EXECUTE FUNCTION public.sync_system_roles_columns();
 
 
+-- ====================================================================
+-- ADD SUPPORT FOR RESIDENT CREDENTIALS IN EVIDENCE LOGS
+-- ====================================================================
+ALTER TABLE public.evidencias ADD COLUMN IF NOT EXISTS tipo TEXT DEFAULT 'placa';
+
+
+

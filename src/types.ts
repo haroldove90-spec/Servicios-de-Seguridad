@@ -178,5 +178,6 @@ export interface Evidencia {
   placas?: string;
   timestamp: string;
   notas?: string;
+  tipo?: string;
 }
 

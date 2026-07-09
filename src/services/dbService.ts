@@ -146,7 +146,8 @@ export function normalizeEvidenciaRow(raw: any): Evidencia {
     photoUrl: raw.photoUrl ?? raw.photo_url ?? raw.photourl ?? raw.photo,
     placas: raw.placas,
     timestamp: raw.timestamp,
-    notas: raw.notas
+    notas: raw.notas,
+    tipo: raw.tipo
   };
 }
 

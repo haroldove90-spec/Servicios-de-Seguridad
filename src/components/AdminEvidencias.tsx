@@ -23,6 +23,7 @@ export default function AdminEvidencias({ currentUser }: AdminEvidenciasProps) {
   const [evidenciasList, setEvidenciasList] = useState<Evidencia[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [typeFilter, setTypeFilter] = useState<'all' | 'placa' | 'credencial'>('all');
 
   const loadEvidencias = async () => {
     setLoading(true);
@@ -51,6 +52,11 @@ export default function AdminEvidencias({ currentUser }: AdminEvidenciasProps) {
       return true; // Global admin sees all
     })
     .filter(ev => {
+      if (typeFilter === 'all') return true;
+      const evTipo = ev.tipo || 'placa';
+      return evTipo === typeFilter;
+    })
+    .filter(ev => {
       // Soft search filtering
       const query = searchTerm.toLowerCase();
       const matchPlacas = ev.placas?.toLowerCase().includes(query) || false;
@@ -58,11 +64,12 @@ export default function AdminEvidencias({ currentUser }: AdminEvidenciasProps) {
       const matchNotes = ev.notas?.toLowerCase().includes(query) || false;
       const matchCaseta = ev.casetaNombre?.toLowerCase().includes(query) || false;
       const matchRes = ev.residenciaNombre?.toLowerCase().includes(query) || false;
-      return matchPlacas || matchGuard || matchNotes || matchCaseta || matchRes;
+      const matchTipo = (ev.tipo === 'credencial' ? 'credencial identificacion' : 'placa matricula').includes(query);
+      return matchPlacas || matchGuard || matchNotes || matchCaseta || matchRes || matchTipo;
     });
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('¿Estás seguro de que deseas eliminar permanentemente esta evidencia de placa?')) {
+    if (window.confirm('¿Estás seguro de que deseas eliminar permanentemente esta evidencia?')) {
       try {
         await dbService.deleteEvidencia(id);
         setEvidenciasList(prev => prev.filter(item => item.id !== id));
@@ -80,12 +87,12 @@ export default function AdminEvidencias({ currentUser }: AdminEvidenciasProps) {
           <div>
             <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2">
               <Camera className="w-5 h-5 text-red-500 animate-pulse" />
-              Evidencias de Placas de Vehículos
+              Evidencias de Placas e Identificaciones
             </h2>
             <p className="text-xs text-slate-400 mt-1">
               {userResId 
-                ? `Mostrando registros fotográficos exclusivos para la residencia asignada: ${currentUser.residenciaNombre || 'Residencia'}` 
-                : 'Mostrando registros fotográficos corporativos de todas las casetas en el condominio general.'}
+                ? `Mostrando registros fotográficos y credenciales de la residencia: ${currentUser.residenciaNombre || 'Residencia'}` 
+                : 'Mostrando registros fotográficos y de credenciales corporativas de todas las casetas en el condominio general.'}
             </p>
           </div>
 
@@ -109,7 +116,7 @@ export default function AdminEvidencias({ currentUser }: AdminEvidenciasProps) {
             </span>
             <input
               type="text"
-              placeholder="Buscar por placa, vigilante, caseta, notas u observaciones..."
+              placeholder="Buscar por placa, residente, vigilante, caseta, tipo, notas..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 bg-[#121214] border border-[#2D2D30] rounded-xl text-slate-200 placeholder-slate-550 focus:border-red-500 focus:outline-hidden text-xs font-medium"
@@ -120,6 +127,40 @@ export default function AdminEvidencias({ currentUser }: AdminEvidenciasProps) {
               Filtrados: <strong className="text-slate-200">{filteredEvidencias.length}</strong> de <strong className="text-slate-400">{evidenciasList.length}</strong> totales
             </p>
           </div>
+        </div>
+
+        {/* Type Filter Tabs */}
+        <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-[#2D2D30]/60">
+          <button
+            onClick={() => setTypeFilter('all')}
+            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+              typeFilter === 'all'
+                ? 'bg-red-600 text-white shadow-xs'
+                : 'bg-[#121214] text-slate-400 hover:text-white border border-[#2D2D30]'
+            }`}
+          >
+            📋 Todo ({evidenciasList.filter(ev => !userResId || ev.residenciaId === userResId).length})
+          </button>
+          <button
+            onClick={() => setTypeFilter('placa')}
+            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+              typeFilter === 'placa'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'bg-[#121214] text-slate-400 hover:text-white border border-[#2D2D30]'
+            }`}
+          >
+            🚗 Placas de Vehículos ({evidenciasList.filter(ev => (!userResId || ev.residenciaId === userResId) && (ev.tipo === 'placa' || !ev.tipo)).length})
+          </button>
+          <button
+            onClick={() => setTypeFilter('credencial')}
+            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+              typeFilter === 'credencial'
+                ? 'bg-amber-600 text-white shadow-xs'
+                : 'bg-[#121214] text-slate-400 hover:text-white border border-[#2D2D30]'
+            }`}
+          >
+            🪪 Credenciales / IDs ({evidenciasList.filter(ev => (!userResId || ev.residenciaId === userResId) && ev.tipo === 'credencial').length})
+          </button>
         </div>
       </div>
 
@@ -173,10 +214,19 @@ export default function AdminEvidencias({ currentUser }: AdminEvidenciasProps) {
                     </div>
                   </div>
 
-                  {/* Plates Graphic Representation & Timestamp */}
+                  {/* Plates/Credential Graphic Representation & Timestamp */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 mb-3 border-b border-[#2A2A2E] pb-2">
-                    <div className="inline-block px-2 py-0.5 bg-white border-2 border-slate-950 border-b-[3px] font-mono font-black text-slate-900 rounded text-[10.5px] uppercase tracking-wider select-none w-max">
-                      {ev.placas || 'S/PLACA'}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <div className="inline-block px-2 py-0.5 bg-white border-2 border-slate-950 border-b-[3px] font-mono font-black text-slate-900 rounded text-[10.5px] uppercase tracking-wider select-none w-max">
+                        {ev.placas || (ev.tipo === 'credencial' ? 'S/DATO' : 'S/PLACA')}
+                      </div>
+                      <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide ${
+                        ev.tipo === 'credencial' 
+                          ? 'bg-amber-500/15 text-amber-400 border border-amber-500/25' 
+                          : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25'
+                      }`}>
+                        {ev.tipo === 'credencial' ? '🪪 Credencial' : '🚗 Placa'}
+                      </span>
                     </div>
                     <span className="text-[9px] text-slate-550 flex items-center gap-1 font-semibold font-mono">
                       <Calendar className="w-2.5 h-2.5 text-red-500 shrink-0" />

@@ -110,6 +110,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
   const [platesInput, setPlatesInput] = useState<string>('');
   const [evidenceNotesInput, setEvidenceNotesInput] = useState<string>('');
   const [savingEvidence, setSavingEvidence] = useState<boolean>(false);
+  const [evidenceType, setEvidenceType] = useState<'placa' | 'credencial'>('placa');
   const [activeSubTab, setActiveSubTab] = useState<'scan' | 'evidencias'>('scan');
 
   // Pull evidence logs
@@ -981,9 +982,10 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
         guardId: currentGuard.uid,
         guardName: currentGuard.name,
         photoUrl: capturedPhoto,
-        placas: platesInput.trim().toUpperCase() || undefined,
+        placas: evidenceType === 'placa' ? platesInput.trim().toUpperCase() : platesInput.trim(),
         timestamp: new Date().toISOString(),
-        notas: evidenceNotesInput.trim() || undefined
+        notas: evidenceNotesInput.trim() || undefined,
+        tipo: evidenceType
       });
 
       // Clear states
@@ -995,7 +997,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
       reloadEvidencias();
       setActiveSubTab('evidencias');
     } catch (err) {
-      console.error("Error saving plates evidence:", err);
+      console.error("Error saving evidence:", err);
     } finally {
       setSavingEvidence(false);
     }
@@ -1292,20 +1294,42 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
                   </p>
                   
                   <div className="flex flex-col gap-3">
-                    {/* Direct Evidencia trigger button as requested */}
-                    <label className="flex flex-col items-center justify-center p-4 border border-dashed border-emerald-500/30 hover:border-emerald-500/50 bg-emerald-950/10 rounded-xl hover:bg-emerald-950/20 transition cursor-pointer text-center group">
-                      <Camera className="w-6 h-6 text-emerald-400 group-hover:scale-110 transition mb-1.5" />
-                      <span className="text-xs font-bold text-slate-100 flex items-center gap-1">📸 Tomar Foto de Placas (Evidencias)</span>
-                      <span className="text-[10px] text-slate-450 mt-1 font-sans">Abre la cámara de tu móvil para guardar fotos del carro en el Módulo de Evidencias</span>
-                      <input
-                        id="evidence-camera-direct-snapshot"
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        onChange={handleEvidencePhotoSelected}
-                        className="hidden"
-                      />
-                    </label>
+                    {/* Direct Evidencia trigger buttons as requested */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <label className="flex flex-col items-center justify-center p-4 border border-dashed border-emerald-500/30 hover:border-emerald-500/50 bg-emerald-950/10 rounded-xl hover:bg-emerald-950/20 transition cursor-pointer text-center group">
+                        <Camera className="w-6 h-6 text-emerald-400 group-hover:scale-110 transition mb-1.5" />
+                        <span className="text-xs font-bold text-slate-100 flex items-center gap-1">📸 Tomar Foto de Placas</span>
+                        <span className="text-[10px] text-slate-450 mt-1 font-sans leading-relaxed">Guarda fotos de vehículos para el control de accesos</span>
+                        <input
+                          id="evidence-camera-direct-snapshot"
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          onChange={(e) => {
+                            setEvidenceType('placa');
+                            handleEvidencePhotoSelected(e);
+                          }}
+                          className="hidden"
+                        />
+                      </label>
+
+                      <label className="flex flex-col items-center justify-center p-4 border border-dashed border-amber-500/30 hover:border-amber-500/50 bg-amber-950/10 rounded-xl hover:bg-amber-950/20 transition cursor-pointer text-center group">
+                        <Camera className="w-6 h-6 text-amber-400 group-hover:scale-110 transition mb-1.5" />
+                        <span className="text-xs font-bold text-slate-100 flex items-center gap-1">🪪 Foto de Credenciales / IDs</span>
+                        <span className="text-[10px] text-slate-450 mt-1 font-sans leading-relaxed">Guarda fotos de identificaciones o credenciales de residentes</span>
+                        <input
+                          id="evidence-camera-credential-snapshot"
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          onChange={(e) => {
+                            setEvidenceType('credencial');
+                            handleEvidencePhotoSelected(e);
+                          }}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
 
                     <label className="flex flex-col items-center justify-center p-4 border border-dashed border-red-500/20 hover:border-red-500/40 rounded-xl hover:bg-red-600/5 transition cursor-pointer text-center group">
                       <Camera className="w-6 h-6 text-red-500 group-hover:scale-110 transition mb-1.5" />
@@ -1521,23 +1545,43 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
             <div>
               <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
                 <Camera className="w-5 h-5 text-emerald-400 animate-pulse" />
-                Módulo de Evidencias de Placas
+                Módulo de Evidencias de Placas e Identificaciones
               </h3>
-              <p className="text-xs text-slate-400 mt-0.5">Captura y visualización de matrículas de autos ingresando</p>
+              <p className="text-xs text-slate-400 mt-0.5">Captura y visualización de matrículas de autos e identificaciones de residentes</p>
             </div>
             
-            {/* Quick Camera Action directly in header */}
-            <label className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer">
-              <Camera className="w-4 h-4" />
-              <span>Capturar Nueva</span>
-              <input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={handleEvidencePhotoSelected}
-                className="hidden"
-              />
-            </label>
+            {/* Quick Camera Actions directly in header */}
+            <div className="flex gap-2">
+              <label className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer">
+                <Camera className="w-4 h-4" />
+                <span>Foto de Placa</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={(e) => {
+                    setEvidenceType('placa');
+                    handleEvidencePhotoSelected(e);
+                  }}
+                  className="hidden"
+                />
+              </label>
+
+              <label className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer">
+                <Camera className="w-4 h-4" />
+                <span>Foto de Credencial</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={(e) => {
+                    setEvidenceType('credencial');
+                    handleEvidencePhotoSelected(e);
+                  }}
+                  className="hidden"
+                />
+              </label>
+            </div>
           </div>
 
           {/* Section to input plate info if a photo was captured */}
@@ -1550,22 +1594,26 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
             >
               <div className="flex items-center gap-2 pb-2 border-b border-emerald-500/10">
                 <CheckCircle className="w-4 h-4 text-emerald-400" />
-                <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-wider font-sans">Foto capturada correctamente. Completa los datos:</h4>
+                <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-wider font-sans">
+                  Foto de {evidenceType === 'placa' ? 'Placa' : 'Credencial / ID'} capturada correctamente. Completa los datos:
+                </h4>
               </div>
 
               <div className="flex flex-col sm:flex-row gap-4">
                 {/* Thumbnail preview */}
                 <div className="w-full sm:w-1/3 aspect-video sm:aspect-square bg-slate-950 border border-slate-800 rounded-xl overflow-hidden relative">
-                  <img src={capturedPhoto} referrerPolicy="no-referrer" alt="Placa capturada" className="w-full h-full object-cover" />
+                  <img src={capturedPhoto} referrerPolicy="no-referrer" alt="Foto capturada" className="w-full h-full object-cover" />
                 </div>
                 
                 <div className="flex-1 space-y-3">
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-405 uppercase tracking-wider mb-1">Cargar placas del auto (Obligatorio):</label>
+                    <label className="block text-[10px] font-bold text-slate-405 uppercase tracking-wider mb-1">
+                      {evidenceType === 'placa' ? 'Cargar placas del auto (Obligatorio):' : 'Identificación o Nombre de residente (Opcional):'}
+                    </label>
                     <input
                       type="text"
-                      required
-                      placeholder="Ej. ABC123A o 456-XYZ"
+                      required={evidenceType === 'placa'}
+                      placeholder={evidenceType === 'placa' ? 'Ej. ABC123A o 456-XYZ' : 'Ej. Juan Pérez - Casa 12 o ID #456'}
                       value={platesInput}
                       onChange={(e) => setPlatesInput(e.target.value)}
                       className="w-full px-3 py-2 text-sm bg-slate-950 border border-slate-800 rounded-xl text-white font-bold placeholder-slate-600 focus:border-red-500 focus:outline-hidden"
@@ -1575,7 +1623,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
                   <div>
                     <label className="block text-[10px] font-bold text-slate-405 uppercase tracking-wider mb-1">Notas / Observaciones adicionales (Opcional):</label>
                     <textarea
-                      placeholder="Ej. Camioneta gris Nissan, chofer con playera roja."
+                      placeholder={evidenceType === 'placa' ? 'Ej. Camioneta gris Nissan, chofer con playera roja.' : 'Ej. Credencial de elector INE, entregó copia física para archivo.'}
                       value={evidenceNotesInput}
                       onChange={(e) => setEvidenceNotesInput(e.target.value)}
                       className="w-full px-3 py-1.5 text-xs bg-slate-950 border border-slate-850 rounded-xl text-slate-200 placeholder-slate-600 focus:border-red-500 focus:outline-hidden min-h-[60px]"
@@ -1648,10 +1696,19 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
                   {/* Evidence descriptions */}
                   <div className="flex-1 flex flex-col justify-between">
                     <div>
-                      <div className="flex items-center gap-2 mb-1.5">
-                        {/* Plate Graphic Box */}
+                      <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                        {/* Plate/Data Graphic Box */}
                         <span className="px-2 py-0.5 bg-white border-2 border-slate-900 border-b-4 font-mono font-black text-slate-800 rounded-md text-[11px] shadow-xs uppercase tracking-wide">
-                          {ev.placas || 'S/PLACA'}
+                          {ev.placas || (ev.tipo === 'credencial' ? 'S/DATO' : 'S/PLACA')}
+                        </span>
+
+                        {/* Type badge */}
+                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide ${
+                          ev.tipo === 'credencial' 
+                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' 
+                            : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                        }`}>
+                          {ev.tipo === 'credencial' ? '🪪 Credencial' : '🚗 Placa'}
                         </span>
                         
                         <span className="text-[10px] font-mono text-slate-500">{parsedTime}</span>
@@ -1694,7 +1751,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
             {evidenciasList.filter(ev => ev.residenciaId === currentGuard?.residenciaId).length === 0 && (
               <div className="text-center py-12 bg-[#020617]/50 rounded-2xl border border-slate-900 text-slate-500 text-xs">
                 <Camera className="w-6 h-6 mx-auto mb-2 text-slate-600" />
-                No se registran evidencias de placas para esta residencia aún.
+                No se registran evidencias de placas o credenciales para esta residencia aún.
               </div>
             )}
           </div>
