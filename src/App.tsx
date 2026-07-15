@@ -15,7 +15,7 @@ import {
   ShieldAlert, ScanLine, Users, FileBarChart2, Shield, LogOut, Check, Sparkles, 
   Database, AlertCircle, Key, Lock, Laptop, CheckCircle2, UserCircle, ShieldCheck,
   QrCode, Smartphone, ExternalLink, HelpCircle, RefreshCw, ChevronDown, ChevronUp,
-  Copy, Download, Clock as ClockIcon, AlertTriangle, Menu, X, Home, BookOpen, Calendar, Car, Eye, EyeOff, Camera, MapPin
+  Copy, Download, Clock as ClockIcon, AlertTriangle, Menu, X, Home, BookOpen, Calendar, Car, Eye, EyeOff, Camera, MapPin, Building
 } from 'lucide-react';
 import { auth, IS_FIREBASE_DUMMY } from './firebase';
 import { dbService } from './services/dbService';
@@ -207,6 +207,9 @@ export default function App() {
 
   // PWA installation state
   const [installPrompt, setInstallPrompt] = useState<any | null>(null);
+
+  // Construction modal state for Condominios Administration
+  const [showConstruction, setShowConstruction] = useState<boolean>(false);
 
   useEffect(() => {
     // Splash screen timer: closes splash transition automatically
@@ -1924,7 +1927,7 @@ export default function App() {
                 </p>
 
                 {/* Roles Grid Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left max-w-4xl mx-auto">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-left max-w-6xl mx-auto">
                   
                   {/* CARD 1: ADMIN */}
                   <div 
@@ -1998,6 +2001,29 @@ export default function App() {
                     <div className="mt-4 pt-4 border-t border-[#3e3e42] flex items-center justify-between font-sans">
                       <span className="text-[10px] font-bold text-blue-400 tracking-wider uppercase group-hover:translate-x-1 transition-all">Pases QR / Mis Visitas →</span>
                       <span className="text-[10px] bg-blue-600/20 text-blue-400 font-mono px-2.5 py-0.5 rounded-full uppercase font-bold">Vecino</span>
+                    </div>
+                  </div>
+
+                  {/* CARD 4: ADMINISTRACIÓN DE CONDOMINIOS */}
+                  <div 
+                    id="role-gateway-card-condominios"
+                    onClick={() => setShowConstruction(true)}
+                    className="group relative bg-[#2A2A2E] hover:bg-[#343438] border border-[#3e3e42] hover:border-purple-500 rounded-3xl p-6 shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden"
+                  >
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 blur-3xl rounded-full group-hover:bg-purple-500/10 transition"></div>
+                    
+                    <div className="flex flex-col items-center justify-center text-center py-6">
+                      <div className="w-14 h-14 bg-purple-500/15 text-purple-400 border border-purple-500/25 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition shrink-0">
+                        <Building className="w-7 h-7 text-purple-400 animate-pulse" />
+                      </div>
+                      <h3 className="text-xl font-extrabold text-white group-hover:text-purple-400 transition" id="lbl-condominios-general-role">
+                        Administración de condominios
+                      </h3>
+                    </div>
+
+                    <div className="mt-4 pt-4 border-t border-[#3e3e42] flex items-center justify-between font-sans">
+                      <span className="text-[10px] font-bold text-purple-400 tracking-wider uppercase group-hover:translate-x-1 transition-all">Administración →</span>
+                      <span className="text-[10px] bg-purple-600/20 text-purple-400 font-mono px-2.5 py-0.5 rounded-full uppercase font-bold">Obras</span>
                     </div>
                   </div>
 
@@ -2442,6 +2468,38 @@ export default function App() {
                 Al presionar resolver se desactivará el lockdown en el perímetro residencial.
               </p>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showConstruction && (
+        <div 
+          id="construction-modal-overlay"
+          className="fixed inset-0 z-[11000] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md"
+        >
+          <div 
+            id="construction-modal-card"
+            className="bg-[#1E1E22] border border-[#2D2D30] rounded-3xl p-6 md:p-8 max-w-sm w-full text-center shadow-2xl relative space-y-4 font-sans"
+          >
+            <div className="w-16 h-16 bg-purple-500/15 text-purple-400 border border-purple-500/25 rounded-full flex items-center justify-center mx-auto mb-2">
+              <Building className="w-8 h-8 text-purple-400" />
+            </div>
+            
+            <h3 className="text-xl font-extrabold text-white">
+              Módulo en Construcción
+            </h3>
+            
+            <p className="text-xs text-slate-400 leading-relaxed">
+              La sección de <strong>Administración de Condominios</strong> está siendo diseñada y construida por el equipo de ingeniería. Muy pronto podrás gestionar cuotas de mantenimiento, asambleas de vecinos y reservaciones de áreas comunes desde aquí.
+            </p>
+
+            <button
+              id="construction-modal-close-btn"
+              onClick={() => setShowConstruction(false)}
+              className="w-full py-3 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-xl transition duration-200 cursor-pointer shadow-lg shadow-purple-950/20"
+            >
+              Entendido
+            </button>
           </div>
         </div>
       )}
