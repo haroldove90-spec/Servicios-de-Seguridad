@@ -162,6 +162,19 @@ SET username = EXCLUDED.username, password = EXCLUDED.password, "isActive" = EXC
 
 INSERT INTO public.system_roles (uid, email, name, role, username, password, "isActive", "createdAt")
 VALUES (
+    'admin-harold-uid', 
+    'harold.anguiano@admin.local', 
+    'Harold Anguiano', 
+    'admin', 
+    'harold.anguiano',
+    'Chevropar#1970',
+    TRUE,
+    NOW()
+) ON CONFLICT (uid) DO UPDATE 
+SET username = EXCLUDED.username, password = EXCLUDED.password, "isActive" = EXCLUDED."isActive", name = EXCLUDED.name, email = EXCLUDED.email;
+
+INSERT INTO public.system_roles (uid, email, name, role, username, password, "isActive", "createdAt")
+VALUES (
     'guard-demo-uid', 
     'guardia@seguridad.local', 
     'Guardia Pérez', 

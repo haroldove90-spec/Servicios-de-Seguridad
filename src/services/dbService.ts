@@ -679,6 +679,16 @@ const LocalDB = {
         createdAt: new Date().toISOString(),
       },
       {
+        uid: 'admin-harold-uid',
+        name: 'Harold Anguiano',
+        email: 'harold.anguiano@admin.local',
+        username: 'harold.anguiano',
+        role: SystemUserRole.ADMIN,
+        isActive: true,
+        password: 'Chevropar#1970',
+        createdAt: new Date().toISOString(),
+      },
+      {
         uid: 'guard-demo-uid',
         name: 'Guardia Pérez',
         email: 'guardia@seguridad.local',
