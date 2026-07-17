@@ -34,6 +34,7 @@ import AdminEvidencias from './components/AdminEvidencias';
 import ResidentDashboard from './components/ResidentDashboard';
 import VisitasDeResidentes from './components/VisitasDeResidentes';
 import MetricasDashboard from './components/MetricasDashboard';
+import CondominiosDashboard from './components/CondominiosDashboard';
 import { generateQRWithLogo } from './utils/qrWithLogo';
 import { exportMarbeteToJPG } from './utils/marbeteExporter';
 
@@ -336,7 +337,7 @@ export default function App() {
   }, [userRole, globalPanicActive]);
   
   // Navigation tabs - activated with profile view as well
-  const [activeTab, setActiveTab] = useState<'scan' | 'crud' | 'reports' | 'roles' | 'residencias' | 'residentes' | 'casetas' | 'perfil' | 'manual' | 'visitas' | 'visitas_admin' | 'marbetes' | 'metricas'>(() => {
+  const [activeTab, setActiveTab] = useState<'scan' | 'crud' | 'reports' | 'roles' | 'residencias' | 'residentes' | 'casetas' | 'perfil' | 'manual' | 'visitas' | 'visitas_admin' | 'marbetes' | 'metricas' | 'condominios'>(() => {
     return (localStorage.getItem('cnls_active_tab') as any) || 'scan';
   });
   const [hasSelectedRole, setHasSelectedRole] = useState<boolean>(() => {
@@ -616,7 +617,7 @@ export default function App() {
   const handleRoleSelection = (
     role: SystemUserRole, 
     nameSimulated: string, 
-    defaultTab: 'scan' | 'crud' | 'reports' | 'roles' | 'residencias' | 'residentes' | 'casetas' | 'perfil' | 'manual' | 'visitas' | 'visitas_admin' | 'metricas',
+    defaultTab: 'scan' | 'crud' | 'reports' | 'roles' | 'residencias' | 'residentes' | 'casetas' | 'perfil' | 'manual' | 'visitas' | 'visitas_admin' | 'metricas' | 'condominios',
     residenciaId?: string,
     residenciaNombre?: string
   ) => {
@@ -957,6 +958,7 @@ export default function App() {
   const isAuditor = userRole?.role === SystemUserRole.AUDITOR;
   const isGuard = userRole?.role === SystemUserRole.GUARD;
   const isResidente = userRole?.role === SystemUserRole.RESIDENTE;
+  const isCondominios = userRole?.role === SystemUserRole.CONDOMINIOS;
 
   // Strict role separation for custom dashboards
   const isGeneralAdmin = isAdmin && !userRole?.residenciaId;
@@ -977,6 +979,7 @@ export default function App() {
   // Gracefully redirect the user if they simulation-switch roles and lose tab privilege
   useEffect(() => {
     if (!userRole) return;
+    if (isCondominios) return;
     const current = activeTab;
     if (current === 'scan' && !canScan) {
       if (canManageYourVisits) setActiveTab('visitas');
@@ -1367,6 +1370,8 @@ export default function App() {
                           ? (userRole?.residenciaNombre ? `Admin - ${userRole.residenciaNombre} 🛡️` : 'Admin Gral. 🛡️')
                           : userRole?.role === SystemUserRole.SUPERVISOR 
                           ? (userRole?.residenciaNombre ? `Caseta - ${userRole.residenciaNombre} ⚡` : 'Caseta Gral. ⚡') 
+                          : userRole?.role === SystemUserRole.CONDOMINIOS
+                          ? 'Admin Condominios 🏢'
                           : 'Residente: 🏡'}
                       </p>
                     </div>
@@ -1375,6 +1380,16 @@ export default function App() {
 
                   <div className="space-y-1.5 pt-1">
                     <p className="text-[10px] uppercase font-bold text-slate-500 px-3 tracking-wider font-mono mb-2">Vistas y Herramientas</p>
+                    {isCondominios && (
+                      <button
+                        onClick={() => { setActiveTab('condominios'); setIsDrawerOpen(false); }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer ${
+                          activeTab === 'condominios' ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
+                        }`}
+                      >
+                        <Building className="w-4 h-4 text-purple-400 shrink-0" /> Administración Condominios
+                      </button>
+                    )}
                     {isAdmin && (
                       <button
                         onClick={() => { setActiveTab('metricas'); setIsDrawerOpen(false); }}
@@ -2007,7 +2022,7 @@ export default function App() {
                   {/* CARD 4: ADMINISTRACIÓN DE CONDOMINIOS */}
                   <div 
                     id="role-gateway-card-condominios"
-                    onClick={() => setShowConstruction(true)}
+                    onClick={() => setSelectedLoginTarget({ role: SystemUserRole.CONDOMINIOS, label: 'Administración de Condominios', defaultTab: 'condominios' })}
                     className="group relative bg-[#2A2A2E] hover:bg-[#343438] border border-[#3e3e42] hover:border-purple-500 rounded-3xl p-6 shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden"
                   >
                     <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 blur-3xl rounded-full group-hover:bg-purple-500/10 transition"></div>
@@ -2022,8 +2037,8 @@ export default function App() {
                     </div>
 
                     <div className="mt-4 pt-4 border-t border-[#3e3e42] flex items-center justify-between font-sans">
-                      <span className="text-[10px] font-bold text-purple-400 tracking-wider uppercase group-hover:translate-x-1 transition-all">Administración →</span>
-                      <span className="text-[10px] bg-purple-600/20 text-purple-400 font-mono px-2.5 py-0.5 rounded-full uppercase font-bold">Obras</span>
+                      <span className="text-[10px] font-bold text-purple-400 tracking-wider uppercase group-hover:translate-x-1 transition-all">Administrar Sistema →</span>
+                      <span className="text-[10px] bg-emerald-600/20 text-emerald-400 font-mono px-2.5 py-0.5 rounded-full uppercase font-bold">Activo ✓</span>
                     </div>
                   </div>
 
@@ -2057,10 +2072,13 @@ export default function App() {
                     ? 'ADMINISTRACIÓN' 
                     : userRole?.role === SystemUserRole.SUPERVISOR 
                     ? 'CASETA' 
+                    : userRole?.role === SystemUserRole.CONDOMINIOS
+                    ? 'CONDOMINIOS'
                     : 'RESIDENTE'}</span>
                 </div>
                 <h1 className="text-2xl font-extrabold text-white tracking-tight mt-1">
-                  {activeTab === 'metricas' ? 'Métricas del Condominio' :
+                  {activeTab === 'condominios' ? 'Administración de Condominios 🏢' :
+                   activeTab === 'metricas' ? 'Métricas del Condominio' :
                    activeTab === 'scan' ? 'Acceso de Residente' :
                    activeTab === 'crud' ? 'Control Autorizados' :
                    activeTab === 'reports' ? 'Bitácora & Reportes' :
@@ -2094,6 +2112,8 @@ export default function App() {
                         ? (userRole?.residenciaNombre ? `Admin - ${userRole.residenciaNombre} 🛡️` : 'Administración General 🛡️')
                         : userRole?.role === SystemUserRole.SUPERVISOR 
                         ? (userRole?.residenciaNombre ? `Caseta - ${userRole.residenciaNombre} ⚡` : 'Caseta General ⚡') 
+                        : userRole?.role === SystemUserRole.CONDOMINIOS
+                        ? 'Administración Condominios 🏢'
                         : 'Residente'}
                     </p>
                   </div>
@@ -2249,6 +2269,10 @@ export default function App() {
                       currentAdminUser={computedAdminUser} 
                       onRefresh={reloadAccessLogs} 
                     />
+                  )}
+
+                  {activeTab === 'condominios' && isCondominios && (
+                    <CondominiosDashboard />
                   )}
                 </div>
 

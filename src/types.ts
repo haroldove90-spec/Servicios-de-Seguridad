@@ -15,6 +15,7 @@ export enum SystemUserRole {
   SUPERVISOR = 'supervisor',
   AUDITOR = 'auditor',
   RESIDENTE = 'residente',
+  CONDOMINIOS = 'condominios',
 }
 
 export enum LogType {
