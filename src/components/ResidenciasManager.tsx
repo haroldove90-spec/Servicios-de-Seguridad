@@ -417,7 +417,7 @@ export default function ResidenciasManager({ onRefresh, onVisitResidencia }: Res
   const getVisitorWhatsAppShareUrl = (userItem: AuthorizedUser) => {
     const cleanPhone = userItem.phone ? userItem.phone.replace(/\D/g, '') : '';
     const passUrl = `${window.location.origin}${window.location.pathname}?pass=${userItem.qrcodeToken}`;
-    const text = `¡Hola *${userItem.name}*!\n\nTe comparto tu *Pase Temporal Códigos QR de Entrada* para dirigirte al domicilio en *${userItem.residenciaNombre}*.\n\nPresiona el siguiente enlace para abrir tu credencial QR de entrada:\n${passUrl}`;
+    const text = `¡Hola *${userItem.name}*!\n\nTe comparto tu *Pase Temporal Códigos QR de Entrada* para dirigirte al domicilio en *${userItem.residenciaNombre}*.\n\nPresiona el siguiente enlace para abrir tu credencial QR de entrada:\n${passUrl}\n\n⚠️ *Favor de presentar su INE o Licencia al ingresar a la residencia*`;
     return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
   };
 

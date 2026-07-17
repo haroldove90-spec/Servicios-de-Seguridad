@@ -268,10 +268,10 @@ export default function ResidentDashboard({ currentResidentUser, onRefresh }: Re
       const placas = (visit as any).vehiculoPlacas || '';
       const vehicleStr = cleanInfo ? `${cleanInfo} ${placas ? `[Placas: ${placas}]` : ''}` : '(No registrado)';
       
-      message = `Hola, *${visit.name.split(' (')[0]}* 👋\n\nTe comparto tu *Marbete Vehicular Digital* autorizado para ingresar a la villa/residencia:\n🏠 *${visit.residenciaNombre}*\n🚗 *Vehículo:* ${vehicleStr}\n⏰ Vigencia hasta el ${new Date(visit.validUntil).toLocaleDateString()} a las ${new Date(visit.validUntil).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}\n\nPresenta este QR en caseta para tu ingreso vehicular o lector de acceso:\n👉 ${passUrl}`;
+      message = `Hola, *${visit.name.split(' (')[0]}* 👋\n\nTe comparto tu *Marbete Vehicular Digital* autorizado para ingresar a la villa/residencia:\n🏠 *${visit.residenciaNombre}*\n🚗 *Vehículo:* ${vehicleStr}\n⏰ Vigencia hasta el ${new Date(visit.validUntil).toLocaleDateString()} a las ${new Date(visit.validUntil).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}\n\nPresenta este QR en caseta para tu ingreso vehicular o lector de acceso:\n👉 ${passUrl}\n\n⚠️ *Favor de presentar su INE o Licencia al ingresar a la residencia*`;
       cleanPhone = visitorWA.replace(/\+/g, '').replace(/\s+/g, '');
     } else {
-      message = `Hola ${visit.name.split(' (')[0]}, te comparto tu Pase Digital de Acceso QR para ingresar a la villa/residencia:\n🏠 *${visit.residenciaNombre}*\n⏰ Válido por 1 día (Vence el ${new Date(visit.validUntil).toLocaleDateString()} a las ${new Date(visit.validUntil).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})})\n\nPresenta este QR en caseta para tu ingreso:\n👉 ${passUrl}`;
+      message = `Hola ${visit.name.split(' (')[0]}, te comparto tu Pase Digital de Acceso QR para ingresar a la villa/residencia:\n🏠 *${visit.residenciaNombre}*\n⏰ Válido por 1 día (Vence el ${new Date(visit.validUntil).toLocaleDateString()} a las ${new Date(visit.validUntil).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})})\n\nPresenta este QR en caseta para tu ingreso:\n👉 ${passUrl}\n\n⚠️ *Favor de presentar su INE o Licencia al ingresar a la residencia*`;
       cleanPhone = visit.phone.replace(/\+/g, '').replace(/\s+/g, '');
     }
     
