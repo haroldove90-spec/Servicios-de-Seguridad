@@ -436,7 +436,7 @@ export default function CondominiosDashboard() {
     <div className="bg-[#141417] text-slate-100 rounded-3xl border border-[#232326] overflow-hidden shadow-2xl font-sans">
       
       {/* HEADER BANNER */}
-      <div className="p-6 bg-gradient-to-r from-purple-950/45 via-[#1a132c]/50 to-slate-950/60 border-b border-[#2d2d32] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="p-6 bg-gradient-to-r from-purple-950/45 via-[#1a132c]/50 to-slate-950/60 border-b border-[#2d2d32] flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-[10px] uppercase font-bold text-purple-400 tracking-wider font-mono">
             <Building className="w-4 h-4 text-purple-400 animate-pulse" />
@@ -444,10 +444,26 @@ export default function CondominiosDashboard() {
           </div>
           <h2 className="text-xl font-black text-white tracking-tight mt-1">Administración de Condominios 🏢</h2>
           <p className="text-xs text-slate-400 mt-0.5">Control de finanzas, seguridad biométrica, operaciones, avisos comunales y facturación CFDI 4.0.</p>
+          
+          {/* HIGH-VISIBILITY MODULE STATUS BADGES */}
+          <div className="flex flex-wrap gap-2 mt-3 font-sans">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-450 animate-pulse"></span>
+              Módulo de Administración y Finanzas (Core): <span className="uppercase font-black text-[9px] text-white bg-emerald-600 px-1 py-0.5 rounded ml-1">ACTIVO ✓</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-450 animate-pulse"></span>
+              Módulo de Seguridad y Accesos: <span className="uppercase font-black text-[9px] text-white bg-emerald-600 px-1 py-0.5 rounded ml-1">ACTIVO ✓</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-450 animate-pulse"></span>
+              Módulo de Operación y Comunidad: <span className="uppercase font-black text-[9px] text-white bg-emerald-600 px-1 py-0.5 rounded ml-1">ACTIVO ✓</span>
+            </span>
+          </div>
         </div>
 
         {/* TOP METRICS GRAPHIC MINI-BAR */}
-        <div className="flex items-center gap-3 bg-[#1E1E22] px-4 py-2 border border-[#2d2d32] rounded-2xl">
+        <div className="flex items-center gap-3 bg-[#1E1E22] px-4 py-2 border border-[#2d2d32] rounded-2xl shrink-0 self-start md:self-center">
           <div className="text-left">
             <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest font-mono">Morosidad General</span>
             <div className="flex items-center gap-1.5 mt-0.5">
@@ -472,7 +488,8 @@ export default function CondominiosDashboard() {
           }`}
         >
           <DollarSign className="w-4 h-4 text-purple-400" />
-          <span>1. Finanzas y Cobros</span>
+          <span>Módulo de Administración y Finanzas (Core)</span>
+          <span className="text-[9px] bg-emerald-500/15 text-emerald-400 px-1.5 py-0.5 rounded-md font-mono font-bold ml-1">ACTIVO</span>
         </button>
 
         <button
@@ -484,7 +501,8 @@ export default function CondominiosDashboard() {
           }`}
         >
           <ShieldCheck className="w-4 h-4 text-purple-400" />
-          <span>2. Accesos y Seguridad</span>
+          <span>Módulo de Seguridad y Accesos</span>
+          <span className="text-[9px] bg-emerald-500/15 text-emerald-400 px-1.5 py-0.5 rounded-md font-mono font-bold ml-1">ACTIVO</span>
         </button>
 
         <button
@@ -496,7 +514,8 @@ export default function CondominiosDashboard() {
           }`}
         >
           <Activity className="w-4 h-4 text-purple-400" />
-          <span>3. Comunidad y Amenidades</span>
+          <span>Módulo de Operación y Comunidad</span>
+          <span className="text-[9px] bg-emerald-500/15 text-emerald-400 px-1.5 py-0.5 rounded-md font-mono font-bold ml-1">ACTIVO</span>
         </button>
 
         <button
