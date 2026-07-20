@@ -970,6 +970,9 @@ export const dbService = {
   },
 
   async getAllSystemRoles(): Promise<SystemRole[]> {
+    let roles: SystemRole[] = [];
+    let fetchedFromCloud = false;
+
     try {
       const { data, error } = await supabase
         .from('system_roles')
@@ -977,92 +980,16 @@ export const dbService = {
         .order('createdAt', { ascending: false });
 
       if (!error && data) {
-        const roles = (data as any[]).map(normalizeRoleRow);
-        
-        // Seed initial demo data only if there are no system roles configured in the database yet
-        if (roles.length === 0) {
-          const demoRoles = LocalDB.getRoles();
-          for (const demo of demoRoles) {
-            try {
-              // Ensure that if a demo role has a residenciaId, that residencia exists first in Supabase 
-              // to satisfy foreign key constraints.
-              if (demo.residenciaId) {
-                try {
-                  const { data: resExists } = await supabase
-                    .from('residencias')
-                    .select('id')
-                    .eq('id', demo.residenciaId)
-                    .maybeSingle();
-                  
-                  if (!resExists) {
-                    const defaultRes = {
-                      id: demo.residenciaId,
-                      nombre: demo.residenciaNombre || 'Fraccionamiento Residencial',
-                      administrador: 'Software AI Admin',
-                      numResidencias: 120,
-                      isActive: true,
-                      createdAt: new Date().toISOString(),
-                      updatedAt: new Date().toISOString()
-                    };
-                    await supabase.from('residencias').insert(defaultRes);
-                  }
-                } catch (resErr) {
-                  console.warn('Silent warning ensuring residencia during role seed:', resErr);
-                }
-              }
-
-              // Attempt to upsert the system role
-              const { error: upsertErr } = await supabase.from('system_roles').upsert({
-                uid: demo.uid,
-                email: demo.email,
-                name: demo.name,
-                role: demo.role,
-                username: demo.username,
-                password: demo.password,
-                isActive: demo.isActive,
-                createdAt: demo.createdAt,
-                residenciaId: demo.residenciaId,
-                residenciaNombre: demo.residenciaNombre
-              });
-
-              if (upsertErr) {
-                console.warn('Upsert system role with residenciaId failed, retrying without FK:', upsertErr);
-                // Fallback: upsert without residenciaId reference to guarantee credential availability
-                await supabase.from('system_roles').upsert({
-                  uid: demo.uid,
-                  email: demo.email,
-                  name: demo.name,
-                  role: demo.role,
-                  username: demo.username,
-                  password: demo.password,
-                  isActive: demo.isActive,
-                  createdAt: demo.createdAt,
-                  residenciaId: null,
-                  residenciaNombre: null
-                });
-              }
-            } catch (ex) {
-              console.warn('Auto-seed role to Supabase failed silently:', ex);
-            }
-          }
-          const { data: refreshed } = await supabase
-            .from('system_roles')
-            .select('*')
-            .order('createdAt', { ascending: false });
-          if (refreshed && refreshed.length > 0) {
-            return (refreshed as any[]).map(normalizeRoleRow);
-          }
-        }
-        return roles;
-      }
-      if (error) {
+        roles = (data as any[]).map(normalizeRoleRow);
+        fetchedFromCloud = true;
+      } else if (error) {
         console.warn('Supabase getAllSystemRoles returned query error. Code:', error.code, 'Msg:', error.message);
       }
     } catch (err) {
       console.warn('Supabase getAllSystemRoles critical exception, using fallback:', err);
     }
 
-    if (!IS_FIREBASE_DUMMY) {
+    if (!fetchedFromCloud && !IS_FIREBASE_DUMMY) {
       try {
         const colRef = collection(db, 'system_roles');
         const q = query(colRef, orderBy('createdAt', 'desc'));
@@ -1071,13 +998,91 @@ export const dbService = {
         snap.forEach(d => {
           results.push(normalizeRoleRow(d.data()));
         });
-        return results;
+        roles = results;
+        fetchedFromCloud = true;
       } catch (err) {
         handleFirestoreError(err, OperationType.LIST, 'system_roles');
       }
     }
 
-    return LocalDB.getRoles();
+    if (!fetchedFromCloud) {
+      roles = LocalDB.getRoles();
+    }
+
+    // Self-healing / On-Demand Sync: 
+    // Check if any default demo roles are missing from the retrieved active roles list
+    const demoRoles = LocalDB.getRoles();
+    const missingDemoRoles = demoRoles.filter(demo => !roles.some(r => r.username?.toLowerCase() === demo.username?.toLowerCase() || r.uid === demo.uid));
+
+    if (missingDemoRoles.length > 0) {
+      console.log('Seeding missing demo roles to databases:', missingDemoRoles.map(m => m.username));
+      for (const demo of missingDemoRoles) {
+        // 1. Try to sync to Supabase
+        try {
+          if (demo.residenciaId) {
+            try {
+              const { data: resExists } = await supabase
+                .from('residencias')
+                .select('id')
+                .eq('id', demo.residenciaId)
+                .maybeSingle();
+              
+              if (!resExists) {
+                const defaultRes = {
+                  id: demo.residenciaId,
+                  nombre: demo.residenciaNombre || 'Fraccionamiento Residencial',
+                  administrador: 'Software AI Admin',
+                  numResidencias: 120,
+                  isActive: true,
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString()
+                };
+                await supabase.from('residencias').insert(defaultRes);
+              }
+            } catch (resErr) {
+              console.warn('Silent warning ensuring residencia during role seed:', resErr);
+            }
+          }
+
+          await supabase.from('system_roles').upsert({
+            uid: demo.uid,
+            email: demo.email,
+            name: demo.name,
+            role: demo.role,
+            username: demo.username,
+            password: demo.password,
+            isActive: demo.isActive,
+            createdAt: demo.createdAt,
+            residenciaId: demo.residenciaId,
+            residenciaNombre: demo.residenciaNombre
+          });
+        } catch (ex) {
+          console.warn('Sync of missing role to Supabase failed:', ex);
+        }
+
+        // 2. Try to sync to Firestore
+        if (!IS_FIREBASE_DUMMY) {
+          try {
+            const docRef = doc(db, 'system_roles', demo.uid);
+            await setDoc(docRef, demo);
+          } catch (ex) {
+            console.warn('Sync of missing role to Firestore failed:', ex);
+          }
+        }
+
+        // 3. Keep local state updated
+        const localList = LocalDB.getRoles();
+        if (!localList.some(lr => lr.uid === demo.uid)) {
+          localList.push(demo);
+          LocalDB.saveRoles(localList);
+        }
+
+        // Add to active returned list so it can be logged in immediately
+        roles.push(demo);
+      }
+    }
+
+    return roles;
   },
 
   async deleteSystemRole(uid: string): Promise<void> {

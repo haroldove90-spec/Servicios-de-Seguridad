@@ -472,6 +472,8 @@ export default function App() {
         setActiveTab('metricas');
       } else if (matched.role === SystemUserRole.RESIDENTE) {
         setActiveTab('visitas');
+      } else if (matched.role === SystemUserRole.CONDOMINIOS) {
+        setActiveTab('condominios');
       } else {
         setActiveTab('scan');
       }
