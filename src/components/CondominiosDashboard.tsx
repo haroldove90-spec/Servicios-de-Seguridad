@@ -93,7 +93,7 @@ interface CondominiosDashboardProps {
 
 export default function CondominiosDashboard({ currentUser, onSignOut }: CondominiosDashboardProps) {
   // Navigation
-  const [activeSubSection, setActiveSubSection] = useState<'clientes' | 'finanzas' | 'seguridad' | 'operaciones' | 'facturacion' | 'checklist'>('clientes');
+  const [activeSubSection, setActiveSubSection] = useState<'clientes' | 'finanzas' | 'operaciones' | 'facturacion' | 'checklist'>('clientes');
 
   // --- 6. GESTIÓN DE CLIENTES STATE & HANDLERS ---
   const [clientes, setClientes] = useState<ClienteCondominio[]>([
@@ -701,18 +701,6 @@ export default function CondominiosDashboard({ currentUser, onSignOut }: Condomi
             >
               <DollarSign className="w-4.5 h-4.5 shrink-0 text-purple-400" />
               <span>Finanzas y Cobros</span>
-            </button>
-
-            <button
-              onClick={() => setActiveSubSection('seguridad')}
-              className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer select-none text-left ${
-                activeSubSection === 'seguridad'
-                  ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/25'
-                  : 'text-slate-400 hover:bg-[#1C1C1E] hover:text-slate-200'
-              }`}
-            >
-              <ShieldCheck className="w-4.5 h-4.5 shrink-0 text-purple-400" />
-              <span>Seguridad y Accesos</span>
             </button>
 
             <button
@@ -1333,8 +1321,8 @@ export default function CondominiosDashboard({ currentUser, onSignOut }: Condomi
           </div>
         )}
 
-        {/* SECTION 2: ACCESOS Y SEGURIDAD */}
-        {activeSubSection === 'seguridad' && (
+        {/* SECTION 2: ACCESOS Y SEGURIDAD (Desactivado/Independizado de CNLS) */}
+        {false && (
           <div className="space-y-6 animate-fade-in">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
@@ -2245,8 +2233,8 @@ export default function CondominiosDashboard({ currentUser, onSignOut }: Condomi
                   <div className="flex items-start gap-3 bg-slate-950/40 p-2.5 rounded-xl border border-slate-900">
                     <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0 mt-0.5 font-bold">✓</div>
                     <div>
-                      <strong className="text-slate-100">Invitaciones vía Códigos QR (WhatsApp)</strong>
-                      <p className="text-[10px] text-slate-400 mt-0.5">Generación de pases con alerta obligatoria de INE/Licencia adjunta de forma automatizada al compartir.</p>
+                      <strong className="text-slate-100">Alta y Baja de Condominios (Clientes)</strong>
+                      <p className="text-[10px] text-slate-400 mt-0.5">Módulo para registrar y dar de baja o suspender administraciones o condominios contratantes de forma ágil.</p>
                     </div>
                   </div>
 
@@ -2254,8 +2242,8 @@ export default function CondominiosDashboard({ currentUser, onSignOut }: Condomi
                   <div className="flex items-start gap-3 bg-slate-950/40 p-2.5 rounded-xl border border-slate-900">
                     <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0 mt-0.5 font-bold">✓</div>
                     <div>
-                      <strong className="text-slate-100">Validación Biométrica Facial</strong>
-                      <p className="text-[10px] text-slate-400 mt-0.5">Seguridad contra usurpación con escaneo facial para transacciones financieras o accesos premium.</p>
+                      <strong className="text-slate-100">Asignación de Planes de Suscripción</strong>
+                      <p className="text-[10px] text-slate-400 mt-0.5">Control de nivel de servicio (Básico, Premium o Enterprise) calculando automáticamente cuotas y accesos.</p>
                     </div>
                   </div>
 
@@ -2263,8 +2251,8 @@ export default function CondominiosDashboard({ currentUser, onSignOut }: Condomi
                   <div className="flex items-start gap-3 bg-slate-950/40 p-2.5 rounded-xl border border-slate-900">
                     <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0 mt-0.5 font-bold">✓</div>
                     <div>
-                      <strong className="text-slate-100">Interfón Digital Caseta ↔ Residente</strong>
-                      <p className="text-[10px] text-slate-450 mt-0.5">Simulador de VoIP integrado para comunicación privada sin exponer números de teléfono personales.</p>
+                      <strong className="text-slate-100">Configuración de Límites por Cliente</strong>
+                      <p className="text-[10px] text-slate-450 mt-0.5">Establecimiento de topes máximos de departamentos, cuentas de usuario y almacenamiento de archivos (GB) por cliente.</p>
                     </div>
                   </div>
 
@@ -2272,8 +2260,8 @@ export default function CondominiosDashboard({ currentUser, onSignOut }: Condomi
                   <div className="flex items-start gap-3 bg-slate-950/40 p-2.5 rounded-xl border border-slate-900">
                     <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0 mt-0.5 font-bold">✓</div>
                     <div>
-                      <strong className="text-slate-100">Control e Inventario de Paquetería</strong>
-                      <p className="text-[10px] text-slate-450 mt-0.5">Gestión de correspondencia en lobby con avisos inmediatos y entrega controlada con firmas.</p>
+                      <strong className="text-slate-100">Monitoreo de Consumos en Tiempo Real</strong>
+                      <p className="text-[10px] text-slate-450 mt-0.5">Dashboard interactivo con barras de progreso para supervisar el uso de recursos contratados por cada cliente.</p>
                     </div>
                   </div>
 
@@ -2635,16 +2623,6 @@ export default function CondominiosDashboard({ currentUser, onSignOut }: Condomi
         >
           <DollarSign className="w-4.5 h-4.5" />
           <span>Finanzas</span>
-        </button>
-
-        <button
-          onClick={() => setActiveSubSection('seguridad')}
-          className={`flex flex-col items-center justify-center gap-1 text-[9px] font-extrabold h-full flex-1 transition cursor-pointer ${
-            activeSubSection === 'seguridad' ? 'text-purple-400 font-black' : 'text-slate-500 hover:text-slate-350'
-          }`}
-        >
-          <ShieldCheck className="w-4.5 h-4.5" />
-          <span>Seguridad</span>
         </button>
 
         <button
