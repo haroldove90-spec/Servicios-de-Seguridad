@@ -3,7 +3,8 @@ import {
   Building, DollarSign, ShieldCheck, Settings, Users, FileText, 
   TrendingUp, CreditCard, Calendar, MessageSquare, Bell, Camera, 
   PhoneCall, Package, Check, Clipboard, QrCode, AlertTriangle, 
-  Activity, ArrowUpRight, ArrowDownRight, Upload, Globe, RefreshCw, Send, Trash2
+  Activity, ArrowUpRight, ArrowDownRight, Upload, Globe, RefreshCw, Send, Trash2,
+  LogOut, Plus, Search, Filter, Lock, Unlock
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -68,9 +69,233 @@ interface FiscalReceptor {
   status: 'verificado' | 'pendiente' | 'error';
 }
 
-export default function CondominiosDashboard() {
+export interface ClienteCondominio {
+  id: string;
+  nombre: string;
+  administrador: string;
+  correo: string;
+  telefono: string;
+  plan: 'Básico' | 'Premium' | 'Enterprise';
+  limiteDepartamentos: number;
+  limiteUsuarios: number;
+  limiteAlmacenamiento: number; // GB
+  usoDepartamentos: number;
+  usoUsuarios: number;
+  usoAlmacenamiento: number; // GB
+  status: 'activo' | 'suspendido';
+  fechaRegistro: string;
+}
+
+interface CondominiosDashboardProps {
+  currentUser?: any;
+  onSignOut?: () => void;
+}
+
+export default function CondominiosDashboard({ currentUser, onSignOut }: CondominiosDashboardProps) {
   // Navigation
-  const [activeSubSection, setActiveSubSection] = useState<'finanzas' | 'seguridad' | 'operaciones' | 'facturacion' | 'checklist'>('finanzas');
+  const [activeSubSection, setActiveSubSection] = useState<'clientes' | 'finanzas' | 'seguridad' | 'operaciones' | 'facturacion' | 'checklist'>('clientes');
+
+  // --- 6. GESTIÓN DE CLIENTES STATE & HANDLERS ---
+  const [clientes, setClientes] = useState<ClienteCondominio[]>([
+    {
+      id: 'cli-1',
+      nombre: 'Lomas de Chapultepec AC',
+      administrador: 'Ing. Alejandro Ruiz',
+      correo: 'aruiz@lomaschapultepec.mx',
+      telefono: '+52 5512345678',
+      plan: 'Premium',
+      limiteDepartamentos: 200,
+      limiteUsuarios: 25,
+      limiteAlmacenamiento: 50,
+      usoDepartamentos: 142,
+      usoUsuarios: 18,
+      usoAlmacenamiento: 28.4,
+      status: 'activo',
+      fechaRegistro: '2025-01-15'
+    },
+    {
+      id: 'cli-2',
+      nombre: 'Residencial Bosques del Portal',
+      administrador: 'Lic. Sofía Mendoza',
+      correo: 'smendoza@bosquesportal.com',
+      telefono: '+52 5598765432',
+      plan: 'Básico',
+      limiteDepartamentos: 50,
+      limiteUsuarios: 5,
+      limiteAlmacenamiento: 10,
+      usoDepartamentos: 38,
+      usoUsuarios: 3,
+      usoAlmacenamiento: 4.1,
+      status: 'activo',
+      fechaRegistro: '2025-06-01'
+    },
+    {
+      id: 'cli-3',
+      nombre: 'Torres Alameda Ejecutivo',
+      administrador: 'C.P. Eduardo Garza',
+      correo: 'egarza@torresalameda.com',
+      telefono: '+52 5588776655',
+      plan: 'Enterprise',
+      limiteDepartamentos: 1000,
+      limiteUsuarios: 100,
+      limiteAlmacenamiento: 500,
+      usoDepartamentos: 450,
+      usoUsuarios: 42,
+      usoAlmacenamiento: 182.5,
+      status: 'activo',
+      fechaRegistro: '2024-11-10'
+    },
+    {
+      id: 'cli-4',
+      nombre: 'Condominio Puerta del Sol',
+      administrador: 'Patricia Beltrán',
+      correo: 'pbeltran@puertasol.org',
+      telefono: '+52 5544332211',
+      plan: 'Premium',
+      limiteDepartamentos: 150,
+      limiteUsuarios: 20,
+      limiteAlmacenamiento: 30,
+      usoDepartamentos: 120,
+      usoUsuarios: 12,
+      usoAlmacenamiento: 15.6,
+      status: 'suspendido',
+      fechaRegistro: '2025-03-22'
+    }
+  ]);
+
+  const [searchClientQuery, setSearchClientQuery] = useState('');
+  const [filterClientPlan, setFilterClientPlan] = useState<'todos' | 'Básico' | 'Premium' | 'Enterprise'>('todos');
+  const [filterClientStatus, setFilterClientStatus] = useState<'todos' | 'activo' | 'suspendido'>('todos');
+
+  // New/Edit Client form state
+  const [isClientModalOpen, setIsClientModalOpen] = useState(false);
+  const [editingClient, setEditingClient] = useState<ClienteCondominio | null>(null);
+  
+  const [formClientNombre, setFormClientNombre] = useState('');
+  const [formClientAdmin, setFormClientAdmin] = useState('');
+  const [formClientCorreo, setFormClientCorreo] = useState('');
+  const [formClientTelefono, setFormClientTelefono] = useState('');
+  const [formClientPlan, setFormClientPlan] = useState<'Básico' | 'Premium' | 'Enterprise'>('Premium');
+  const [formClientLimDep, setFormClientLimDep] = useState('100');
+  const [formClientLimUsr, setFormClientLimUsr] = useState('15');
+  const [formClientLimAlm, setFormClientLimAlm] = useState('20');
+
+  // Temporary toast feedback
+  const [successBannerMsg, setSuccessBannerMsg] = useState<string | null>(null);
+  const showSuccessBanner = (msg: string) => {
+    setSuccessBannerMsg(msg);
+    setTimeout(() => {
+      setSuccessBannerMsg(null);
+    }, 4500);
+  };
+
+  // Open modal for creating new client
+  const handleOpenCreateClient = () => {
+    setEditingClient(null);
+    setFormClientNombre('');
+    setFormClientAdmin('');
+    setFormClientCorreo('');
+    setFormClientTelefono('');
+    setFormClientPlan('Premium');
+    setFormClientLimDep('150');
+    setFormClientLimUsr('20');
+    setFormClientLimAlm('30');
+    setIsClientModalOpen(true);
+  };
+
+  // Open modal for editing existing client
+  const handleOpenEditClient = (cli: ClienteCondominio) => {
+    setEditingClient(cli);
+    setFormClientNombre(cli.nombre);
+    setFormClientAdmin(cli.administrador);
+    setFormClientCorreo(cli.correo);
+    setFormClientTelefono(cli.telefono);
+    setFormClientPlan(cli.plan);
+    setFormClientLimDep(cli.limiteDepartamentos.toString());
+    setFormClientLimUsr(cli.limiteUsuarios.toString());
+    setFormClientLimAlm(cli.limiteAlmacenamiento.toString());
+    setIsClientModalOpen(true);
+  };
+
+  // Save/Submit client form
+  const handleSaveClient = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formClientNombre || !formClientAdmin || !formClientCorreo) {
+      alert('Por favor complete los campos obligatorios.');
+      return;
+    }
+
+    const parsedLimDep = parseInt(formClientLimDep) || 50;
+    const parsedLimUsr = parseInt(formClientLimUsr) || 5;
+    const parsedLimAlm = parseInt(formClientLimAlm) || 10;
+
+    if (editingClient) {
+      // Edit mode
+      setClientes(prev => prev.map(cli => {
+        if (cli.id === editingClient.id) {
+          return {
+            ...cli,
+            nombre: formClientNombre,
+            administrador: formClientAdmin,
+            correo: formClientCorreo,
+            telefono: formClientTelefono,
+            plan: formClientPlan,
+            limiteDepartamentos: parsedLimDep,
+            limiteUsuarios: parsedLimUsr,
+            limiteAlmacenamiento: parsedLimAlm
+          };
+        }
+        return cli;
+      }));
+      showSuccessBanner('✓ Datos del cliente actualizados exitosamente.');
+    } else {
+      // Create mode
+      const newClient: ClienteCondominio = {
+        id: 'cli-' + Date.now(),
+        nombre: formClientNombre,
+        administrador: formClientAdmin,
+        correo: formClientCorreo,
+        telefono: formClientTelefono || '+52 5500000000',
+        plan: formClientPlan,
+        limiteDepartamentos: parsedLimDep,
+        limiteUsuarios: parsedLimUsr,
+        limiteAlmacenamiento: parsedLimAlm,
+        usoDepartamentos: 0,
+        usoUsuarios: 1, // current creator admin
+        usoAlmacenamiento: 0.1,
+        status: 'activo',
+        fechaRegistro: new Date().toISOString().split('T')[0]
+      };
+      setClientes(prev => [newClient, ...prev]);
+      showSuccessBanner('✓ Cliente registrado exitosamente.');
+      confetti({ particleCount: 80, spread: 60 });
+    }
+
+    setIsClientModalOpen(false);
+  };
+
+  // Toggle suspension status
+  const handleToggleSuspendClient = (id: string) => {
+    setClientes(prev => prev.map(cli => {
+      if (cli.id === id) {
+        const newStatus = cli.status === 'activo' ? 'suspendido' : 'activo';
+        showSuccessBanner(`✓ Cliente ${cli.nombre} ha sido ${newStatus === 'suspendido' ? 'SUSPENDIDO' : 'REACTIVADO'}.`);
+        return {
+          ...cli,
+          status: newStatus
+        };
+      }
+      return cli;
+    }));
+  };
+
+  // Delete (baja) client
+  const handleBajaClient = (id: string, nombre: string) => {
+    if (window.confirm(`¿Está seguro que desea dar de BAJA (eliminar) permanentemente al condominio "${nombre}"? Esta acción no se puede deshacer.`)) {
+      setClientes(prev => prev.filter(cli => cli.id !== id));
+      showSuccessBanner(`✓ El cliente "${nombre}" ha sido dado de baja permanentemente del sistema.`);
+    }
+  };
 
   // --- 1. FINANZAS STATE ---
   const [payments, setPayments] = useState<Payment[]>([
@@ -433,118 +658,482 @@ export default function CondominiosDashboard() {
   const delinquencyRate = (totalDelinquency / totalInvoiced) * 100;
 
   return (
-    <div className="bg-[#141417] text-slate-100 rounded-3xl border border-[#232326] overflow-hidden shadow-2xl font-sans">
+    <div className="min-h-screen bg-[#0A0A0A] text-slate-100 flex flex-col md:flex-row w-full font-sans pb-16 md:pb-0">
       
-      {/* HEADER BANNER */}
-      <div className="p-6 bg-gradient-to-r from-purple-950/45 via-[#1a132c]/50 to-slate-950/60 border-b border-[#2d2d32] flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 text-[10px] uppercase font-bold text-purple-400 tracking-wider font-mono">
-            <Building className="w-4 h-4 text-purple-400 animate-pulse" />
-            <span>Consola Administrativa Integral</span>
-          </div>
-          <h2 className="text-xl font-black text-white tracking-tight mt-1">Administración de Condominios 🏢</h2>
-          <p className="text-xs text-slate-400 mt-0.5">Control de finanzas, seguridad biométrica, operaciones, avisos comunales y facturación CFDI 4.0.</p>
-          
-          {/* HIGH-VISIBILITY MODULE STATUS BADGES */}
-          <div className="flex flex-wrap gap-2 mt-3 font-sans">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-450 animate-pulse"></span>
-              Módulo de Administración y Finanzas (Core): <span className="uppercase font-black text-[9px] text-white bg-emerald-600 px-1 py-0.5 rounded ml-1">ACTIVO ✓</span>
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-450 animate-pulse"></span>
-              Módulo de Seguridad y Accesos: <span className="uppercase font-black text-[9px] text-white bg-emerald-600 px-1 py-0.5 rounded ml-1">ACTIVO ✓</span>
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-450 animate-pulse"></span>
-              Módulo de Operación y Comunidad: <span className="uppercase font-black text-[9px] text-white bg-emerald-600 px-1 py-0.5 rounded ml-1">ACTIVO ✓</span>
-            </span>
-          </div>
-        </div>
-
-        {/* TOP METRICS GRAPHIC MINI-BAR */}
-        <div className="flex items-center gap-3 bg-[#1E1E22] px-4 py-2 border border-[#2d2d32] rounded-2xl shrink-0 self-start md:self-center">
-          <div className="text-left">
-            <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest font-mono">Morosidad General</span>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xs font-black text-rose-400">{delinquencyRate.toFixed(1)}%</span>
-              <span className={`w-1.5 h-1.5 rounded-full ${delinquencyRate > 15 ? 'bg-rose-500 animate-ping' : 'bg-emerald-500'}`}></span>
+      {/* 1. SIDEBAR NAVIGATION (Desktop Fullscreen) */}
+      <aside className="hidden md:flex flex-col w-64 bg-[#141417] border-r border-[#232326] h-screen sticky top-0 p-5 shrink-0 justify-between select-none">
+        <div className="space-y-6">
+          {/* Brand Logo Header */}
+          <div className="flex items-center gap-3 border-b border-[#232326] pb-5">
+            <img 
+              src="https://cossma.com.mx/cnls.png" 
+              alt="CNLS Logo" 
+              className="h-10 w-auto object-contain"
+              referrerPolicy="no-referrer"
+            />
+            <div className="text-left">
+              <h1 className="text-sm font-black text-white tracking-[0.2em] font-sans">CNLS</h1>
+              <p className="text-[9px] text-purple-400 font-extrabold uppercase tracking-widest mt-0.5">Condominios</p>
             </div>
           </div>
-          <div className="w-16 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-            <div className="bg-gradient-to-r from-emerald-500 to-rose-500 h-full" style={{ width: `${delinquencyRate}%` }}></div>
-          </div>
+
+          {/* Sidebar Menu Buttons */}
+          <nav className="space-y-1.5">
+            <button
+              onClick={() => setActiveSubSection('clientes')}
+              className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer select-none text-left ${
+                activeSubSection === 'clientes'
+                  ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/25'
+                  : 'text-slate-400 hover:bg-[#1C1C1E] hover:text-slate-200'
+              }`}
+            >
+              <Users className="w-4.5 h-4.5 shrink-0 text-purple-400" />
+              <span>Gestión de Clientes</span>
+            </button>
+
+            <button
+              onClick={() => setActiveSubSection('finanzas')}
+              className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer select-none text-left ${
+                activeSubSection === 'finanzas'
+                  ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/25'
+                  : 'text-slate-400 hover:bg-[#1C1C1E] hover:text-slate-200'
+              }`}
+            >
+              <DollarSign className="w-4.5 h-4.5 shrink-0 text-purple-400" />
+              <span>Finanzas y Cobros</span>
+            </button>
+
+            <button
+              onClick={() => setActiveSubSection('seguridad')}
+              className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer select-none text-left ${
+                activeSubSection === 'seguridad'
+                  ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/25'
+                  : 'text-slate-400 hover:bg-[#1C1C1E] hover:text-slate-200'
+              }`}
+            >
+              <ShieldCheck className="w-4.5 h-4.5 shrink-0 text-purple-400" />
+              <span>Seguridad y Accesos</span>
+            </button>
+
+            <button
+              onClick={() => setActiveSubSection('operaciones')}
+              className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer select-none text-left ${
+                activeSubSection === 'operaciones'
+                  ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/25'
+                  : 'text-slate-400 hover:bg-[#1C1C1E] hover:text-slate-200'
+              }`}
+            >
+              <Activity className="w-4.5 h-4.5 shrink-0 text-purple-400" />
+              <span>Operación y Comunidad</span>
+            </button>
+
+            <button
+              onClick={() => setActiveSubSection('facturacion')}
+              className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer select-none text-left ${
+                activeSubSection === 'facturacion'
+                  ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/25'
+                  : 'text-slate-400 hover:bg-[#1C1C1E] hover:text-slate-200'
+              }`}
+            >
+              <FileText className="w-4.5 h-4.5 shrink-0 text-purple-400" />
+              <span>Facturación CFDI 4.0</span>
+            </button>
+
+            <button
+              onClick={() => setActiveSubSection('checklist')}
+              className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer border border-dashed border-purple-500/20 select-none text-left ${
+                activeSubSection === 'checklist'
+                  ? 'bg-purple-600/20 border-purple-500 text-purple-300 shadow-md'
+                  : 'text-purple-400/80 hover:bg-purple-950/15 hover:text-purple-300'
+              }`}
+            >
+              <Clipboard className="w-4.5 h-4.5 shrink-0" />
+              <span>Checklist de Activación</span>
+            </button>
+          </nav>
         </div>
-      </div>
 
-      {/* SUB-TABS NAVIGATION */}
-      <div className="flex overflow-x-auto border-b border-[#232326] bg-[#141417] scrollbar-thin scrollbar-thumb-slate-800">
-        <button
-          onClick={() => setActiveSubSection('finanzas')}
-          className={`flex items-center gap-2 px-6 py-4 text-xs font-extrabold tracking-wide uppercase border-b-2 transition shrink-0 ${
-            activeSubSection === 'finanzas' 
-              ? 'border-purple-500 text-purple-400 bg-purple-500/5' 
-              : 'border-transparent text-slate-450 hover:text-slate-200'
-          }`}
-        >
-          <DollarSign className="w-4 h-4 text-purple-400" />
-          <span>Módulo de Administración y Finanzas (Core)</span>
-          <span className="text-[9px] bg-emerald-500/15 text-emerald-400 px-1.5 py-0.5 rounded-md font-mono font-bold ml-1">ACTIVO</span>
-        </button>
+        {/* User Block at bottom */}
+        <div className="border-t border-[#232326] pt-4 space-y-3 font-sans">
+          <div className="flex items-center gap-3 px-2">
+            <div className="w-8 h-8 rounded-full bg-purple-500/10 border border-purple-500/25 text-purple-400 font-extrabold text-xs flex items-center justify-center shrink-0">
+              {currentUser?.name ? currentUser.name.slice(0, 2).toUpperCase() : 'CO'}
+            </div>
+            <div className="text-left overflow-hidden">
+              <p className="text-xs font-bold text-slate-200 truncate">{currentUser?.name || 'Harold Anguiano'}</p>
+              <p className="text-[10px] text-purple-400 font-mono truncate">@{currentUser?.username || 'harold.anguiano'}</p>
+            </div>
+          </div>
+          {onSignOut && (
+            <button
+              onClick={onSignOut}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-rose-400 hover:text-rose-200 hover:bg-rose-950/20 border border-rose-500/10 rounded-xl transition cursor-pointer select-none"
+            >
+              <LogOut className="w-4 h-4 shrink-0 text-rose-500" />
+              <span>Cerrar Sesión</span>
+            </button>
+          )}
+        </div>
+      </aside>
 
-        <button
-          onClick={() => setActiveSubSection('seguridad')}
-          className={`flex items-center gap-2 px-6 py-4 text-xs font-extrabold tracking-wide uppercase border-b-2 transition shrink-0 ${
-            activeSubSection === 'seguridad' 
-              ? 'border-purple-500 text-purple-400 bg-purple-500/5' 
-              : 'border-transparent text-slate-450 hover:text-slate-200'
-          }`}
-        >
-          <ShieldCheck className="w-4 h-4 text-purple-400" />
-          <span>Módulo de Seguridad y Accesos</span>
-          <span className="text-[9px] bg-emerald-500/15 text-emerald-400 px-1.5 py-0.5 rounded-md font-mono font-bold ml-1">ACTIVO</span>
-        </button>
+      {/* 2. MAIN CONTENT VIEW CONTAINER */}
+      <div className="flex-1 flex flex-col min-h-screen overflow-x-hidden bg-[#0A0A0A]">
+        
+        {/* Mobile top-bar header */}
+        <header className="md:hidden flex items-center justify-between px-6 py-4 bg-[#141417] border-b border-[#232326] select-none shrink-0">
+          <div className="flex items-center gap-3">
+            <img 
+              src="https://cossma.com.mx/cnls.png" 
+              alt="CNLS Logo" 
+              className="h-8 w-auto object-contain"
+              referrerPolicy="no-referrer"
+            />
+            <div className="text-left">
+              <h1 className="text-xs font-black text-white tracking-widest font-sans">CNLS</h1>
+              <p className="text-[8px] text-purple-400 font-extrabold uppercase tracking-widest">Condominios</p>
+            </div>
+          </div>
+          {onSignOut && (
+            <button
+              onClick={onSignOut}
+              className="p-2 bg-[#1E1E22] hover:bg-rose-950/20 text-rose-400 hover:text-rose-200 border border-rose-500/10 rounded-xl transition cursor-pointer"
+              title="Cerrar Sesión"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          )}
+        </header>
 
-        <button
-          onClick={() => setActiveSubSection('operaciones')}
-          className={`flex items-center gap-2 px-6 py-4 text-xs font-extrabold tracking-wide uppercase border-b-2 transition shrink-0 ${
-            activeSubSection === 'operaciones' 
-              ? 'border-purple-500 text-purple-400 bg-purple-500/5' 
-              : 'border-transparent text-slate-450 hover:text-slate-200'
-          }`}
-        >
-          <Activity className="w-4 h-4 text-purple-400" />
-          <span>Módulo de Operación y Comunidad</span>
-          <span className="text-[9px] bg-emerald-500/15 text-emerald-400 px-1.5 py-0.5 rounded-md font-mono font-bold ml-1">ACTIVO</span>
-        </button>
+        {/* Workspace core wrapper */}
+        <div className="p-4 sm:p-6 md:p-8 space-y-6 max-w-7xl w-full mx-auto pb-24 md:pb-8 flex-1">
+          
+          {/* Success toast notification */}
+          {successBannerMsg && (
+            <div className="fixed bottom-20 md:bottom-6 right-6 z-[99999] bg-purple-600 text-white font-extrabold text-xs px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-2.5 border border-purple-500 animate-bounce">
+              <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>
+              <span>{successBannerMsg}</span>
+            </div>
+          )}
 
-        <button
-          onClick={() => setActiveSubSection('facturacion')}
-          className={`flex items-center gap-2 px-6 py-4 text-xs font-extrabold tracking-wide uppercase border-b-2 transition shrink-0 ${
-            activeSubSection === 'facturacion' 
-              ? 'border-purple-500 text-purple-400 bg-purple-500/5' 
-              : 'border-transparent text-slate-450 hover:text-slate-200'
-          }`}
-        >
-          <FileText className="w-4 h-4 text-purple-400" />
-          <span>4. Facturación CFDI 4.0</span>
-        </button>
+          {/* HEADER BANNER */}
+          <div className="p-6 bg-[#141417] text-slate-100 rounded-3xl border border-[#232326] overflow-hidden bg-gradient-to-r from-purple-950/45 via-[#1a132c]/50 to-slate-950/60 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 text-[10px] uppercase font-bold text-purple-400 tracking-wider font-mono">
+                <Building className="w-4 h-4 text-purple-400 animate-pulse" />
+                <span>Consola Administrativa Integral</span>
+              </div>
+              <h2 className="text-xl font-black text-white tracking-tight mt-1">Administración de Condominios 🏢</h2>
+              <p className="text-xs text-slate-400 mt-0.5">Control de finanzas, seguridad biométrica, operaciones, avisos comunales y facturación CFDI 4.0.</p>
+              
+              {/* HIGH-VISIBILITY MODULE STATUS BADGES */}
+              <div className="flex flex-wrap gap-2 mt-3 font-sans">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-450 animate-pulse"></span>
+                  Módulo de Administración y Finanzas (Core): <span className="uppercase font-black text-[9px] text-white bg-emerald-600 px-1 py-0.5 rounded ml-1">ACTIVO ✓</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-450 animate-pulse"></span>
+                  Módulo de Seguridad y Accesos: <span className="uppercase font-black text-[9px] text-white bg-emerald-600 px-1 py-0.5 rounded ml-1">ACTIVO ✓</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-450 animate-pulse"></span>
+                  Módulo de Operación y Comunidad: <span className="uppercase font-black text-[9px] text-white bg-emerald-600 px-1 py-0.5 rounded ml-1">ACTIVO ✓</span>
+                </span>
+              </div>
+            </div>
 
-        <button
-          onClick={() => setActiveSubSection('checklist')}
-          className={`flex items-center gap-2 px-6 py-4 text-xs font-extrabold tracking-wide uppercase border-b-2 transition shrink-0 bg-purple-950/15 border-dashed ${
-            activeSubSection === 'checklist' 
-              ? 'border-purple-500 text-purple-400 bg-purple-500/30' 
-              : 'border-transparent text-purple-300 hover:text-purple-100'
-          }`}
-        >
-          <Settings className="w-4 h-4 text-purple-400" />
-          <span>📋 Checklist de Activación</span>
-        </button>
-      </div>
+            {/* TOP METRICS GRAPHIC MINI-BAR */}
+            <div className="flex items-center gap-3 bg-[#1E1E22] px-4 py-2 border border-[#2d2d32] rounded-2xl shrink-0 self-start md:self-center">
+              <div className="text-left">
+                <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest font-mono">Morosidad General</span>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-xs font-black text-rose-400">{delinquencyRate.toFixed(1)}%</span>
+                  <span className={`w-1.5 h-1.5 rounded-full ${delinquencyRate > 15 ? 'bg-rose-500 animate-ping' : 'bg-emerald-500'}`}></span>
+                </div>
+              </div>
+              <div className="w-16 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                <div className="bg-gradient-to-r from-emerald-500 to-rose-500 h-full" style={{ width: `${delinquencyRate}%` }}></div>
+              </div>
+            </div>
+          </div>
 
-      {/* CORE WRAPPER */}
-      <div className="p-6 min-h-[500px]">
+          {/* ACTIVE VIEWS PORT */}
+          
+          {/* SECTION 0: GESTIÓN DE CLIENTES */}
+          {activeSubSection === 'clientes' && (
+            <div className="space-y-6 animate-fade-in">
+              {/* Header metrics */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-[9px] font-extrabold text-slate-500 uppercase tracking-widest font-mono">Clientes Totales</p>
+                    <p className="text-xl font-black text-white mt-1">{clientes.length}</p>
+                    <span className="text-[10px] text-slate-450">Condominios / Inmobiliarias</span>
+                  </div>
+                  <div className="w-10 h-10 bg-purple-500/10 border border-purple-500/20 text-purple-400 rounded-xl flex items-center justify-center">
+                    <Building className="w-5 h-5" />
+                  </div>
+                </div>
+
+                <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-[9px] font-extrabold text-emerald-400 uppercase tracking-widest font-mono">Clientes Activos</p>
+                    <p className="text-xl font-black text-emerald-400 mt-1">
+                      {clientes.filter(c => c.status === 'activo').length}
+                    </p>
+                    <span className="text-[10px] text-slate-450 font-sans">Suscripciones vigentes</span>
+                  </div>
+                  <div className="w-10 h-10 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl flex items-center justify-center">
+                    <Check className="w-5 h-5" />
+                  </div>
+                </div>
+
+                <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-[9px] font-extrabold text-amber-500 uppercase tracking-widest font-mono">Suspendidos</p>
+                    <p className="text-xl font-black text-amber-400 mt-1">
+                      {clientes.filter(c => c.status === 'suspendido').length}
+                    </p>
+                    <span className="text-[10px] text-slate-450">Servicio pausado</span>
+                  </div>
+                  <div className="w-10 h-10 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-xl flex items-center justify-center">
+                    <AlertTriangle className="w-5 h-5" />
+                  </div>
+                </div>
+
+                <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-[9px] font-extrabold text-purple-400 uppercase tracking-widest font-mono">Recaudación Mensual (MRR)</p>
+                    <p className="text-xl font-black text-white mt-1">
+                      ${clientes.reduce((acc, c) => {
+                        if (c.status === 'suspendido') return acc;
+                        const val = c.plan === 'Básico' ? 1500 : c.plan === 'Premium' ? 3500 : 8000;
+                        return acc + val;
+                      }, 0).toLocaleString('es-MX')}.00
+                    </p>
+                    <span className="text-[10px] text-purple-450">Pesos Mexicanos</span>
+                  </div>
+                  <div className="w-10 h-10 bg-purple-500/10 border border-purple-500/20 text-purple-400 rounded-xl flex items-center justify-center">
+                    <DollarSign className="w-5 h-5" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions & Filters Row */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#141417] border border-[#232326] p-4 rounded-2xl">
+                {/* Search */}
+                <div className="relative flex-1 max-w-md">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                  <input
+                    type="text"
+                    placeholder="Buscar condominio o administrador..."
+                    value={searchClientQuery}
+                    onChange={(e) => setSearchClientQuery(e.target.value)}
+                    className="w-full bg-[#1E1E22] border border-[#2d2d32] rounded-xl pl-10 pr-4 py-2 text-xs font-medium text-slate-200 focus:outline-none focus:border-purple-500 transition-all placeholder:text-slate-500"
+                  />
+                </div>
+
+                {/* Filters & Add Button */}
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <Filter className="w-3.5 h-3.5 text-slate-500" />
+                    <select
+                      value={filterClientPlan}
+                      onChange={(e) => setFilterClientPlan(e.target.value as any)}
+                      className="bg-[#1E1E22] border border-[#2d2d32] rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-300 focus:outline-none focus:border-purple-500"
+                    >
+                      <option value="todos">Todos los Planes</option>
+                      <option value="Básico">Plan Básico</option>
+                      <option value="Premium">Plan Premium</option>
+                      <option value="Enterprise">Plan Enterprise</option>
+                    </select>
+
+                    <select
+                      value={filterClientStatus}
+                      onChange={(e) => setFilterClientStatus(e.target.value as any)}
+                      className="bg-[#1E1E22] border border-[#2d2d32] rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-300 focus:outline-none focus:border-purple-500"
+                    >
+                      <option value="todos">Todos los Status</option>
+                      <option value="activo">Activos</option>
+                      <option value="suspendido">Suspendidos</option>
+                    </select>
+                  </div>
+
+                  <button
+                    onClick={handleOpenCreateClient}
+                    className="bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold px-4 py-2 rounded-xl transition flex items-center gap-2 cursor-pointer shadow-lg shadow-purple-600/15"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Registrar Condominio</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Clients List / Cards Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {clientes
+                  .filter(c => {
+                    const matchQuery = c.nombre.toLowerCase().includes(searchClientQuery.toLowerCase()) || 
+                                       c.administrador.toLowerCase().includes(searchClientQuery.toLowerCase());
+                    const matchPlan = filterClientPlan === 'todos' || c.plan === filterClientPlan;
+                    const matchStatus = filterClientStatus === 'todos' || c.status === filterClientStatus;
+                    return matchQuery && matchPlan && matchStatus;
+                  })
+                  .map(c => {
+                    const pctDep = Math.round((c.usoDepartamentos / c.limiteDepartamentos) * 100);
+                    const pctUsr = Math.round((c.usoUsuarios / c.limiteUsuarios) * 100);
+                    const pctAlm = Math.round((c.usoAlmacenamiento / c.limiteAlmacenamiento) * 100);
+
+                    return (
+                      <div 
+                        key={c.id} 
+                        className={`bg-[#1E1E22] border rounded-2xl overflow-hidden transition-all duration-300 flex flex-col justify-between ${
+                          c.status === 'suspendido' 
+                            ? 'border-amber-500/20 opacity-75 grayscale-[10%]' 
+                            : 'border-[#2d2d32] hover:border-purple-500/30'
+                        }`}
+                      >
+                        {/* Card Header Banner */}
+                        <div className="p-5 border-b border-[#2d2d32] bg-gradient-to-r from-[#1F1F23] to-[#1E1E22] flex items-start justify-between gap-3">
+                          <div className="text-left">
+                            <h3 className="text-sm font-black text-white">{c.nombre}</h3>
+                            <span className="text-[10px] text-slate-500 font-mono">ID: {c.id} • Alta: {c.fechaRegistro}</span>
+                          </div>
+                          <div className="flex flex-col items-end gap-1.5 shrink-0">
+                            {/* Plan Badge */}
+                            <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                              c.plan === 'Básico' 
+                                ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' 
+                                : c.plan === 'Premium' 
+                                  ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' 
+                                  : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                            }`}>
+                              Plan {c.plan}
+                            </span>
+
+                            {/* Status Badge */}
+                            <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wide ${
+                              c.status === 'activo' 
+                                ? 'bg-emerald-500/10 text-emerald-400' 
+                                : 'bg-amber-500/10 text-amber-400 animate-pulse'
+                            }`}>
+                              {c.status === 'activo' ? '● Activo' : '⚠ Suspendido'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Card Info Details */}
+                        <div className="p-5 space-y-4 flex-1">
+                          <div className="grid grid-cols-2 gap-4 text-xs">
+                            <div className="text-left">
+                              <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider font-mono">Administrador</span>
+                              <p className="font-semibold text-slate-200 mt-0.5">{c.administrador}</p>
+                            </div>
+                            <div className="text-left">
+                              <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider font-mono">Contacto</span>
+                              <p className="font-semibold text-slate-300 mt-0.5 truncate" title={c.correo}>{c.correo}</p>
+                              <p className="text-[10px] text-slate-400 mt-0.5">{c.telefono}</p>
+                            </div>
+                          </div>
+
+                          {/* Resource Limits with Progress Bars */}
+                          <div className="space-y-3 pt-3 border-t border-[#2d2d32]/50 font-sans text-xs">
+                            <div className="space-y-1">
+                              <div className="flex justify-between items-center text-[11px]">
+                                <span className="text-slate-400 font-bold flex items-center gap-1">🏢 Departamentos</span>
+                                <span className="text-slate-300 font-mono font-semibold">
+                                  {c.usoDepartamentos} / <strong className="text-white">{c.limiteDepartamentos}</strong> ({pctDep}%)
+                                </span>
+                              </div>
+                              <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                                <div 
+                                  className={`h-full rounded-full transition-all duration-500 ${
+                                    pctDep > 90 ? 'bg-rose-500' : pctDep > 75 ? 'bg-amber-500' : 'bg-purple-500'
+                                  }`}
+                                  style={{ width: `${Math.min(pctDep, 100)}%` }}
+                                ></div>
+                              </div>
+                            </div>
+
+                            <div className="space-y-1">
+                              <div className="flex justify-between items-center text-[11px]">
+                                <span className="text-slate-400 font-bold flex items-center gap-1">👥 Usuarios del Sistema</span>
+                                <span className="text-slate-300 font-mono font-semibold">
+                                  {c.usoUsuarios} / <strong className="text-white">{c.limiteUsuarios}</strong> ({pctUsr}%)
+                                </span>
+                              </div>
+                              <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                                <div 
+                                  className={`h-full rounded-full transition-all duration-500 ${
+                                    pctUsr > 90 ? 'bg-rose-500' : pctUsr > 75 ? 'bg-amber-500' : 'bg-purple-500'
+                                  }`}
+                                  style={{ width: `${Math.min(pctUsr, 100)}%` }}
+                                ></div>
+                              </div>
+                            </div>
+
+                            <div className="space-y-1">
+                              <div className="flex justify-between items-center text-[11px]">
+                                <span className="text-slate-400 font-bold flex items-center gap-1">💾 Almacenamiento Cloud</span>
+                                <span className="text-slate-300 font-mono font-semibold">
+                                  {c.usoAlmacenamiento.toFixed(1)} GB / <strong className="text-white">{c.limiteAlmacenamiento} GB</strong> ({pctAlm}%)
+                                </span>
+                              </div>
+                              <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                                <div 
+                                  className={`h-full rounded-full transition-all duration-500 ${
+                                    pctAlm > 90 ? 'bg-rose-500' : pctAlm > 75 ? 'bg-amber-500' : 'bg-purple-500'
+                                  }`}
+                                  style={{ width: `${Math.min(pctAlm, 100)}%` }}
+                                ></div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Card Actions Footer */}
+                        <div className="p-4 bg-[#17171A] border-t border-[#2d2d32] flex gap-2">
+                          <button
+                            onClick={() => handleOpenEditClient(c)}
+                            className="flex-1 py-2 bg-[#25252B] hover:bg-[#2C2C34] text-slate-200 hover:text-white font-bold text-xs rounded-xl border border-slate-700/35 transition cursor-pointer flex items-center justify-center gap-1.5"
+                          >
+                            <Settings className="w-3.5 h-3.5 text-slate-400" />
+                            <span>Configurar Límites</span>
+                          </button>
+
+                          <button
+                            onClick={() => handleToggleSuspendClient(c.id)}
+                            className={`px-3 py-2 text-xs font-black rounded-xl transition cursor-pointer flex items-center justify-center border ${
+                              c.status === 'activo'
+                                ? 'bg-amber-500/10 border-amber-500/20 text-amber-500 hover:bg-amber-500/20'
+                                : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20'
+                            }`}
+                            title={c.status === 'activo' ? 'Suspender suscripción (Baja temporal)' : 'Reactivar suscripción'}
+                          >
+                            {c.status === 'activo' ? <Lock className="w-3.5 h-3.5 text-amber-500" /> : <Unlock className="w-3.5 h-3.5 text-emerald-400" />}
+                            <span className="ml-1 md:inline hidden">{c.status === 'activo' ? 'Suspender' : 'Activar'}</span>
+                          </button>
+
+                          <button
+                            onClick={() => handleBajaClient(c.id, c.nombre)}
+                            className="px-3 py-2 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25 text-rose-500 hover:text-rose-400 font-bold text-xs rounded-xl transition cursor-pointer flex items-center justify-center"
+                            title="Dar de baja permanente (Eliminar)"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                {clientes.length === 0 && (
+                  <div className="col-span-2 py-12 text-center bg-[#1E1E22] rounded-2xl border border-dashed border-[#2d2d32] text-slate-500 font-sans text-xs">
+                    No se encontraron condominios o administraciones contratantes.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
         {/* SECTION 1: FINANZAS Y COBROS */}
         {activeSubSection === 'finanzas' && (
@@ -2020,6 +2609,237 @@ export default function CondominiosDashboard() {
                 Descargar XML / PDF 📂
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      </div> {/* Close 2. MAIN CONTENT VIEW CONTAINER */}
+
+      {/* 3. BOTTOM NAVIGATION BAR (Mobile/Tablet) */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#141417] border-t border-[#232326] flex items-center justify-around z-50 px-1 select-none shadow-xl">
+        <button
+          onClick={() => setActiveSubSection('clientes')}
+          className={`flex flex-col items-center justify-center gap-1 text-[9px] font-extrabold h-full flex-1 transition cursor-pointer ${
+            activeSubSection === 'clientes' ? 'text-purple-400 font-black' : 'text-slate-500 hover:text-slate-350'
+          }`}
+        >
+          <Users className="w-4.5 h-4.5" />
+          <span>Clientes</span>
+        </button>
+
+        <button
+          onClick={() => setActiveSubSection('finanzas')}
+          className={`flex flex-col items-center justify-center gap-1 text-[9px] font-extrabold h-full flex-1 transition cursor-pointer ${
+            activeSubSection === 'finanzas' ? 'text-purple-400 font-black' : 'text-slate-500 hover:text-slate-350'
+          }`}
+        >
+          <DollarSign className="w-4.5 h-4.5" />
+          <span>Finanzas</span>
+        </button>
+
+        <button
+          onClick={() => setActiveSubSection('seguridad')}
+          className={`flex flex-col items-center justify-center gap-1 text-[9px] font-extrabold h-full flex-1 transition cursor-pointer ${
+            activeSubSection === 'seguridad' ? 'text-purple-400 font-black' : 'text-slate-500 hover:text-slate-350'
+          }`}
+        >
+          <ShieldCheck className="w-4.5 h-4.5" />
+          <span>Seguridad</span>
+        </button>
+
+        <button
+          onClick={() => setActiveSubSection('operaciones')}
+          className={`flex flex-col items-center justify-center gap-1 text-[9px] font-extrabold h-full flex-1 transition cursor-pointer ${
+            activeSubSection === 'operaciones' ? 'text-purple-400 font-black' : 'text-slate-500 hover:text-slate-350'
+          }`}
+        >
+          <Activity className="w-4.5 h-4.5" />
+          <span>Comunidad</span>
+        </button>
+
+        <button
+          onClick={() => setActiveSubSection('facturacion')}
+          className={`flex flex-col items-center justify-center gap-1 text-[9px] font-extrabold h-full flex-1 transition cursor-pointer ${
+            activeSubSection === 'facturacion' ? 'text-purple-400 font-black' : 'text-slate-500 hover:text-slate-350'
+          }`}
+        >
+          <FileText className="w-4.5 h-4.5" />
+          <span>CFDI 4.0</span>
+        </button>
+
+        <button
+          onClick={() => setActiveSubSection('checklist')}
+          className={`flex flex-col items-center justify-center gap-1 text-[9px] font-extrabold h-full flex-1 transition cursor-pointer ${
+            activeSubSection === 'checklist' ? 'text-purple-400 font-black' : 'text-slate-500 hover:text-slate-350'
+          }`}
+        >
+          <Clipboard className="w-4.5 h-4.5" />
+          <span>Checklist</span>
+        </button>
+      </nav>
+
+      {/* 4. MODAL REGISTRO / EDICIÓN DE CLIENTES */}
+      {isClientModalOpen && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-[99999] flex items-center justify-center p-4 overflow-y-auto animate-fade-in font-sans">
+          <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden my-8">
+            <div className="p-6 bg-gradient-to-r from-purple-950/40 to-slate-900 border-b border-[#2d2d32] flex items-center justify-between">
+              <div className="text-left">
+                <h3 className="text-md font-black text-white">
+                  {editingClient ? 'Configurar Límites y Suscripción' : 'Registrar Nuevo Condominio / Cliente'}
+                </h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">Define los accesos y capacidades operativas asignadas.</p>
+              </div>
+              <button 
+                onClick={() => setIsClientModalOpen(false)}
+                className="text-slate-400 hover:text-white transition text-sm font-bold bg-slate-800 hover:bg-slate-700 w-7 h-7 rounded-full flex items-center justify-center cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveClient} className="p-6 space-y-4">
+              <div className="space-y-1 text-left">
+                <label className="text-[10px] uppercase font-black text-slate-400 tracking-wider">Nombre del Condominio / Inmobiliaria *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej. Residencial Bosques del Sol"
+                  value={formClientNombre}
+                  onChange={(e) => setFormClientNombre(e.target.value)}
+                  className="w-full bg-[#141417] border border-[#2d2d32] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-purple-500 transition-all placeholder:text-slate-600"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1 text-left">
+                  <label className="text-[10px] uppercase font-black text-slate-400 tracking-wider">Administrador de Cuenta *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ej. Lic. Harold Anguiano"
+                    value={formClientAdmin}
+                    onChange={(e) => setFormClientAdmin(e.target.value)}
+                    className="w-full bg-[#141417] border border-[#2d2d32] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-purple-500 transition-all placeholder:text-slate-600"
+                  />
+                </div>
+                <div className="space-y-1 text-left">
+                  <label className="text-[10px] uppercase font-black text-slate-400 tracking-wider">Teléfono</label>
+                  <input
+                    type="text"
+                    placeholder="Ej. +52 5500000000"
+                    value={formClientTelefono}
+                    onChange={(e) => setFormClientTelefono(e.target.value)}
+                    className="w-full bg-[#141417] border border-[#2d2d32] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-purple-500 transition-all placeholder:text-slate-600"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1 text-left">
+                <label className="text-[10px] uppercase font-black text-slate-400 tracking-wider">Correo Electrónico Principal *</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="admin@condominiosol.com"
+                  value={formClientCorreo}
+                  onChange={(e) => setFormClientCorreo(e.target.value)}
+                  className="w-full bg-[#141417] border border-[#2d2d32] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-purple-500 transition-all placeholder:text-slate-600"
+                />
+              </div>
+
+              <div className="border-t border-[#2d2d32] pt-4 text-left">
+                <span className="text-[10px] uppercase font-black text-purple-400 tracking-wider font-mono">Plan de Suscripción y Límites Operativos</span>
+                
+                {/* Plan selections */}
+                <div className="grid grid-cols-3 gap-2 mt-2">
+                  {(['Básico', 'Premium', 'Enterprise'] as const).map(p => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => {
+                        setFormClientPlan(p);
+                        if (p === 'Básico') {
+                          setFormClientLimDep('50');
+                          setFormClientLimUsr('5');
+                          setFormClientLimAlm('10');
+                        } else if (p === 'Premium') {
+                          setFormClientLimDep('200');
+                          setFormClientLimUsr('25');
+                          setFormClientLimAlm('50');
+                        } else {
+                          setFormClientLimDep('1000');
+                          setFormClientLimUsr('100');
+                          setFormClientLimAlm('500');
+                        }
+                      }}
+                      className={`py-2 px-1 text-xs font-bold rounded-xl border transition flex flex-col items-center gap-0.5 cursor-pointer ${
+                        formClientPlan === p
+                          ? 'bg-purple-600/15 border-purple-500 text-purple-400'
+                          : 'bg-[#141417] border-[#2d2d32] text-slate-455 hover:text-slate-200'
+                      }`}
+                    >
+                      <span className="text-[10px] font-black">{p}</span>
+                      <span className="text-[8px] opacity-75">
+                        {p === 'Básico' ? '$1,500/mes' : p === 'Premium' ? '$3,500/mes' : '$8,000/mes'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Editable limits */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1 text-left">
+                  <label className="text-[9px] uppercase font-extrabold text-slate-500 tracking-wider">Máx Depas</label>
+                  <input
+                    type="number"
+                    required
+                    value={formClientLimDep}
+                    onChange={(e) => setFormClientLimDep(e.target.value)}
+                    className="w-full bg-[#141417] border border-[#2d2d32] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500 transition-all text-center"
+                  />
+                </div>
+                <div className="space-y-1 text-left">
+                  <label className="text-[9px] uppercase font-extrabold text-slate-500 tracking-wider">Máx Usuarios</label>
+                  <input
+                    type="number"
+                    required
+                    value={formClientLimUsr}
+                    onChange={(e) => setFormClientLimUsr(e.target.value)}
+                    className="w-full bg-[#141417] border border-[#2d2d32] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500 transition-all text-center"
+                  />
+                </div>
+                <div className="space-y-1 text-left">
+                  <label className="text-[9px] uppercase font-extrabold text-slate-500 tracking-wider">Almacén (GB)</label>
+                  <input
+                    type="number"
+                    required
+                    value={formClientLimAlm}
+                    onChange={(e) => setFormClientLimAlm(e.target.value)}
+                    className="w-full bg-[#141417] border border-[#2d2d32] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500 transition-all text-center"
+                  />
+                </div>
+              </div>
+
+              <div className="p-3 bg-purple-950/10 border border-purple-500/10 rounded-xl text-[10px] text-purple-400 font-medium text-left">
+                💡 Los límites se aplican en tiempo real bloqueando el alta de nuevos condóminos, residentes u archivos si se excede la cuota contratada.
+              </div>
+
+              <div className="flex gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setIsClientModalOpen(false)}
+                  className="flex-1 py-2.5 bg-[#141417] hover:bg-[#1C1C20] border border-slate-800 text-slate-400 hover:text-slate-200 font-bold text-xs rounded-xl transition cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-xl transition cursor-pointer shadow-lg shadow-purple-600/10"
+                >
+                  {editingClient ? 'Guardar Cambios' : 'Registrar Cliente'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

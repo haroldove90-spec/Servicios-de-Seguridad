@@ -1274,6 +1274,18 @@ export default function App() {
     );
   }
 
+  // Fully independent dashboard layout for Administration of Condos
+  if (hasSelectedRole && isCondominios) {
+    return (
+      <div id="integrated-app-root" className="min-h-screen bg-[#0A0A0A] text-slate-200 font-sans flex flex-col selection:bg-purple-650/30">
+        <CondominiosDashboard 
+          currentUser={userRole}
+          onSignOut={handleSignOut}
+        />
+      </div>
+    );
+  }
+
   return (
     <div id="integrated-app-root" className="min-h-screen bg-[#0A0A0A] text-slate-200 font-sans flex flex-col justify-between selection:bg-red-650/30">
       <div>
