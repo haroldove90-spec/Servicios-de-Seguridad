@@ -1966,38 +1966,7 @@ export default function App() {
                         <Shield className="w-4 h-4" /> Ingresar con Credenciales
                       </button>
 
-                      {/* Decoupled sandbox bypass option message to force authentication */}
-                      <div className="w-full py-2.5 px-3 bg-amber-500/10 border border-amber-500/15 text-amber-400 rounded-xl text-[10px] text-center font-bold">
-                        <div>🔒 Acceso Libre Deshabilitado</div>
-                        <div className="text-[9px] text-slate-400 font-normal mt-0.5 font-sans">Para ingresar use sus credenciales registradas o cree una cuenta.</div>
-                        {IS_FIREBASE_DUMMY && selectedLoginTarget && (
-                          <div className="mt-2 border-t border-amber-500/15 pt-2">
-                            <p className="text-[9.5px] font-mono text-slate-300">
-                              {selectedLoginTarget.role === SystemUserRole.CONDOMINIOS && (
-                                <>💡 Usar Demo: <span className="text-purple-400 font-bold">condominio</span> / <span className="text-purple-400 font-bold">Condominio_123</span></>
-                              )}
-                              {selectedLoginTarget.role === SystemUserRole.ADMIN && (
-                                <>💡 Usar Demo: <span className="text-red-400 font-bold">harold.anguiano</span> / <span className="text-red-400 font-bold">Chevropar#1970</span></>
-                              )}
-                              {selectedLoginTarget.role === SystemUserRole.SUPERVISOR && (
-                                <>💡 Usar Demo: <span className="text-amber-400 font-bold font-sans">guardia</span> / <span className="text-amber-400 font-bold">Caseta_123</span></>
-                              )}
-                              {selectedLoginTarget.role === SystemUserRole.RESIDENTE && (
-                                <>💡 Usar Demo: <span className="text-blue-400 font-bold font-sans">residente</span> / <span className="text-blue-400 font-bold">Residente_123</span></>
-                              )}
-                            </p>
-                            <button
-                              type="button"
-                              onClick={handleQuickDemoLogin}
-                              className="w-full mt-2 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-lg transition cursor-pointer uppercase text-[9px] flex items-center justify-center gap-1 font-sans"
-                            >
-                              ⚡ Ingreso Rápido de Prueba
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="text-center text-xs font-sans mt-1 text-slate-400">
+                      <div className="text-center text-xs font-sans mt-2 text-slate-400">
                         ¿No tienes una cuenta de acceso?{" "}
                         <button
                           type="button"
