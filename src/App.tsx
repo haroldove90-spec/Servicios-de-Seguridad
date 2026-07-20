@@ -483,6 +483,75 @@ export default function App() {
     }
   };
 
+  const handleQuickDemoLogin = async () => {
+    if (!selectedLoginTarget) return;
+    
+    let targetUsername = '';
+    let targetPassword = '';
+    
+    switch (selectedLoginTarget.role) {
+      case SystemUserRole.ADMIN:
+        targetUsername = 'admin';
+        targetPassword = 'Admin_123';
+        break;
+      case SystemUserRole.SUPERVISOR:
+        targetUsername = 'guardia';
+        targetPassword = 'Caseta_123';
+        break;
+      case SystemUserRole.RESIDENTE:
+        targetUsername = 'residente';
+        targetPassword = 'Residente_123';
+        break;
+      case SystemUserRole.CONDOMINIOS:
+        targetUsername = 'condominio';
+        targetPassword = 'Condominio_123';
+        break;
+    }
+    
+    if (targetUsername) {
+      try {
+        const registeredRoles = await dbService.getAllSystemRoles();
+        const matched = registeredRoles.find(r => 
+          (r.username || '').toLowerCase() === targetUsername.toLowerCase() && 
+          (r.password || '') === targetPassword
+        );
+        
+        if (matched) {
+          setDemoRole(matched.role);
+          setDemoName(matched.name);
+          setUserRole(matched);
+          
+          localStorage.setItem('cnls_user_role', JSON.stringify(matched));
+          localStorage.setItem('cnls_demo_role', matched.role);
+          localStorage.setItem('cnls_demo_name', matched.name);
+          localStorage.setItem('cnls_has_selected_role', 'true');
+          
+          setLoginUsername('');
+          setLoginPassword('');
+          setLoginError('');
+          setSelectedLoginTarget(null);
+          
+          // Direct routing
+          if (matched.role === SystemUserRole.ADMIN) {
+            setActiveTab('metricas');
+          } else if (matched.role === SystemUserRole.RESIDENTE) {
+            setActiveTab('visitas');
+          } else if (matched.role === SystemUserRole.CONDOMINIOS) {
+            setActiveTab('condominios');
+          } else {
+            setActiveTab('scan');
+          }
+          setHasSelectedRole(true);
+        } else {
+          setLoginError(`No se encontró la cuenta demo correspondiente para el usuario "${targetUsername}" en la base de datos.`);
+        }
+      } catch (err) {
+        console.error('Error on quick login:', err);
+        setLoginError('Error crítico durante el inicio de sesión rápido.');
+      }
+    }
+  };
+
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
@@ -519,8 +588,9 @@ export default function App() {
       // Retrieve selected subdivision info
       const matchedRes = residenciasList.find(r => r.id === regResidenciaId);
 
-      // Register with default role of SystemUserRole.SUPERVISOR (Caseta / Guardia) as requested by the user, and inactive by default
-      const defaultRole = SystemUserRole.SUPERVISOR;
+      // Register with default role based on current selected login card, and active by default for condominios role
+      const defaultRole = selectedLoginTarget?.role || SystemUserRole.SUPERVISOR;
+      const isCondominioReg = defaultRole === SystemUserRole.CONDOMINIOS;
 
       const newUser: SystemRole = {
         uid: 'user_reg_' + Math.random().toString(36).substring(2, 9),
@@ -528,7 +598,7 @@ export default function App() {
         email: regEmail.trim().toLowerCase(),
         username: cleanedUsername,
         role: defaultRole,
-        isActive: false, // Inactive so admin can approve and toggle active from RolesManager dashboard
+        isActive: isCondominioReg ? true : false, // Inactive so admin can approve and toggle active from RolesManager dashboard, active for condominios role
         password: regPassword.trim(),
         phone: regPhone.trim(),
         createdAt: new Date().toISOString(),
@@ -537,7 +607,12 @@ export default function App() {
       };
 
       await dbService.saveSystemRole(newUser);
-      setRegSuccess('¡Pre-registro Exitoso! Tu cuenta ha sido registrada con el rol de Caseta (Guardia de Caseta) en estado "Pendiente de Aprobación". Por seguridad, un Administrador debe autorizar tu acceso y activar tu cuenta o cambiar tu rol desde el Dashboard de Roles antes de poder iniciar sesión.');
+      
+      if (isCondominioReg) {
+        setRegSuccess('¡Registro Exitoso! Tu cuenta de Administración de Condominios ha sido creada y activada de forma inmediata para que puedas ingresar sin restricciones.');
+      } else {
+        setRegSuccess('¡Pre-registro Exitoso! Tu cuenta ha sido registrada con el rol de Caseta (Guardia de Caseta) en estado "Pendiente de Aprobación". Por seguridad, un Administrador debe autorizar tu acceso y activar tu cuenta o cambiar tu rol desde el Dashboard de Roles antes de poder iniciar sesión.');
+      }
       
       // Cleanup
       setRegName('');
@@ -1880,7 +1955,7 @@ export default function App() {
                       </div>
                     </div>
 
-                    <div className="pt-2.5 flex flex-col gap-2.5">
+                    <div className="pt-2.5 flex flex-col gap-2.5 font-sans">
                       <button
                         id="submit-login-real-btn"
                         type="submit"
@@ -1890,8 +1965,34 @@ export default function App() {
                       </button>
 
                       {/* Decoupled sandbox bypass option message to force authentication */}
-                      <div className="w-full py-2.5 px-3 bg-amber-500/10 border border-amber-500/15 text-amber-400 rounded-xl text-[9px] text-center font-bold font-sans">
-                        🔒 Acceso Libre Deshabilitado: Para ingresar, cree su cuenta personalizada o use sus credenciales registradas.
+                      <div className="w-full py-2.5 px-3 bg-amber-500/10 border border-amber-500/15 text-amber-400 rounded-xl text-[10px] text-center font-bold">
+                        <div>🔒 Acceso Libre Deshabilitado</div>
+                        <div className="text-[9px] text-slate-400 font-normal mt-0.5 font-sans">Para ingresar use sus credenciales registradas o cree una cuenta.</div>
+                        {IS_FIREBASE_DUMMY && selectedLoginTarget && (
+                          <div className="mt-2 border-t border-amber-500/15 pt-2">
+                            <p className="text-[9.5px] font-mono text-slate-300">
+                              {selectedLoginTarget.role === SystemUserRole.CONDOMINIOS && (
+                                <>💡 Usar Demo: <span className="text-purple-400 font-bold">condominio</span> / <span className="text-purple-400 font-bold">Condominio_123</span></>
+                              )}
+                              {selectedLoginTarget.role === SystemUserRole.ADMIN && (
+                                <>💡 Usar Demo: <span className="text-red-400 font-bold">harold.anguiano</span> / <span className="text-red-400 font-bold">Chevropar#1970</span></>
+                              )}
+                              {selectedLoginTarget.role === SystemUserRole.SUPERVISOR && (
+                                <>💡 Usar Demo: <span className="text-amber-400 font-bold font-sans">guardia</span> / <span className="text-amber-400 font-bold">Caseta_123</span></>
+                              )}
+                              {selectedLoginTarget.role === SystemUserRole.RESIDENTE && (
+                                <>💡 Usar Demo: <span className="text-blue-400 font-bold font-sans">residente</span> / <span className="text-blue-400 font-bold">Residente_123</span></>
+                              )}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={handleQuickDemoLogin}
+                              className="w-full mt-2 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-lg transition cursor-pointer uppercase text-[9px] flex items-center justify-center gap-1 font-sans"
+                            >
+                              ⚡ Ingreso Rápido de Prueba
+                            </button>
+                          </div>
+                        )}
                       </div>
 
                       <div className="text-center text-xs font-sans mt-1 text-slate-400">

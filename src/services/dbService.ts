@@ -709,6 +709,16 @@ const LocalDB = {
         createdAt: new Date().toISOString(),
         residenciaId: 'res-demo-1',
         residenciaNombre: 'Lomas de Chapultepec'
+      },
+      {
+        uid: 'condo-demo-uid',
+        name: 'Harold Anguiano (Condominios)',
+        email: 'condominio@cnls.com',
+        username: 'condominio',
+        role: SystemUserRole.CONDOMINIOS,
+        isActive: true,
+        password: 'Condominio_123',
+        createdAt: new Date().toISOString()
       }
     ];
 
