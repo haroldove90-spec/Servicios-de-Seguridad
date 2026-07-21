@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   signInWithPopup, 
   GoogleAuthProvider, 
@@ -362,6 +362,14 @@ export default function App() {
     }
   };
 
+  // Detect if accessing directly via ?role=residente, /residente or #residente
+  const isDirectResidentView = useMemo(() => {
+    const currentPath = window.location.pathname.toLowerCase();
+    const params = new URLSearchParams(window.location.search);
+    const hash = window.location.hash.toLowerCase();
+    return currentPath.includes('/residente') || params.get('role') === 'residente' || hash.includes('residente');
+  }, []);
+
   // Guarded credential login system states
   const [selectedLoginTarget, setSelectedLoginTarget] = useState<{
     role: SystemUserRole;
@@ -370,6 +378,14 @@ export default function App() {
     residenciaId?: string;
     residenciaNombre?: string;
   } | null>(null);
+
+  const activeLoginTarget = selectedLoginTarget || (isDirectResidentView ? {
+    role: SystemUserRole.RESIDENTE,
+    label: 'Residente Autogestión 🏡',
+    defaultTab: 'visitas' as const,
+    residenciaId: 'res-demo-1',
+    residenciaNombre: 'Lomas de Chapultepec'
+  } : null);
 
   const [loginUsername, setLoginUsername] = useState<string>('');
   const [loginPassword, setLoginPassword] = useState<string>('');
@@ -1821,21 +1837,21 @@ export default function App() {
               />
             </div>
 
-            {selectedLoginTarget ? (
-              /* High fidelity credentials login and registration validation dialog requested by user */
+            {activeLoginTarget ? (
+              /* Credentials login dialog */
               <div className="max-w-md mx-auto bg-[#2A2A2E] border border-[#3e3e42] hover:border-red-500/40 rounded-[2.5rem] p-6 sm:p-8 text-left shadow-2xl relative overflow-hidden animate-fade-in-up">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-red-650/5 blur-3xl rounded-full pointer-events-none"></div>
                 
                 <div className="inline-flex items-center gap-1.5 bg-red-500/10 border border-red-500/15 rounded-lg px-2.5 py-1 text-red-400 text-[10px] font-bold uppercase tracking-widest mb-6">
                   <ShieldCheck className="w-3.5 h-3.5 text-red-500 shrink-0" />
-                  {isRegistering ? "Registro de Nueva Cuenta" : "Iniciar Sesión de Seguridad"}
+                  <span>Iniciar Sesión de Seguridad</span>
                 </div>
 
                 <h3 className="text-xl font-bold text-white tracking-tight leading-snug">
-                  {isRegistering ? "Registrar Nueva Cuenta" : "Acceso al Panel Residencial"}
+                  Acceso al Panel Residencial
                 </h3>
                 <p className="text-xs text-slate-400 mt-2">
-                  Destino / Perfil: <span className="text-amber-500 uppercase font-black tracking-wide bg-[#1e1e24] px-2.5 py-1 rounded-lg ml-1 inline-block text-[11px] font-mono border border-amber-500/15">{selectedLoginTarget.label}</span>
+                  Destino / Perfil: <span className="text-amber-500 uppercase font-black tracking-wide bg-[#1e1e24] px-2.5 py-1 rounded-lg ml-1 inline-block text-[11px] font-mono border border-amber-500/15">{activeLoginTarget.label}</span>
                 </p>
 
                 {loginError && (
@@ -1845,191 +1861,66 @@ export default function App() {
                   </div>
                 )}
 
-                {regSuccess && (
-                  <div className="mt-4 p-4 bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 text-xs font-semibold rounded-2xl flex flex-col gap-2.5 animate-fade-in">
-                    <div className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                      <span className="font-bold text-slate-100">¡Registro Guardado!</span>
-                    </div>
-                    <p className="leading-relaxed text-slate-300">
-                      {regSuccess}
-                    </p>
-                  </div>
-                )}
-
-                {isRegistering ? (
-                  /* Formulario de registro dinámico para usuarios sin credenciales */
-                  <form onSubmit={handleRegisterSubmit} className="space-y-3.5 py-2 mt-4">
-                    <div>
-                      <label className="block text-[10px] font-black uppercase tracking-wider text-slate-350 mb-1.5 leading-none">
-                        Nombre Completo
-                      </label>
+                {/* Formulario de Inicio de Sesión por Credenciales */}
+                <form onSubmit={handleCredentialLoginSubmit} className="space-y-4 py-2 mt-4">
+                  <div>
+                    <label htmlFor="login-username-input" className="block text-[10px] font-black uppercase tracking-wider text-slate-350 mb-1.5 leading-none">
+                      Nombre de Usuario o Email (Login)
+                    </label>
+                    <div className="relative">
+                      <UserCircle className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                       <input
+                        id="login-username-input"
                         type="text"
                         required
-                        placeholder="Ej. Carlos Barrientos"
-                        value={regName}
-                        onChange={(e) => setRegName(e.target.value)}
-                        className="w-full px-4 py-2 bg-[#1A1A1E] border border-[#3e3e42] text-white text-xs rounded-xl focus:border-red-500 focus:outline-hidden"
+                        placeholder="Ej. usuario_residente"
+                        value={loginUsername}
+                        onChange={(e) => setLoginUsername(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2.5 bg-[#1A1A1E] border border-[#3e3e42] text-white text-sm rounded-xl focus:border-red-500 focus:outline-hidden font-mono"
                       />
                     </div>
+                  </div>
 
-                    <div>
-                      <label className="block text-[10px] font-black uppercase tracking-wider text-slate-350 mb-1.5 leading-none">
-                        Correo Electrónico
-                      </label>
+                  <div>
+                    <label htmlFor="login-password-input" className="block text-[10px] font-black uppercase tracking-wider text-slate-350 mb-1.5 leading-none">
+                      Contraseña de Acceso
+                    </label>
+                    <div className="relative">
+                      <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                       <input
-                        type="email"
+                        id="login-password-input"
+                        type={showPassword ? "text" : "password"}
                         required
-                        placeholder="ejemplo@correo.com"
-                        value={regEmail}
-                        onChange={(e) => setRegEmail(e.target.value)}
-                        className="w-full px-4 py-2 bg-[#1A1A1E] border border-[#3e3e42] text-white text-xs rounded-xl focus:border-red-500 focus:outline-hidden"
+                        placeholder="••••••••"
+                        value={loginPassword}
+                        onChange={(e) => setLoginPassword(e.target.value)}
+                        className="w-full pl-10 pr-10 py-2.5 bg-[#1A1A1E] border border-[#3e3e42] text-white text-sm rounded-xl focus:border-red-500 focus:outline-hidden font-mono"
                       />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[10px] font-black uppercase tracking-wider text-slate-350 mb-1.5 leading-none">
-                          Usuario (Login)
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="Ej. cbarrientos"
-                          value={regUsername}
-                          onChange={(e) => setRegUsername(e.target.value)}
-                          className="w-full px-4 py-2 bg-[#1A1A1E] border border-[#3e3e42] text-white text-xs rounded-xl focus:border-red-500 focus:outline-hidden font-mono text-sm"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-[10px] font-black uppercase tracking-wider text-slate-350 mb-1.5 leading-none">
-                          Contraseña
-                        </label>
-                        <input
-                          type="password"
-                          required
-                          placeholder="Mín. 6 caracteres"
-                          value={regPassword}
-                          onChange={(e) => setRegPassword(e.target.value)}
-                          className="w-full px-4 py-2 bg-[#1A1A1E] border border-[#3e3e42] text-white text-xs rounded-xl focus:border-red-500 focus:outline-hidden font-mono text-sm"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] font-black uppercase tracking-wider text-slate-350 mb-1.5 leading-none">
-                        Teléfono / WhatsApp (Opcional)
-                      </label>
-                      <input
-                        type="tel"
-                        placeholder="Ej. +52 5599887766"
-                        value={regPhone}
-                        onChange={(e) => setRegPhone(e.target.value)}
-                        className="w-full px-4 py-2 bg-[#1A1A1E] border border-[#3e3e42] text-white text-xs rounded-xl focus:border-red-500 focus:outline-hidden"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] font-black uppercase tracking-wider text-slate-350 mb-1.5 leading-none">
-                        Residencial / Fraccionamiento
-                      </label>
-                      <select
-                        value={regResidenciaId}
-                        onChange={(e) => setRegResidenciaId(e.target.value)}
-                        className="w-full px-4 py-2 bg-[#1A1A1E] border border-[#3e3e42] text-white text-xs rounded-xl focus:border-red-500 focus:outline-hidden"
-                      >
-                        <option value="" className="bg-[#1A1A1E]">-- Ninguno / Corporativo General --</option>
-                        {residenciasList.map((res: any) => (
-                          <option key={res.id} value={res.id} className="bg-[#1A1A1E]">
-                            🏡 {res.nombre}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="pt-2 flex flex-col gap-2">
-                      <button
-                        type="submit"
-                        className="w-full py-2.5 bg-red-650 hover:bg-red-600 text-white font-bold rounded-xl transition cursor-pointer text-xs uppercase"
-                      >
-                        Registrar Cuenta
-                      </button>
-
                       <button
                         type="button"
-                        onClick={() => {
-                          setIsRegistering(false);
-                          setRegSuccess('');
-                          setLoginError('');
-                        }}
-                        className="w-full text-center text-slate-400 hover:text-slate-200 transition text-[10px] font-bold py-1.5 underline cursor-pointer"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition cursor-pointer"
+                        title={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
                       >
-                        ← REGRESAR AL ACCESO
+                        {showPassword ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
                       </button>
                     </div>
-                  </form>
-                ) : (
-                  /* Formulario de Inicio de Sesión normal */
-                  <form onSubmit={handleCredentialLoginSubmit} className="space-y-4 py-2 mt-4">
-                    <div>
-                      <label htmlFor="login-username-input" className="block text-[10px] font-black uppercase tracking-wider text-slate-350 mb-1.5 leading-none">
-                        Nombre de Usuario o Email (Login)
-                      </label>
-                      <div className="relative">
-                        <UserCircle className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                        <input
-                          id="login-username-input"
-                          type="text"
-                          required
-                          placeholder="Ej. cbarrientos o guardia_real"
-                          value={loginUsername}
-                          onChange={(e) => setLoginUsername(e.target.value)}
-                          className="w-full pl-10 pr-4 py-2.5 bg-[#1A1A1E] border border-[#3e3e42] text-white text-sm rounded-xl focus:border-red-500 focus:outline-hidden font-mono"
-                        />
-                      </div>
-                    </div>
+                  </div>
 
-                    <div>
-                      <label htmlFor="login-password-input" className="block text-[10px] font-black uppercase tracking-wider text-slate-350 mb-1.5 leading-none">
-                        Contraseña de Acceso
-                      </label>
-                      <div className="relative">
-                        <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                        <input
-                          id="login-password-input"
-                          type={showPassword ? "text" : "password"}
-                          required
-                          placeholder="••••••••"
-                          value={loginPassword}
-                          onChange={(e) => setLoginPassword(e.target.value)}
-                          className="w-full pl-10 pr-10 py-2.5 bg-[#1A1A1E] border border-[#3e3e42] text-white text-sm rounded-xl focus:border-red-500 focus:outline-hidden font-mono"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition cursor-pointer"
-                          title={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
-                        >
-                          {showPassword ? (
-                            <EyeOff className="w-4 h-4" />
-                          ) : (
-                            <Eye className="w-4 h-4" />
-                          )}
-                        </button>
-                      </div>
-                    </div>
+                  <div className="pt-2.5 flex flex-col gap-2.5 font-sans">
+                    <button
+                      id="submit-login-real-btn"
+                      type="submit"
+                      className="w-full py-3 bg-red-650 hover:bg-red-600 text-white font-bold rounded-xl transition cursor-pointer text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-red-950/20 uppercase"
+                    >
+                      <Shield className="w-4 h-4" /> Ingresar con Credenciales
+                    </button>
 
-                    <div className="pt-2.5 flex flex-col gap-2.5 font-sans">
-                      <button
-                        id="submit-login-real-btn"
-                        type="submit"
-                        className="w-full py-3 bg-red-650 hover:bg-red-600 text-white font-bold rounded-xl transition cursor-pointer text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-red-950/20 uppercase"
-                      >
-                        <Shield className="w-4 h-4" /> Ingresar con Credenciales
-                      </button>
-
+                    {!isDirectResidentView && (
                       <button
                         id="cancel-login-btn"
                         type="button"
@@ -2042,18 +1933,18 @@ export default function App() {
                           setIsRegistering(false);
                           setRegSuccess('');
                         }}
-                        className="w-full text-center text-slate-500 hover:text-slate-300 transition text-[10px] font-bold py-2 mt-1 cursor-pointer"
+                        className="w-full text-center text-slate-500 hover:text-slate-300 transition text-[10px] font-bold py-2 mt-1 cursor-pointer uppercase"
                       >
                         ← VOLVER AL SELECTOR DE ROLES
                       </button>
-                    </div>
-                  </form>
-                )}
+                    )}
+                  </div>
+                </form>
 
                 <div className="mt-6 pt-5 border-t border-[#3e3e42] text-[9.5px] text-slate-500 leading-normal bg-black/15 p-3.5 rounded-2xl">
-                  <p className="font-extrabold text-slate-400 mb-1 text-[10px] uppercase tracking-wider">🔒 SERVIDOR DE CREDENCIALES SEGURO:</p>
+                  <p className="font-extrabold text-slate-400 mb-1 text-[10px] uppercase tracking-wider">🔒 ACCESO AUTORIZADO POR CREDENCIALES:</p>
                   <p className="mt-1 text-slate-400 leading-relaxed text-[9px]">
-                    Las credenciales de demostración predeterminadas ("admin", "guardia", "residente") se encuentran desactivadas temporalmente. Todos los nuevos usuarios deben pre-registrarse en el formulario y solicitar la activación de su rol al Administrador General del sistema.
+                    Ingresa con el Nombre de Usuario y Contraseña asignados. Si aún no cuentas con acceso activo, solicita la generación de tu cuenta con el Administrador General o la Administración de Condominios.
                   </p>
                 </div>
 
