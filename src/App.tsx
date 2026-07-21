@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { auth, IS_FIREBASE_DUMMY } from './firebase';
 import { dbService } from './services/dbService';
-import { SystemUserRole, SystemRole, AccessLog, Residencia } from './types';
+import { SystemUserRole, SystemRole, AccessLog, Residencia, UserStatus } from './types';
 import ScannerInterface from './components/ScannerInterface';
 import AdminDashboard from './components/AdminDashboard';
 import AuditLogs from './components/AuditLogs';
@@ -590,9 +590,10 @@ export default function App() {
       // Retrieve selected subdivision info
       const matchedRes = residenciasList.find(r => r.id === regResidenciaId);
 
-      // Register with default role based on current selected login card, and active by default for condominios role
+      // Register with default role based on current selected login card
       const defaultRole = selectedLoginTarget?.role || SystemUserRole.SUPERVISOR;
       const isCondominioReg = defaultRole === SystemUserRole.CONDOMINIOS;
+      const isResidenteReg = defaultRole === SystemUserRole.RESIDENTE;
 
       const newUser: SystemRole = {
         uid: 'user_reg_' + Math.random().toString(36).substring(2, 9),
@@ -600,7 +601,7 @@ export default function App() {
         email: regEmail.trim().toLowerCase(),
         username: cleanedUsername,
         role: defaultRole,
-        isActive: isCondominioReg ? true : false, // Inactive so admin can approve and toggle active from RolesManager dashboard, active for condominios role
+        isActive: (isCondominioReg || isResidenteReg) ? true : false,
         password: regPassword.trim(),
         phone: regPhone.trim(),
         createdAt: new Date().toISOString(),
@@ -609,11 +610,61 @@ export default function App() {
       };
 
       await dbService.saveSystemRole(newUser);
+
+      // If registered as Residente, automatically create Residente and AuthorizedUser profile for gate access
+      if (isResidenteReg) {
+        try {
+          const qrToken = 'resd_qr_' + Math.random().toString(36).substring(2, 11);
+          const startOfYear = new Date();
+          const endOfYear = new Date();
+          endOfYear.setFullYear(endOfYear.getFullYear() + 1);
+
+          const authUserPayload = {
+            name: regName.trim() + ' (Residente)',
+            documentId: 'RESID-' + (matchedRes ? matchedRes.nombre.substring(0, 3).toUpperCase() : 'RES') + '-' + cleanedUsername.toUpperCase(),
+            email: regEmail.trim().toLowerCase(),
+            phone: regPhone.trim(),
+            status: UserStatus.ACTIVE,
+            qrcodeToken: qrToken,
+            oneTime: false,
+            used: false,
+            validFrom: startOfYear.toISOString(),
+            validUntil: endOfYear.toISOString(),
+            days: [],
+            startTime: '00:00',
+            endTime: '23:59',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            createdBy: newUser.uid,
+            residenciaId: regResidenciaId || matchedRes?.id || '',
+            residenciaNombre: matchedRes?.nombre || 'Fraccionamiento Residencial'
+          };
+
+          const createdAuthUser = await dbService.createAuthorizedUser(authUserPayload);
+
+          await dbService.createResidente({
+            nombre: regName.trim(),
+            residenciaId: regResidenciaId || matchedRes?.id || '',
+            residenciaNombre: matchedRes?.nombre || 'Fraccionamiento Residencial',
+            direccion: regPhone ? `Tel: ${regPhone}` : 'Residencia Principal',
+            qrcodeToken: qrToken,
+            whatsapp: regPhone.trim(),
+            accessUserId: createdAuthUser.id,
+            validUntil: endOfYear.toISOString(),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          });
+        } catch (resdErr) {
+          console.warn('Error auto-creating resident access profile:', resdErr);
+        }
+      }
       
       if (isCondominioReg) {
-        setRegSuccess('¡Registro Exitoso! Tu cuenta de Administración de Condominios ha sido creada y activada de forma inmediata para que puedas ingresar sin restricciones.');
+        setRegSuccess('¡Registro Exitoso! Tu cuenta de Administración de Condominios ha sido creada y activada de forma inmediata.');
+      } else if (isResidenteReg) {
+        setRegSuccess('¡Registro Exitoso! Tu cuenta de Residente de Fraccionamiento ha sido creada y activada. Ya puedes ingresar con tu usuario y contraseña.');
       } else {
-        setRegSuccess('¡Pre-registro Exitoso! Tu cuenta ha sido registrada con el rol de Caseta (Guardia de Caseta) en estado "Pendiente de Aprobación". Por seguridad, un Administrador debe autorizar tu acceso y activar tu cuenta o cambiar tu rol desde el Dashboard de Roles antes de poder iniciar sesión.');
+        setRegSuccess('¡Pre-registro Exitoso! Tu cuenta ha sido registrada con el rol de Caseta (Guardia) en estado "Pendiente de Aprobación". Por seguridad, un Administrador debe autorizar tu acceso desde el Dashboard de Roles antes de ingresar.');
       }
       
       // Cleanup

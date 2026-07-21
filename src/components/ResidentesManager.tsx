@@ -181,7 +181,9 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
       };
 
       try {
-        if (editingId && accessUserId.startsWith('usr_')) {
+        const existingAuthUser = authorizedUsers.find(u => u.id === accessUserId || (qrToken && u.qrcodeToken === qrToken));
+        if (existingAuthUser) {
+          accessUserId = existingAuthUser.id;
           await dbService.updateAuthorizedUser(accessUserId, authUserPayload);
         } else {
           // Create new record
