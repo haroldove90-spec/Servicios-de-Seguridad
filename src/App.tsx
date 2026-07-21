@@ -883,10 +883,13 @@ export default function App() {
     reloadAccessLogs();
   };
 
-  // 1. Detect if a visitor pass was opened in the URL or if route is /residente
+  // 1. Detect if a visitor pass was opened in the URL or if route is /residente or ?role=residente
   useEffect(() => {
     const currentPath = window.location.pathname.toLowerCase();
-    if (currentPath.includes('/residente')) {
+    const params = new URLSearchParams(window.location.search);
+    const hash = window.location.hash.toLowerCase();
+
+    if (currentPath.includes('/residente') || params.get('role') === 'residente' || hash.includes('residente')) {
       setSelectedLoginTarget({
         role: SystemUserRole.RESIDENTE,
         label: 'Residente Autogestión 🏡',
@@ -897,8 +900,6 @@ export default function App() {
       setIsRegistering(false);
     }
 
-    const params = new URLSearchParams(window.location.search);
-    const hash = window.location.hash;
     let token = params.get('pass') || params.get('token');
     if (!token && hash.startsWith('#pass=')) {
       token = hash.replace('#pass=', '');
@@ -2029,23 +2030,6 @@ export default function App() {
                         <Shield className="w-4 h-4" /> Ingresar con Credenciales
                       </button>
 
-                      {selectedLoginTarget?.role !== SystemUserRole.RESIDENTE && (
-                        <div className="text-center text-xs font-sans mt-2 text-slate-400">
-                          ¿No tienes una cuenta de acceso?{" "}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsRegistering(true);
-                              setLoginError('');
-                              setRegSuccess('');
-                            }}
-                            className="text-red-400 hover:text-red-300 font-extrabold underline cursor-pointer"
-                          >
-                            Regístrate Aquí
-                          </button>
-                        </div>
-                      )}
-
                       <button
                         id="cancel-login-btn"
                         type="button"
@@ -2096,7 +2080,10 @@ export default function App() {
                   {/* CARD 1: ADMIN */}
                   <div 
                     id="role-gateway-card-admin"
-                    onClick={() => setSelectedLoginTarget({ role: SystemUserRole.ADMIN, label: 'Panel Administración General', defaultTab: 'metricas' })}
+                    onClick={() => {
+                      setSelectedLoginTarget({ role: SystemUserRole.ADMIN, label: 'Panel Administración General', defaultTab: 'metricas' });
+                      setIsRegistering(false);
+                    }}
                     className="group relative bg-[#2A2A2E] hover:bg-[#343438] border border-[#3e3e42] hover:border-red-500 rounded-3xl p-6 shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden"
                   >
                     <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 blur-3xl rounded-full group-hover:bg-red-500/10 transition"></div>
@@ -2119,7 +2106,10 @@ export default function App() {
                   {/* CARD 2: SEGURIDAD / CASETA */}
                   <div 
                     id="role-gateway-card-supervisor"
-                    onClick={() => setSelectedLoginTarget({ role: SystemUserRole.SUPERVISOR, label: 'Panel Caseta de Guardias', defaultTab: 'scan' })}
+                    onClick={() => {
+                      setSelectedLoginTarget({ role: SystemUserRole.SUPERVISOR, label: 'Panel Caseta de Guardias', defaultTab: 'scan' });
+                      setIsRegistering(false);
+                    }}
                     className="group relative bg-[#2A2A2E] hover:bg-[#343438] border border-[#3e3e42] hover:border-amber-500 rounded-3xl p-6 shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden"
                   >
                     <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 blur-3xl rounded-full group-hover:bg-amber-500/10 transition"></div>
@@ -2174,7 +2164,10 @@ export default function App() {
                   {/* CARD 4: ADMINISTRACIÓN DE CONDOMINIOS */}
                   <div 
                     id="role-gateway-card-condominios"
-                    onClick={() => setSelectedLoginTarget({ role: SystemUserRole.CONDOMINIOS, label: 'Administración de Condominios', defaultTab: 'condominios' })}
+                    onClick={() => {
+                      setSelectedLoginTarget({ role: SystemUserRole.CONDOMINIOS, label: 'Administración de Condominios', defaultTab: 'condominios' });
+                      setIsRegistering(false);
+                    }}
                     className="group relative bg-[#2A2A2E] hover:bg-[#343438] border border-[#3e3e42] hover:border-purple-500 rounded-3xl p-6 shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden"
                   >
                     <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 blur-3xl rounded-full group-hover:bg-purple-500/10 transition"></div>

@@ -306,7 +306,7 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
   const getWhatsAppShareUrl = (item: Residente) => {
     const cleanPhone = item.whatsapp ? item.whatsapp.replace(/\D/g, '') : '';
     const passUrl = `${window.location.origin}${window.location.pathname}?pass=${item.qrcodeToken}`;
-    const portalUrl = 'https://servicios-de-seguridad.vercel.app/residente';
+    const portalUrl = `${window.location.origin}/?role=residente`;
 
     const linkedRole = systemRoles.find(r => 
       r.uid === item.accessUserId || 
@@ -785,7 +785,7 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
                     </div>
                   </div>
                   <div className="mt-1.5 pt-1.5 border-t border-slate-800/80 text-[8.5px] text-slate-400 font-sans">
-                    🌐 Link Portal: <span className="text-blue-400 font-mono">servicios-de-seguridad.vercel.app/residente</span>
+                    🌐 Link Portal: <span className="text-blue-400 font-mono">servicios-de-seguridad.vercel.app/?role=residente</span>
                   </div>
                 </div>
 
