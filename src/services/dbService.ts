@@ -711,6 +711,18 @@ const LocalDB = {
         residenciaNombre: 'Lomas de Chapultepec'
       },
       {
+        uid: 'residente-jonathan-uid',
+        name: 'Jonathan Canales',
+        email: 'canalesjonathan7777@gmail.com',
+        username: 'canalesjonathan7777',
+        role: SystemUserRole.RESIDENTE,
+        isActive: true,
+        password: '@s5Qk4eSkPCxm0',
+        createdAt: new Date().toISOString(),
+        residenciaId: 'res-demo-1',
+        residenciaNombre: 'Lomas de Chapultepec'
+      },
+      {
         uid: 'condo-demo-uid',
         name: 'Harold Anguiano (Condominios)',
         email: 'condominio@cnls.com',

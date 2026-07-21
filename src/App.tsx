@@ -412,34 +412,71 @@ export default function App() {
     }
 
     try {
-      // Fetch all system roles/employees
+      // Fetch system roles and residents
       const registeredRoles = await dbService.getAllSystemRoles();
-      console.log('Roles registrados para login:', registeredRoles.map(r => ({ username: r.username, role: r.role, active: r.isActive })));
+      const registeredResidentes = await dbService.getResidentes();
+
+      // Convert residents to system role candidates
+      const residentCandidates: SystemRole[] = registeredResidentes.map(res => ({
+        uid: res.accessUserId || ('resd_' + res.id),
+        name: res.nombre,
+        email: res.whatsapp ? `${res.username || res.id}@residente.local` : 'residente@local.casa',
+        username: res.username || res.nombre.toLowerCase().replace(/\s+/g, ''),
+        password: res.password,
+        role: SystemUserRole.RESIDENTE,
+        isActive: true,
+        phone: res.whatsapp,
+        residenciaId: res.residenciaId,
+        residenciaNombre: res.residenciaNombre,
+        createdAt: res.createdAt
+      }));
+
+      // Combine all user candidates without duplicates
+      const candidatesMap = new Map<string, SystemRole>();
+      registeredRoles.forEach(r => {
+        const key = (r.uid || r.username || r.email || Math.random().toString()).toLowerCase();
+        candidatesMap.set(key, r);
+      });
+      residentCandidates.forEach(r => {
+        const key = (r.uid || r.username || r.email || Math.random().toString()).toLowerCase();
+        if (!candidatesMap.has(key)) {
+          candidatesMap.set(key, r);
+        }
+      });
+
+      const allCandidates = Array.from(candidatesMap.values());
+      console.log('Candidatos registrados para login:', allCandidates.map(r => ({ username: r.username, email: r.email, role: r.role })));
       
-      // Match on username OR email OR display name, checking password exactly
-      const matched = registeredRoles.find(r => {
-        const inputStr = loginUsername.trim().toLowerCase();
+      const inputStr = loginUsername.trim().toLowerCase();
+      const inputLocalPart = inputStr.includes('@') ? inputStr.split('@')[0] : inputStr;
+      const inputPasswordClean = loginPassword.trim();
+
+      // Match on username OR email OR email local part OR phone OR display name
+      const matched = allCandidates.find(r => {
         const rEmail = (r.email || '').trim().toLowerCase();
         const rUsername = (r.username || '').trim().toLowerCase();
         const rName = (r.name || '').trim().toLowerCase();
-        const emailLocalPart = rEmail.includes('@') ? rEmail.split('@')[0] : '';
+        const rPhone = (r.phone || '').trim().toLowerCase();
+        const rEmailLocal = rEmail.includes('@') ? rEmail.split('@')[0] : rEmail;
         
         let isUsernameOrEmailMatch = (
           rUsername === inputStr || 
           rEmail === inputStr || 
           rName === inputStr ||
-          (emailLocalPart && emailLocalPart === inputStr)
+          rPhone === inputStr ||
+          (inputLocalPart && rUsername === inputLocalPart) ||
+          (inputLocalPart && rEmailLocal === inputLocalPart) ||
+          (rEmailLocal && rEmailLocal === inputStr)
         );
         
         // Handle physical email typo gracefully mapping haroldo90/haroldo90@hotmail.com to haroldo980@hotmail.com
         if (inputStr === 'haroldo90@hotmail.com' || inputStr === 'haroldo90') {
-          if (rEmail === 'haroldo980@hotmail.com' || rUsername === 'haroldo980' || emailLocalPart === 'haroldo980') {
+          if (rEmail === 'haroldo980@hotmail.com' || rUsername === 'haroldo980' || rEmailLocal === 'haroldo980') {
             isUsernameOrEmailMatch = true;
           }
         }
         
         const storedPasswordClean = (r.password || '').trim();
-        const inputPasswordClean = loginPassword.trim();
         const isPasswordMatch = (storedPasswordClean === inputPasswordClean);
         
         return isUsernameOrEmailMatch && isPasswordMatch;
@@ -450,7 +487,7 @@ export default function App() {
         return;
       }
 
-      // Block access with default seed accounts "admin", "guardia", "residente"
+      // Block access ONLY with default seed usernames "admin", "guardia", "residente"
       const matchedUsername = (matched.username || '').trim().toLowerCase();
       if (matchedUsername === 'admin' || matchedUsername === 'guardia' || matchedUsername === 'residente') {
         setLoginError('Acceso Demo Inhabilitado: El ingreso con las credenciales por defecto ("admin", "guardia", "residente") está desactivado temporalmente. Por favor, regístrese o use su cuenta personalizada.');
