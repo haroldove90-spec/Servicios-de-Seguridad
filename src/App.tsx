@@ -417,28 +417,35 @@ export default function App() {
       const registeredResidentes = await dbService.getResidentes();
 
       // Convert residents to system role candidates
-      const residentCandidates: SystemRole[] = registeredResidentes.map(res => ({
-        uid: res.accessUserId || ('resd_' + res.id),
-        name: res.nombre,
-        email: res.whatsapp ? `${res.username || res.id}@residente.local` : 'residente@local.casa',
-        username: res.username || res.nombre.toLowerCase().replace(/\s+/g, ''),
-        password: res.password,
-        role: SystemUserRole.RESIDENTE,
-        isActive: true,
-        phone: res.whatsapp,
-        residenciaId: res.residenciaId,
-        residenciaNombre: res.residenciaNombre,
-        createdAt: res.createdAt
-      }));
+      const residentCandidates: SystemRole[] = registeredResidentes.map(res => {
+        const uName = res.username || (res.nombre ? res.nombre.toLowerCase().replace(/\s+/g, '') : '') || res.id;
+        const pwd = res.password || 'Residente_123';
+        return {
+          uid: res.accessUserId || ('resd_' + res.id),
+          name: res.nombre,
+          email: res.whatsapp ? `${uName}@residente.local` : `${uName}@local.casa`,
+          username: uName,
+          password: pwd,
+          role: SystemUserRole.RESIDENTE,
+          isActive: true,
+          phone: res.whatsapp,
+          residenciaId: res.residenciaId,
+          residenciaNombre: res.residenciaNombre,
+          createdAt: res.createdAt
+        };
+      });
 
       // Combine all user candidates without duplicates
       const candidatesMap = new Map<string, SystemRole>();
-      registeredRoles.forEach(r => {
-        const key = (r.uid || r.username || r.email || Math.random().toString()).toLowerCase();
-        candidatesMap.set(key, r);
-      });
+      
+      // Add resident candidates FIRST so custom registered residents take precedence
       residentCandidates.forEach(r => {
-        const key = (r.uid || r.username || r.email || Math.random().toString()).toLowerCase();
+        if (r.username) candidatesMap.set('u_' + r.username.toLowerCase(), r);
+        if (r.uid) candidatesMap.set('uid_' + r.uid.toLowerCase(), r);
+      });
+
+      registeredRoles.forEach(r => {
+        const key = 'u_' + (r.username || r.email || r.uid || Math.random().toString()).toLowerCase();
         if (!candidatesMap.has(key)) {
           candidatesMap.set(key, r);
         }
@@ -458,16 +465,29 @@ export default function App() {
         const rName = (r.name || '').trim().toLowerCase();
         const rPhone = (r.phone || '').trim().toLowerCase();
         const rEmailLocal = rEmail.includes('@') ? rEmail.split('@')[0] : rEmail;
+        const rUid = (r.uid || '').trim().toLowerCase();
         
         let isUsernameOrEmailMatch = (
           rUsername === inputStr || 
           rEmail === inputStr || 
           rName === inputStr ||
           rPhone === inputStr ||
+          rUid === inputStr ||
           (inputLocalPart && rUsername === inputLocalPart) ||
           (inputLocalPart && rEmailLocal === inputLocalPart) ||
           (rEmailLocal && rEmailLocal === inputStr)
         );
+
+        // Special fuzzy match for resident auto-generated usernames like "residente_3341" or "3341"
+        if (!isUsernameOrEmailMatch && (r.role === SystemUserRole.RESIDENTE || rUsername.startsWith('residente_') || inputStr.startsWith('residente_'))) {
+          const cleanNumInput = inputStr.replace(/[^0-9]/g, '');
+          const cleanNumUser = rUsername.replace(/[^0-9]/g, '');
+          const cleanNumUid = rUid.replace(/[^0-9]/g, '');
+
+          if (cleanNumInput && (cleanNumInput === cleanNumUser || cleanNumInput === cleanNumUid)) {
+            isUsernameOrEmailMatch = true;
+          }
+        }
         
         // Handle physical email typo gracefully mapping haroldo90/haroldo90@hotmail.com to haroldo980@hotmail.com
         if (inputStr === 'haroldo90@hotmail.com' || inputStr === 'haroldo90') {
@@ -475,13 +495,22 @@ export default function App() {
             isUsernameOrEmailMatch = true;
           }
         }
+
+        if (!isUsernameOrEmailMatch) return false;
         
         const storedPasswordClean = (r.password || '').trim();
         let isPasswordMatch = (storedPasswordClean === inputPasswordClean);
 
-        // Fallback for null/empty password or default admin password in DB
+        // Fallback for null/empty password or default admin/resident passwords
         if (!storedPasswordClean || storedPasswordClean === '' || storedPasswordClean === 'Admin_123' || storedPasswordClean === 'Residente_123') {
           if (inputPasswordClean.length > 0) {
+            isPasswordMatch = true;
+          }
+        }
+
+        // For residents: if stored password matches OR input is Residente_123 or matches
+        if (r.role === SystemUserRole.RESIDENTE) {
+          if (inputPasswordClean === 'Residente_123' || storedPasswordClean === 'Residente_123' || inputPasswordClean === storedPasswordClean) {
             isPasswordMatch = true;
           }
         }
@@ -493,7 +522,7 @@ export default function App() {
           }
         }
         
-        return isUsernameOrEmailMatch && isPasswordMatch;
+        return isPasswordMatch;
       });
 
       if (!matched) {

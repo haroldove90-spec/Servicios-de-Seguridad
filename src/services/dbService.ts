@@ -91,6 +91,8 @@ export function normalizeResidentRow(raw: any): Residente {
     whatsapp: raw.whatsapp,
     accessUserId: raw.accessUserId ?? raw.access_user_id ?? raw.accessuserid,
     validUntil: raw.validUntil ?? raw.valid_until ?? raw.validuntil,
+    username: raw.username ?? raw.user_name ?? raw.username,
+    password: raw.password ?? raw.pass_word ?? raw.clave ?? raw.password,
     createdAt: raw.createdAt ?? raw.created_at ?? raw.createdat,
     updatedAt: raw.updatedAt ?? raw.updated_at ?? raw.updatedat
   };
