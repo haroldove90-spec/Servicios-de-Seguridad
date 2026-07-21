@@ -7,10 +7,10 @@ import React, { useState, useEffect } from 'react';
 import { 
   Plus, Search, Edit2, Trash2, QrCode, Download, Copy, Check, X, 
   MapPin, User, Home, Shield, Smartphone, ExternalLink, Sparkles, RefreshCw,
-  MessageSquare, Share2
+  MessageSquare, Share2, Eye, EyeOff, Lock, UserCheck, Key
 } from 'lucide-react';
 import { dbService } from '../services/dbService';
-import { Residente, Residencia, AuthorizedUser, UserStatus } from '../types';
+import { Residente, Residencia, AuthorizedUser, UserStatus, SystemRole, SystemUserRole } from '../types';
 import { generateQRWithLogo } from '../utils/qrWithLogo';
 
 interface ResidentesManagerProps {
@@ -22,6 +22,7 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
   const [residentes, setResidentes] = useState<Residente[]>([]);
   const [residencias, setResidencias] = useState<Residencia[]>([]);
   const [authorizedUsers, setAuthorizedUsers] = useState<AuthorizedUser[]>([]);
+  const [systemRoles, setSystemRoles] = useState<SystemRole[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
   
   // Form State
@@ -31,6 +32,9 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
   const [formResidenciaId, setFormResidenciaId] = useState<string>('');
   const [formDireccion, setFormDireccion] = useState<string>('');
   const [formWhatsapp, setFormWhatsapp] = useState<string>('');
+  const [formUsername, setFormUsername] = useState<string>('');
+  const [formPassword, setFormPassword] = useState<string>('');
+  const [showFormPassword, setShowFormPassword] = useState<boolean>(false);
   const [formCreateQR, setFormCreateQR] = useState<boolean>(true); // Generar QR automáticamente
   const [formValidUntil, setFormValidUntil] = useState<string>(() => {
     const d = new Date();
@@ -57,6 +61,9 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
 
       const authList = await dbService.getAuthorizedUsers();
       setAuthorizedUsers(authList);
+
+      const rolesList = await dbService.getAllSystemRoles();
+      setSystemRoles(rolesList);
     } catch (error) {
       console.error('Error loading data in ResidentesManager:', error);
     }
@@ -88,6 +95,9 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
     setFormResidenciaId(activeRes?.id || currentUser?.residenciaId || '');
     setFormDireccion('');
     setFormWhatsapp('');
+    setFormUsername('residente_' + Math.floor(1000 + Math.random() * 9000));
+    setFormPassword('Residente_123');
+    setShowFormPassword(false);
     setFormCreateQR(true);
     setFormIsVisitor(false);
     
@@ -107,6 +117,17 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
     setFormDireccion(item.direccion);
     setFormWhatsapp(item.whatsapp || '');
     setFormCreateQR(!!item.qrcodeToken);
+
+    // Look up linked SystemRole or credential
+    const linkedRole = systemRoles.find(r => 
+      r.uid === item.accessUserId || 
+      r.username?.toLowerCase() === item.username?.toLowerCase() ||
+      (r.role === SystemUserRole.RESIDENTE && r.name.toLowerCase() === cleanName.toLowerCase())
+    );
+
+    setFormUsername(linkedRole?.username || item.username || ('residente_' + Math.floor(1000 + Math.random() * 9000)));
+    setFormPassword(linkedRole?.password || item.password || 'Residente_123');
+    setShowFormPassword(false);
 
     // Try to load linked AuthorizedUser validUntil or fallback to 1 year from now
     const linkedUser = authorizedUsers.find(u => u.id === item.accessUserId || (item.qrcodeToken && u.qrcodeToken === item.qrcodeToken));
@@ -139,6 +160,8 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
     }
 
     const cleanName = formNombre.replace(/\s*\(Visita\)/g, '').replace(/\s*\(Residente\)/g, '').trim();
+    const cleanUsername = formUsername.trim().toLowerCase() || ('residente_' + Math.floor(1000 + Math.random() * 9000));
+    const cleanPassword = formPassword.trim() || 'Residente_123';
 
     // Generate or use existing QR token
     let qrToken = '';
@@ -155,14 +178,13 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
       }
 
       // Synchronously record/update in authorized_users (so Guard scans are valid instantly!)
-      // Residents get custom validity duration configured by the administrator
       const startOfYear = new Date();
       const endOfYear = new Date(formValidUntil);
 
       const authUserPayload: Omit<AuthorizedUser, 'id'> = {
         name: cleanName + (formIsVisitor ? ' (Visita)' : ' (Residente)'),
         documentId: 'RESID-' + matchedComplex.nombre.substring(0, 3).toUpperCase() + '-' + formDireccion.trim().replace(/\s+/g, '-').toUpperCase(),
-        email: formIsVisitor ? 'visita@local.casa' : 'residente@local.casa',
+        email: formIsVisitor ? 'visita@local.casa' : `${cleanUsername}@residente.local`,
         phone: formWhatsapp.trim(),
         status: UserStatus.ACTIVE,
         qrcodeToken: qrToken,
@@ -195,6 +217,27 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
       }
     }
 
+    // Save/Update SystemRole credential for resident app login
+    const systemRolePayload: SystemRole = {
+      uid: accessUserId || ('usr_resd_' + Math.random().toString(36).substring(2, 11)),
+      name: cleanName,
+      email: formWhatsapp.trim() ? `${cleanUsername}@residente.local` : 'residente@local.casa',
+      username: cleanUsername,
+      password: cleanPassword,
+      role: SystemUserRole.RESIDENTE,
+      isActive: true,
+      phone: formWhatsapp.trim(),
+      residenciaId: matchedComplex.id,
+      residenciaNombre: matchedComplex.nombre,
+      createdAt: new Date().toISOString()
+    };
+
+    try {
+      await dbService.saveSystemRole(systemRolePayload);
+    } catch (roleErr) {
+      console.warn('Error saving resident system role credentials:', roleErr);
+    }
+
     const payload = {
       nombre: cleanName + (formIsVisitor ? ' (Visita)' : ''),
       residenciaId: formResidenciaId,
@@ -204,6 +247,8 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
       whatsapp: formWhatsapp.trim(),
       accessUserId: accessUserId,
       validUntil: new Date(formValidUntil).toISOString(),
+      username: cleanUsername,
+      password: cleanPassword,
       updatedAt: new Date().toISOString()
     };
 
@@ -236,6 +281,7 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
         try {
           if (item.accessUserId) {
             await dbService.deleteAuthorizedUser(item.accessUserId);
+            await dbService.deleteSystemRole(item.accessUserId);
           }
           await dbService.deleteResidente(item.id);
           loadData();
@@ -260,7 +306,18 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
   const getWhatsAppShareUrl = (item: Residente) => {
     const cleanPhone = item.whatsapp ? item.whatsapp.replace(/\D/g, '') : '';
     const passUrl = `${window.location.origin}${window.location.pathname}?pass=${item.qrcodeToken}`;
-    const text = `¡Hola *${item.nombre}*!\n\nTe comparto tu *Pase QR de Acceso Permanente* para el fraccionamiento *${item.residenciaNombre}* (Domicilio: *${item.direccion}*).\n\nPresiona el siguiente enlace para abrir tu credencial QR de entrada:\n${passUrl}`;
+    const portalUrl = 'https://servicios-de-seguridad.vercel.app/residente';
+
+    const linkedRole = systemRoles.find(r => 
+      r.uid === item.accessUserId || 
+      r.username?.toLowerCase() === item.username?.toLowerCase() ||
+      (r.role === SystemUserRole.RESIDENTE && r.name.toLowerCase().includes(item.nombre.toLowerCase().replace(/\s*\(visita\)/g, '')))
+    );
+
+    const usr = linkedRole?.username || item.username || 'condominio';
+    const pwd = linkedRole?.password || item.password || 'Condominio_123';
+
+    const text = `¡Hola *${item.nombre}*!\n\nTe comparto tus datos de acceso al portal de *${item.residenciaNombre}* (Domicilio: *${item.direccion}*):\n\n🌐 *LINK DE ACCESO A TU ROL RESIDENTE AUTOGESTIÓN:*\n${portalUrl}\n\n🔑 *TUS CREDENCIALES DE ACCESO EN LA APP:*\n• *Nombre de Usuario:* ${usr}\n• *Contraseña Segura:* ${pwd}\n\n🪪 *ENLACE DIRECTO Y PASE QR PERMANENTE:*\n${passUrl}`;
     return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
   };
 
@@ -520,6 +577,61 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
                 </p>
               </div>
 
+              {/* App Login Credential Creation for Resident Autogestión */}
+              <div className="bg-[#181820] border border-red-500/20 p-4 rounded-xl space-y-3">
+                <div className="flex items-center gap-2 text-xs font-bold text-red-400 uppercase tracking-wider">
+                  <Key className="w-4 h-4 text-red-500 shrink-0" />
+                  <span>Credenciales de Acceso a la Aplicación (Rol Residente)</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                      Nombre de Usuario (Login) *
+                    </label>
+                    <div className="relative">
+                      <UserCheck className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+                      <input
+                        type="text"
+                        required
+                        value={formUsername}
+                        onChange={(e) => setFormUsername(e.target.value)}
+                        placeholder="Ej. residente123"
+                        className="w-full bg-[#111115] border border-[#2e2e38] rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none focus:border-red-500 font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                      Contraseña de Acceso *
+                    </label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+                      <input
+                        type={showFormPassword ? "text" : "password"}
+                        required
+                        value={formPassword}
+                        onChange={(e) => setFormPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full bg-[#111115] border border-[#2e2e38] rounded-xl pl-9 pr-9 py-2 text-xs text-white focus:outline-none focus:border-red-500 font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowFormPassword(!showFormPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition cursor-pointer"
+                      >
+                        {showFormPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <p className="text-[9.5px] text-slate-400 leading-snug">
+                  Al guardar, estas credenciales permitirán al residente iniciar sesión directamente en su rol <strong>Residente Autogestión</strong> para administrar sus pases.
+                </p>
+              </div>
+
               <div className="pt-2">
                 <label className="flex items-center gap-2.5 cursor-pointer select-none">
                   <input
@@ -652,6 +764,31 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
                     <span className="text-[10.5px] font-bold text-slate-350">{selectedResidentQR.direccion}</span>
                   </div>
                 </div>
+
+                {/* App Login Credentials info */}
+                <div className="border-t border-slate-800/60 pt-2 bg-[#090d16] p-2.5 rounded-xl border border-red-500/20">
+                  <label className="block text-[8px] uppercase tracking-widest font-bold text-red-400 font-mono flex items-center gap-1 mb-1">
+                    <Key className="w-3 h-3 text-red-500 shrink-0" /> Acceso App "Residente Autogestión"
+                  </label>
+                  <div className="grid grid-cols-2 gap-1 text-[10px] font-mono text-slate-200">
+                    <div>
+                      <span className="text-slate-500 block text-[8px]">USUARIO:</span>
+                      <span className="font-bold text-amber-400">{
+                        systemRoles.find(r => r.uid === selectedResidentQR.accessUserId || r.username?.toLowerCase() === selectedResidentQR.username?.toLowerCase())?.username || selectedResidentQR.username || 'condominio'
+                      }</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block text-[8px]">CONTRASEÑA:</span>
+                      <span className="font-bold text-slate-200">{
+                        systemRoles.find(r => r.uid === selectedResidentQR.accessUserId || r.username?.toLowerCase() === selectedResidentQR.username?.toLowerCase())?.password || selectedResidentQR.password || 'Condominio_123'
+                      }</span>
+                    </div>
+                  </div>
+                  <div className="mt-1.5 pt-1.5 border-t border-slate-800/80 text-[8.5px] text-slate-400 font-sans">
+                    🌐 Link Portal: <span className="text-blue-400 font-mono">servicios-de-seguridad.vercel.app/residente</span>
+                  </div>
+                </div>
+
                 {selectedResidentQR.whatsapp && (
                   <div className="border-t border-slate-800/40 pt-2">
                     <label className="block text-[8px] uppercase tracking-widest font-bold text-slate-500 font-mono">WhatsApp Registrado</label>

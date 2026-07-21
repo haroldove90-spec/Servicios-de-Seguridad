@@ -115,6 +115,8 @@ export interface Residente {
   whatsapp?: string; // Optional WhatsApp phone number
   accessUserId?: string; // Optional linked AuthorizedUser id
   validUntil?: string; // Optional validity duration datetime
+  username?: string; // App login username
+  password?: string; // App login password
   createdAt: string; // ISO DateTime
   updatedAt: string; // ISO DateTime
 }

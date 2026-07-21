@@ -883,8 +883,20 @@ export default function App() {
     reloadAccessLogs();
   };
 
-  // 1. Detect if a visitor pass was opened in the URL (e.g. ?pass=qrpass_abc or #pass=qrpass_abc)
+  // 1. Detect if a visitor pass was opened in the URL or if route is /residente
   useEffect(() => {
+    const currentPath = window.location.pathname.toLowerCase();
+    if (currentPath.includes('/residente')) {
+      setSelectedLoginTarget({
+        role: SystemUserRole.RESIDENTE,
+        label: 'Residente Autogestión 🏡',
+        defaultTab: 'visitas',
+        residenciaId: 'res-demo-1',
+        residenciaNombre: 'Lomas de Chapultepec'
+      });
+      setIsRegistering(false);
+    }
+
     const params = new URLSearchParams(window.location.search);
     const hash = window.location.hash;
     let token = params.get('pass') || params.get('token');
@@ -2017,20 +2029,22 @@ export default function App() {
                         <Shield className="w-4 h-4" /> Ingresar con Credenciales
                       </button>
 
-                      <div className="text-center text-xs font-sans mt-2 text-slate-400">
-                        ¿No tienes una cuenta de acceso?{" "}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsRegistering(true);
-                            setLoginError('');
-                            setRegSuccess('');
-                          }}
-                          className="text-red-400 hover:text-red-300 font-extrabold underline cursor-pointer"
-                        >
-                          Regístrate Aquí
-                        </button>
-                      </div>
+                      {selectedLoginTarget?.role !== SystemUserRole.RESIDENTE && (
+                        <div className="text-center text-xs font-sans mt-2 text-slate-400">
+                          ¿No tienes una cuenta de acceso?{" "}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsRegistering(true);
+                              setLoginError('');
+                              setRegSuccess('');
+                            }}
+                            className="text-red-400 hover:text-red-300 font-extrabold underline cursor-pointer"
+                          >
+                            Regístrate Aquí
+                          </button>
+                        </div>
+                      )}
 
                       <button
                         id="cancel-login-btn"
@@ -2128,13 +2142,16 @@ export default function App() {
                   {/* CARD 3: RESIDENTE AUTOGESTIÓN */}
                   <div 
                     id="role-gateway-card-residente"
-                    onClick={() => setSelectedLoginTarget({ 
-                      role: SystemUserRole.RESIDENTE, 
-                      label: 'Panel Haroldo Residente 🏡', 
-                      defaultTab: 'visitas',
-                      residenciaId: 'res-demo-1',
-                      residenciaNombre: 'Lomas de Chapultepec' 
-                    })}
+                    onClick={() => {
+                      setSelectedLoginTarget({ 
+                        role: SystemUserRole.RESIDENTE, 
+                        label: 'Panel Residente Autogestión 🏡', 
+                        defaultTab: 'visitas',
+                        residenciaId: 'res-demo-1',
+                        residenciaNombre: 'Lomas de Chapultepec' 
+                      });
+                      setIsRegistering(false);
+                    }}
                     className="group relative bg-[#2A2A2E] hover:bg-[#343438] border border-[#3e3e42] hover:border-blue-500 rounded-3xl p-6 shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden"
                   >
                     <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 blur-3xl rounded-full group-hover:bg-blue-500/10 transition"></div>
