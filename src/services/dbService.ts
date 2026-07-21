@@ -670,12 +670,12 @@ const LocalDB = {
     const defaultRoles: SystemRole[] = [
       {
         uid: 'admin-demo-uid',
-        name: 'Software AI Admin',
-        email: 'softwareai569@gmail.com',
-        username: 'admin',
+        name: 'Jonathan Canales Ortiz',
+        email: 'canalesjonathan7777@gmail.com',
+        username: 'canalesjonathan7777',
         role: SystemUserRole.ADMIN,
         isActive: true,
-        password: 'Admin_123',
+        password: '@s5Qk4eSkPCxm0',
         createdAt: new Date().toISOString(),
       },
       {
