@@ -427,7 +427,7 @@ export default function App() {
           username: uName,
           password: pwd,
           role: SystemUserRole.RESIDENTE,
-          isActive: true,
+          isActive: res.isActive !== false,
           phone: res.whatsapp,
           residenciaId: res.residenciaId,
           residenciaNombre: res.residenciaNombre,

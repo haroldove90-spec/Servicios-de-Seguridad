@@ -93,6 +93,7 @@ export function normalizeResidentRow(raw: any): Residente {
     validUntil: raw.validUntil ?? raw.valid_until ?? raw.validuntil,
     username: raw.username ?? raw.user_name ?? raw.username,
     password: raw.password ?? raw.pass_word ?? raw.clave ?? raw.password,
+    isActive: raw.isActive ?? raw.is_active ?? raw.isactive ?? raw.activo ?? true,
     createdAt: raw.createdAt ?? raw.created_at ?? raw.createdat,
     updatedAt: raw.updatedAt ?? raw.updated_at ?? raw.updatedat
   };
@@ -981,6 +982,30 @@ export const dbService = {
     const filtered = roles.filter(r => r.uid !== role.uid);
     filtered.push(role);
     LocalDB.saveRoles(filtered);
+  },
+
+  async updateSystemRole(uid: string, updates: Partial<SystemRole>): Promise<void> {
+    try {
+      const { error } = await robustSupabaseUpdate('system_roles', updates, 'uid', uid);
+      if (error) {
+        console.warn('Supabase updateSystemRole query error:', error);
+      }
+    } catch (err) {
+      console.warn('Supabase updateSystemRole exception:', err);
+    }
+
+    if (!IS_FIREBASE_DUMMY) {
+      try {
+        const docRef = doc(db, 'system_roles', uid);
+        await updateDoc(docRef, updates);
+      } catch (err) {
+        console.warn('Firestore updateSystemRole exception:', err);
+      }
+    }
+
+    const roles = LocalDB.getRoles();
+    const updated = roles.map(r => r.uid === uid ? { ...r, ...updates } : r);
+    LocalDB.saveRoles(updated);
   },
 
   async getAllSystemRoles(): Promise<SystemRole[]> {

@@ -117,6 +117,7 @@ export interface Residente {
   validUntil?: string; // Optional validity duration datetime
   username?: string; // App login username
   password?: string; // App login password
+  isActive?: boolean; // Whether account is active or disabled by admin
   createdAt: string; // ISO DateTime
   updatedAt: string; // ISO DateTime
 }

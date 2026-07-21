@@ -7,7 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Plus, Search, Edit2, Trash2, QrCode, Download, Copy, Check, X, 
   MapPin, User, Home, Shield, Smartphone, ExternalLink, Sparkles, RefreshCw,
-  MessageSquare, Share2, Eye, EyeOff, Lock, UserCheck, Key
+  MessageSquare, Share2, Eye, EyeOff, Lock, UserCheck, Key, UserX, Power
 } from 'lucide-react';
 import { dbService } from '../services/dbService';
 import { Residente, Residencia, AuthorizedUser, UserStatus, SystemRole, SystemUserRole } from '../types';
@@ -47,6 +47,7 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
   const [generatedQRUrl, setGeneratedQRUrl] = useState<string>('');
   const [copiedToken, setCopiedToken] = useState<boolean>(false);
   const [formIsVisitor, setFormIsVisitor] = useState<boolean>(false);
+  const [formIsActive, setFormIsActive] = useState<boolean>(true);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deleteConfirmNombre, setDeleteConfirmNombre] = useState<string>('');
 
@@ -100,6 +101,7 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
     setShowFormPassword(false);
     setFormCreateQR(true);
     setFormIsVisitor(false);
+    setFormIsActive(true);
     
     // Set default validity to 1 year
     const d = new Date();
@@ -117,6 +119,7 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
     setFormDireccion(item.direccion);
     setFormWhatsapp(item.whatsapp || '');
     setFormCreateQR(!!item.qrcodeToken);
+    setFormIsActive(item.isActive !== false);
 
     // Look up linked SystemRole or credential
     const linkedRole = systemRoles.find(r => 
@@ -144,6 +147,43 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
     }
 
     setIsFormOpen(true);
+  };
+
+  const handleToggleResidentActive = async (item: Residente) => {
+    const currentActive = item.isActive !== false;
+    const newActive = !currentActive;
+
+    try {
+      // 1. Update residente record
+      await dbService.updateResidente(item.id, { isActive: newActive });
+
+      // 2. Update linked AuthorizedUser status if exists
+      if (item.accessUserId) {
+        await dbService.updateAuthorizedUser(item.accessUserId, {
+          status: newActive ? UserStatus.ACTIVE : UserStatus.SUSPENDED
+        });
+      }
+
+      // 3. Update linked SystemRole if exists
+      const cleanUsername = item.username?.toLowerCase();
+      const linkedRole = systemRoles.find(r => 
+        (item.accessUserId && r.uid === item.accessUserId) ||
+        (cleanUsername && r.username?.toLowerCase() === cleanUsername) ||
+        (r.role === SystemUserRole.RESIDENTE && r.name.toLowerCase() === item.nombre.toLowerCase().replace(/\s*\(visita\)/g, '').trim())
+      );
+
+      if (linkedRole) {
+        await dbService.saveSystemRole({
+          ...linkedRole,
+          isActive: newActive
+        });
+      }
+
+      await loadData();
+      if (onRefresh) onRefresh();
+    } catch (error) {
+      console.error('Error toggling resident status:', error);
+    }
   };
 
   const handleSaveResident = async (e: React.FormEvent) => {
@@ -186,7 +226,7 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
         documentId: 'RESID-' + matchedComplex.nombre.substring(0, 3).toUpperCase() + '-' + formDireccion.trim().replace(/\s+/g, '-').toUpperCase(),
         email: formIsVisitor ? 'visita@local.casa' : `${cleanUsername}@residente.local`,
         phone: formWhatsapp.trim(),
-        status: UserStatus.ACTIVE,
+        status: formIsActive ? UserStatus.ACTIVE : UserStatus.SUSPENDED,
         qrcodeToken: qrToken,
         oneTime: false,
         used: false,
@@ -225,7 +265,7 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
       username: cleanUsername,
       password: cleanPassword,
       role: SystemUserRole.RESIDENTE,
-      isActive: true,
+      isActive: formIsActive,
       phone: formWhatsapp.trim(),
       residenciaId: matchedComplex.id,
       residenciaNombre: matchedComplex.nombre,
@@ -249,6 +289,7 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
       validUntil: new Date(formValidUntil).toISOString(),
       username: cleanUsername,
       password: cleanPassword,
+      isActive: formIsActive,
       updatedAt: new Date().toISOString()
     };
 
@@ -380,6 +421,7 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
                 <th className="py-4 px-6">Residente</th>
                 <th className="py-4 px-6">Ubicación / Fraccionamiento</th>
                 <th className="py-4 px-6">Dirección / Casa</th>
+                <th className="py-4 px-6 text-center">Estado</th>
                 <th className="py-4 px-6 text-center">WhatsApp / Enviar</th>
                 <th className="py-4 px-6 text-center">Acceso QR</th>
                 <th className="py-4 px-6 text-right">Acciones</th>
@@ -388,7 +430,7 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
             <tbody className="divide-y divide-[#2e2e38] text-xs font-sans">
               {filteredItems.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-500 font-medium">
+                  <td colSpan={7} className="py-12 text-center text-slate-500 font-medium">
                     {searchTerm ? 'No se encontraron resultados para la búsqueda.' : 'No hay residentes registrados en este momento.'}
                   </td>
                 </tr>
@@ -397,11 +439,11 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
                   <tr key={item.id} className="hover:bg-[#1e1e24]/30 transition-all">
                     <td className="py-4 px-6 font-semibold text-white">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center text-red-500">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${item.isActive !== false ? 'bg-red-500/10 text-red-500' : 'bg-slate-800 text-slate-500'}`}>
                           <User className="w-4 h-4" />
                         </div>
                         <div>
-                          <span>{item.nombre}</span>
+                          <span className={item.isActive !== false ? '' : 'line-through text-slate-400'}>{item.nombre}</span>
                           <span className="block text-[9.5px] text-slate-500 font-normal mt-0.5">ID: {item.id}</span>
                         </div>
                       </div>
@@ -417,6 +459,21 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
                         <MapPin className="w-3.5 h-3.5 text-slate-500" />
                         {item.direccion}
                       </div>
+                    </td>
+                    <td className="py-4 px-6 text-center">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleResidentActive(item)}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer border ${
+                          item.isActive !== false
+                            ? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                            : 'bg-red-500/15 hover:bg-red-500/25 text-red-400 border-red-500/30 font-extrabold'
+                        }`}
+                        title={item.isActive !== false ? "Haga clic para deshabilitar residente" : "Haga clic para habilitar residente"}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full ${item.isActive !== false ? 'bg-emerald-400 animate-pulse' : 'bg-red-500'}`}></span>
+                        {item.isActive !== false ? 'Activo' : 'Deshabilitado'}
+                      </button>
                     </td>
                     <td className="py-4 px-6 text-center">
                       {item.whatsapp ? (
@@ -466,6 +523,18 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
                     </td>
                     <td className="py-4 px-6 text-right font-sans">
                       <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleResidentActive(item)}
+                          className={`p-2 rounded-lg transition-all ${
+                            item.isActive !== false
+                              ? 'text-slate-400 hover:text-red-400 hover:bg-red-500/10'
+                              : 'text-red-400 hover:text-emerald-400 hover:bg-emerald-500/10'
+                          }`}
+                          title={item.isActive !== false ? "Deshabilitar cuenta de residente" : "Habilitar cuenta de residente"}
+                        >
+                          <Power className="w-3.5 h-3.5" />
+                        </button>
                         <button
                           onClick={() => handleOpenEditForm(item)}
                           className="p-2 text-slate-400 hover:text-white hover:bg-[#1e1e24] rounded-lg transition-all"
@@ -659,6 +728,23 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
                 </label>
                 <p className="text-[10px] text-slate-500 mt-1 ml-6">
                   Si se activa el perfil de acceso del residente, se le identificará como visitante ("Pase de Visita") en la caseta de control en lugar de residente regular.
+                </p>
+              </div>
+
+              <div className="pt-2 border-t border-[#2e2e38]/40 bg-[#111115]/50 p-3 rounded-xl border border-[#2e2e38]">
+                <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={formIsActive}
+                    onChange={(e) => setFormIsActive(e.target.checked)}
+                    className="w-4 h-4 rounded text-red-500 focus:ring-transparent bg-[#111115] border-[#2e2e38]"
+                  />
+                  <span className={`text-xs font-semibold ${formIsActive ? 'text-emerald-400' : 'text-red-400 font-bold'}`}>
+                    {formIsActive ? 'Cuenta Habilitada (Acceso Permitido)' : 'Cuenta Deshabilitada (Acceso Bloqueado)'}
+                  </span>
+                </label>
+                <p className="text-[10px] text-slate-500 mt-1 ml-6 leading-tight">
+                  Al deshabilitar a un residente, el sistema bloqueará su inicio de sesión en su rol y revocará sus pases de acceso activo inmediatamente.
                 </p>
               </div>
 
