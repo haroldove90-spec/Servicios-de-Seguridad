@@ -112,7 +112,9 @@ export function normalizeLogRow(raw: any): AccessLog {
     guardId: raw.guardId ?? raw.guard_id ?? raw.guardid,
     guardName: raw.guardName ?? raw.guard_name ?? raw.guardname,
     residenciaId: raw.residenciaId ?? raw.residencia_id ?? raw.residenciaid,
-    residenciaNombre: raw.residenciaNombre ?? raw.residencia_nombre ?? raw.residencianombre
+    residenciaNombre: raw.residenciaNombre ?? raw.residencia_nombre ?? raw.residencianombre,
+    casetaId: raw.casetaId ?? raw.caseta_id ?? raw.casetaid,
+    casetaNombre: raw.casetaNombre ?? raw.caseta_nombre ?? raw.casetanombre
   };
 }
 

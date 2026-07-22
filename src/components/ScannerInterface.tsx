@@ -715,7 +715,9 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
           casetaId: currentGuardRef.current?.casetaId,
           casetaNombre: currentGuardRef.current?.casetaNombre
         });
-        onScanLogged();
+        await reloadRecentLogs();
+        await reloadOnsitePeople();
+        if (onScanLogged) onScanLogged();
         return false;
       }
 
@@ -743,7 +745,9 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
           casetaId: currentGuardRef.current?.casetaId,
           casetaNombre: currentGuardRef.current?.casetaNombre
         });
-        onScanLogged();
+        await reloadRecentLogs();
+        await reloadOnsitePeople();
+        if (onScanLogged) onScanLogged();
         return false;
       }
 
@@ -933,6 +937,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
   };
 
   const logScan = async (user: AuthorizedUser, status: LogStatus, customType?: LogType) => {
+    const activeGuard = currentGuardRef.current || currentGuard;
     const logData: Omit<AccessLog, 'id'> = {
       userId: user.id,
       userName: user.name,
@@ -940,15 +945,19 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
       timestamp: new Date().toISOString(),
       type: customType || validationType,
       status: status,
-      guardId: currentGuard?.uid || 'anonymous-guard',
-      guardName: currentGuard?.name || 'Guardia de Seguridad',
-      residenciaId: user.residenciaId,
-      residenciaNombre: user.residenciaNombre,
-      casetaId: currentGuard?.casetaId || undefined,
-      casetaNombre: currentGuard?.casetaNombre || undefined
+      guardId: activeGuard?.uid || 'anonymous-guard',
+      guardName: activeGuard?.name || 'Guardia de Seguridad',
+      residenciaId: user.residenciaId || activeGuard?.residenciaId || undefined,
+      residenciaNombre: user.residenciaNombre || activeGuard?.residenciaNombre || undefined,
+      casetaId: activeGuard?.casetaId || undefined,
+      casetaNombre: activeGuard?.casetaNombre || undefined
     };
     await dbService.createAccessLog(logData);
-    onScanLogged();
+    await reloadRecentLogs();
+    await reloadOnsitePeople();
+    if (onScanLogged) {
+      onScanLogged();
+    }
   };
 
   const handleEvidencePhotoSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
