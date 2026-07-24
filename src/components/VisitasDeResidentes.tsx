@@ -328,8 +328,8 @@ export default function VisitasDeResidentes({ currentAdminUser, onRefresh }: Vis
 
       {/* Admin QR view dialog overlay */}
       {selectedVisitQR && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="w-full max-w-sm bg-[#1A1A1D] border border-[#303036] rounded-[2.5rem] p-6 shadow-2xl text-center relative flex flex-col items-center">
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="w-full max-w-sm bg-[#1A1A1D] border border-[#303036] rounded-[2.5rem] p-6 shadow-2xl text-center relative flex flex-col items-center my-auto max-h-[92vh] overflow-y-auto">
             
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-48 bg-red-650/5 blur-3xl rounded-full pointer-events-none"></div>
 

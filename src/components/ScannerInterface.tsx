@@ -1421,125 +1421,10 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
           )}
         </div>
 
-        {/* Sandbox Simulation Frame for instant testing */}
-        {false && (
-          <div id="simulation-sandbox-tray" className="mt-8 border-t border-zinc-900 pt-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-            <div className="flex items-center gap-2">
-              <span className="flex h-2 w-2 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-              </span>
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Pruebas Manuales y Simulación de QR</label>
-            </div>
-            
-            {/* Quick configuration category switcher */}
-            <div className="flex bg-slate-950 border border-slate-800 rounded-lg p-0.5">
-              <button
-                type="button"
-                onClick={() => setDemoCategory('all')}
-                className={`px-2 py-1 text-[10px] font-bold rounded-md transition ${demoCategory === 'all' ? 'bg-[#1e293b] text-white' : 'text-slate-400 hover:text-white'}`}
-              >
-                Todos
-              </button>
-              <button
-                type="button"
-                onClick={() => setDemoCategory('resident')}
-                className={`px-2 py-1 text-[10px] font-bold rounded-md transition ${demoCategory === 'resident' ? 'bg-[#1e293b] text-white' : 'text-slate-400 hover:text-white'}`}
-              >
-                Residentes 🏡
-              </button>
-              <button
-                type="button"
-                onClick={() => setDemoCategory('visitor')}
-                className={`px-2 py-1 text-[10px] font-bold rounded-md transition ${demoCategory === 'visitor' ? 'bg-[#1e293b] text-white' : 'text-slate-400 hover:text-white'}`}
-              >
-                Visitantes 🎫
-              </button>
-            </div>
-          </div>
-
-          <p className="text-xs text-slate-400 mb-4 leading-relaxed">
-            Busca y presiona el botón de escaneo de cualquier residente o visitante para simular la lectura de su código QR y evaluar las autorizaciones, vigilando el tránsito con total agilidad:
-          </p>
-
-          {/* Real-time search query for the simulator */}
-          <div className="relative mb-3">
-            <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
-              <Search className="w-3.5 h-3.5" />
-            </span>
-            <input
-              type="text"
-              placeholder="Buscar por nombre, documento o residencia id..."
-              value={demoSearch}
-              onChange={(e) => setDemoSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-950 border border-slate-800 rounded-lg text-slate-200 focus:border-slate-700/80 focus:outline-hidden"
-            />
-          </div>
-
-          {/* Interactive Simulation Grid */}
-          <div id="quick-demo-test-grid" className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4 max-h-[160px] overflow-y-auto pr-1">
-            {quickUsers.filter(user => {
-              const isRes = user.name.includes('(Residente)') || user.id.startsWith('usr_resd_');
-              const matchesCategory = 
-                demoCategory === 'all' || 
-                (demoCategory === 'resident' && isRes) || 
-                (demoCategory === 'visitor' && !isRes);
-                
-              const matchesSearch = 
-                user.name.toLowerCase().includes(demoSearch.toLowerCase()) || 
-                user.documentId.toLowerCase().includes(demoSearch.toLowerCase());
-                
-              return matchesCategory && matchesSearch;
-            }).map((user) => {
-              const isRes = user.name.includes('(Residente)') || user.id.startsWith('usr_resd_');
-              return (
-                <button
-                  key={user.id}
-                  type="button"
-                  id={`simulate-scan-${user.id}`}
-                  onClick={() => {
-                    setScanResult(null);
-                    handleVerifyToken(user.qrcodeToken);
-                  }}
-                  className="flex items-center justify-between text-left px-3 py-2 border border-slate-850 bg-[#020617]/40 rounded-xl hover:border-slate-750 hover:bg-slate-900 transition text-xs cursor-pointer group"
-                >
-                  <div className="truncate pr-2">
-                    <p className="font-semibold text-slate-200 group-hover:text-red-400 transition truncate flex items-center gap-1">
-                      {isRes ? '🏡' : '🎫'} {user.name}
-                    </p>
-                    <p className="text-[10px] text-slate-450 font-mono truncate">{user.documentId}</p>
-                  </div>
-                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border shrink-0 ${
-                    user.status === UserStatus.ACTIVE 
-                      ? user.oneTime 
-                        ? 'bg-purple-500/10 text-purple-400 border-purple-500/25' 
-                        : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25'
-                      : 'bg-red-500/10 text-red-400 border-red-500/25'
-                  }`}>
-                    {user.status === UserStatus.ACTIVE ? (user.oneTime ? 'Único' : 'Frecuente') : 'Expirado'}
-                  </span>
-                </button>
-              );
-            })}
-            {quickUsers.filter(user => {
-              const isRes = user.name.includes('(Residente)') || user.id.startsWith('usr_resd_');
-              const matchesCategory = 
-                demoCategory === 'all' || 
-                (demoCategory === 'resident' && isRes) || 
-                (demoCategory === 'visitor' && !isRes);
-                
-              const matchesSearch = 
-                user.name.toLowerCase().includes(demoSearch.toLowerCase()) || 
-                user.documentId.toLowerCase().includes(demoSearch.toLowerCase());
-                
-              return matchesCategory && matchesSearch;
-            }).length === 0 && (
-              <p className="text-slate-500 text-xs text-center col-span-2 py-4">No se encontraron residentes o visitantes cargados con ese filtro.</p>
-            )}
-          </div>
-
-          <div id="simulated-token-typing" className="flex gap-2">
+        {/* Validar Token Manualmente */}
+        <div id="manual-token-input-section" className="mt-8 border-t border-zinc-900 pt-6">
+          <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Ingreso Manual por Código o Folio</label>
+          <div className="flex gap-2">
             <div className="relative flex-1">
               <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
                 <Key className="w-3.5 h-3.5" />
@@ -1547,27 +1432,27 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
               <input
                 id="input-token-manual-type"
                 type="text"
-                placeholder="O escribe/pega el token del pase manualmente..."
+                placeholder="Escribe o pega el código del pase o token..."
                 value={manualToken}
                 onChange={(e) => setManualToken(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-xs bg-slate-950 border border-slate-850 rounded-xl text-slate-205 focus:border-slate-700 focus:outline-hidden"
+                className="w-full pl-9 pr-3 py-2 text-xs bg-slate-950 border border-slate-800 rounded-xl text-slate-200 focus:border-red-500 focus:outline-hidden font-mono"
               />
             </div>
             <button
               id="btn-trigger-manual-token"
               type="button"
               onClick={() => {
+                if (!manualToken.trim()) return;
                 setScanResult(null);
-                handleVerifyToken(manualToken);
+                handleVerifyToken(manualToken.trim());
                 setManualToken('');
               }}
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl transition border border-slate-700 cursor-pointer"
+              className="px-4 py-2 bg-red-650 hover:bg-red-600 text-white text-xs font-semibold rounded-xl transition border border-red-500/20 cursor-pointer flex items-center gap-1.5"
             >
-              Simular Lectura
+              Validar Código
             </button>
           </div>
         </div>
-        )}
       </div>
       ) : (
         <div id="evidencias-terminal-frame" className="lg:col-span-7 bg-[#0f172a] rounded-2xl border border-[#1e293b] p-6 shadow-2xl flex flex-col justify-stretch space-y-6">

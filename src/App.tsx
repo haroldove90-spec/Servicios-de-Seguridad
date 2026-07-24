@@ -530,6 +530,28 @@ export default function App() {
         return;
       }
 
+      // Strict role isolation check for "Administración de Condominios":
+      const isTargetingCondominios = selectedLoginTarget?.role === SystemUserRole.CONDOMINIOS;
+      const isUserCondominiosRole = matched.role === SystemUserRole.CONDOMINIOS;
+
+      if (isTargetingCondominios && !isUserCondominiosRole) {
+        const roleLabelMap: Record<string, string> = {
+          admin: 'Administración General',
+          supervisor: 'Caseta / Seguridad',
+          residente: 'Residente Autogestión',
+          guard: 'Caseta / Guardia',
+          auditor: 'Auditoría'
+        };
+        const currentRoleLabel = roleLabelMap[matched.role] || matched.role;
+        setLoginError(`Acceso Restringido: Sus credenciales pertenecen al perfil de "${currentRoleLabel}". No tiene autorización para ingresar a la Administración de Condominios ya que es un rol totalmente independiente. Debe solicitar que el Administrador de Condominios lo registre directamente en este rol.`);
+        return;
+      }
+
+      if (!isTargetingCondominios && isUserCondominiosRole) {
+        setLoginError('Acceso Restringido: Sus credenciales pertenecen al rol de "Administración de Condominios". Por favor, ingrese seleccionando la tarjeta "Administración de condominios" en el menú de inicio.');
+        return;
+      }
+
       // Block access ONLY for standard default demo accounts (admin/guardia/residente) if they don't have custom emails
       const matchedUsername = (matched.username || '').trim().toLowerCase();
       const matchedEmail = (matched.email || '').trim().toLowerCase();
@@ -1294,7 +1316,7 @@ export default function App() {
               <div className="w-full bg-[#111827] rounded-[1.5rem] p-5 border border-slate-800/80 mb-5 relative flex flex-col items-center">
                 
                 {/* Crest Top Image */}
-                <div className="w-40 h-40 flex items-center justify-center mb-1 drop-shadow-lg">
+                <div className="w-28 h-28 flex items-center justify-center mb-1 drop-shadow-lg">
                   <img 
                     src="https://cossma.com.mx/cnls.png" 
                     alt="CNLS Crest" 
@@ -1371,30 +1393,6 @@ export default function App() {
                 >
                   <Download className="w-4 h-4" /> Guardar en Mi Teléfono (JPG)
                 </button>
-                
-                <button
-                  id="simulate-scan-marbete"
-                  onClick={() => {
-                    handleSimulateScanDirect(visitorPassMarbete.qrcodeToken);
-                    alert('¡Simulando escaneo de Marbete! El sistema del oficial de seguridad registrará y validará su acceso vehicular.');
-                  }}
-                  className="w-full flex items-center justify-center gap-1.5 px-4 py-2 bg-red-650 hover:bg-red-600 text-white font-semibold text-xs rounded-xl shadow-md transition cursor-pointer"
-                >
-                  <ScanLine className="w-4 h-4" /> Simular Paso en Caseta
-                </button>
-
-                <button
-                  id="nav-to-dashboard-from-pass"
-                  onClick={() => {
-                    const nextUrl = window.location.origin + window.location.pathname;
-                    window.history.pushState({}, '', nextUrl);
-                    setVisitorPassToken(null);
-                    setVisitorPassMarbete(null);
-                  }}
-                  className="w-full text-slate-400 hover:text-white font-medium text-xs py-2 transition cursor-pointer"
-                >
-                  Volver al Panel de Seguridad 🛡️
-                </button>
               </div>
             </>
           ) : visitorPassUser ? (
@@ -1447,33 +1445,6 @@ export default function App() {
               <p className="text-xs text-slate-400 leading-relaxed max-w-xs mt-6">
                 Presenta este código QR frente al lector o cámara frontal para verificar tu autorización de acceso en portería.
               </p>
-
-              {/* Demo Simulate buttons */}
-              <div className="w-full border-t border-slate-800 pt-5 mt-6 flex flex-col gap-2 font-sans">
-                <button
-                  id="simulate-scan-from-pass-view"
-                  onClick={() => {
-                    handleSimulateScanDirect(visitorPassUser.qrcodeToken);
-                    alert('¡Simulando escaneo! Revisa la pestaña del sistema de control para ver que el pase ya fue validado.');
-                  }}
-                  className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 bg-red-650 hover:bg-red-600 text-white font-semibold text-xs rounded-xl shadow-lg transition cursor-pointer"
-                >
-                  <ScanLine className="w-4 h-4" /> Simular Escaneo en Caseta
-                </button>
-                <button
-                  id="nav-to-dashboard-from-pass"
-                  onClick={() => {
-                    // Wipe token parameter from URL & reset view
-                    const nextUrl = window.location.origin + window.location.pathname;
-                    window.history.pushState({}, '', nextUrl);
-                    setVisitorPassToken(null);
-                    setVisitorPassUser(null);
-                  }}
-                  className="w-full text-slate-400 hover:text-white font-medium text-xs py-2 transition cursor-pointer"
-                >
-                  Volver al Panel de Control de Seguridad 🛡️
-                </button>
-              </div>
             </>
           ) : (
             <div className="py-8">
@@ -1482,17 +1453,6 @@ export default function App() {
               <p className="text-xs text-slate-400 mt-2 px-4 leading-relaxed">
                 Este token no corresponde a ningún visitante autorizado en nuestra base de datos. Pide al administrador registrar tu acceso.
               </p>
-              <button
-                id="reset-url-pass-expired"
-                onClick={() => {
-                  const nextUrl = window.location.origin + window.location.pathname;
-                  window.history.pushState({}, '', nextUrl);
-                  setVisitorPassToken(null);
-                }}
-                className="mt-6 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-xl cursor-pointer"
-              >
-                Volver al Panel Principal
-              </button>
             </div>
           )}
           

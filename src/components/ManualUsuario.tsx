@@ -136,7 +136,7 @@ export const ManualUsuario: React.FC<ManualUsuarioProps> = ({ onGoToTab }) => {
           text: 'Aparece la foto del visitante y un marco de color indicando el estado del pase:\n🟢 VERDE (Pase Activo y Autorizado) - Permite el paso.\n🔴 ROJO (Pase Vencido, Ya Usado o Inexistente) - Acceso Denegado.'
         }
       ],
-      tip: 'En el módulo de simulación puedes dar clic en "Simular Escaneo" para ver cómo procesa y valida los pases en tiempo real de forma segura.'
+      tip: 'El escáner de la caseta procesa y valida los pases en tiempo real de forma segura y veloz.'
     }
   ];
 

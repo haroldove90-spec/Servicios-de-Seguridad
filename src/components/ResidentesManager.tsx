@@ -569,8 +569,8 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
 
       {/* Add / Edit Form Modal */}
       {isFormOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-[#18181c] border border-[#2e2e38] rounded-2.5xl shadow-2xl overflow-hidden animate-scale-in">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="w-full max-w-md bg-[#18181c] border border-[#2e2e38] rounded-2.5xl shadow-2xl overflow-hidden animate-scale-in my-auto max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-4.5 bg-[#1e1e24] border-b border-[#2e2e38]">
               <h3 className="text-sm font-bold uppercase tracking-wider text-white">
                 {editingId ? 'Editar Residente' : 'Registrar Residente'}
@@ -801,8 +801,8 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
 
       {/* QR Passport View Modal */}
       {selectedResidentQR && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-[340px] bg-slate-900 border-4 border-slate-800 rounded-[2.5rem] shadow-2xl relative overflow-hidden flex flex-col items-center p-5 pt-10 pb-6 border-b-8 animate-scale-in">
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="w-full max-w-[340px] bg-slate-900 border-4 border-slate-800 rounded-[2.5rem] shadow-2xl relative overflow-hidden flex flex-col items-center p-5 pt-10 pb-6 border-b-8 animate-scale-in my-auto max-h-[92vh] overflow-y-auto">
             {/* Bezel Notch */}
             <div className="absolute top-3 left-1/2 -translate-x-1/2 w-24 h-4.5 bg-slate-950 rounded-full flex items-center justify-center">
               <div className="w-1.5 h-1.5 rounded-full bg-slate-800 mr-2"></div>
@@ -940,8 +940,8 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
 
       {/* CUSTOM CONFIRM ACTION */}
       {deleteConfirmId && (
-        <div id="delete-resident-confirm-overlay" className="fixed inset-0 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-[#18181c] rounded-2xl border border-[#2e2e38] shadow-2xl max-w-sm w-full p-6 text-center text-xs text-slate-200">
+        <div id="delete-resident-confirm-overlay" className="fixed inset-0 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in overflow-y-auto">
+          <div className="bg-[#18181c] rounded-2xl border border-[#2e2e38] shadow-2xl max-w-sm w-full p-6 text-center text-xs text-slate-200 my-auto max-h-[92vh] overflow-y-auto">
             <div className="w-12 h-12 bg-red-500/10 text-red-500 border border-red-500/20 rounded-2xl flex items-center justify-center mb-4 mx-auto transition">
               <Trash2 className="w-6 h-6" />
             </div>

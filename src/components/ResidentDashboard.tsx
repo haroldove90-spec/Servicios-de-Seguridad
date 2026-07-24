@@ -502,8 +502,8 @@ export default function ResidentDashboard({ currentResidentUser, onRefresh }: Re
 
       {/* Slide-over Registration Form Modal */}
       {isFormOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="w-full max-w-md bg-[#161619] border border-[#2a2a30] rounded-[2rem] p-6 shadow-2xl relative overflow-hidden animate-fade-in-up">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="w-full max-w-md bg-[#161619] border border-[#2a2a30] rounded-[2rem] p-6 shadow-2xl relative overflow-hidden animate-fade-in-up my-auto max-h-[92vh] overflow-y-auto">
             <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 blur-3xl rounded-full pointer-events-none"></div>
             
             <div className="flex items-center justify-between mb-6">
@@ -512,7 +512,7 @@ export default function ResidentDashboard({ currentResidentUser, onRefresh }: Re
                 Registrar Pase de Visita
               </h3>
               <button
-                _id="close-visit-form"
+                id="close-visit-form"
                 onClick={() => setIsFormOpen(false)}
                 className="p-1.5 rounded-xl hover:bg-slate-850 text-slate-400 transition cursor-pointer"
               >
@@ -585,8 +585,8 @@ export default function ResidentDashboard({ currentResidentUser, onRefresh }: Re
 
       {/* QR Details Slideover Modal */}
       {selectedVisitQR && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="w-full max-w-sm bg-[#1A1A1D] border border-[#303036] rounded-[2.5rem] p-6 shadow-2xl relative overflow-hidden text-center relative flex flex-col items-center">
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="w-full max-w-sm bg-[#1A1A1D] border border-[#303036] rounded-[2.5rem] p-6 shadow-2xl relative overflow-hidden text-center flex flex-col items-center my-auto max-h-[92vh] overflow-y-auto">
             
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-48 bg-blue-500/10 blur-3xl rounded-full pointer-events-none"></div>
 

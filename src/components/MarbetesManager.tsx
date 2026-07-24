@@ -590,8 +590,8 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
 
       {/* --- QR PREVIEW DIGITAL MARBETE OVERLAY MODAL --- */}
       {isQRModalOpen && selectedMarbete && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-[2rem] p-6 shadow-2xl relative flex flex-col items-center">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 animate-fade-in overflow-y-auto">
+          <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-[2rem] p-6 shadow-2xl relative flex flex-col items-center my-auto max-h-[92vh] overflow-y-auto">
             
             <button
               onClick={() => {
@@ -607,7 +607,7 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
             <div id="marbete-digital-card-preview" className="w-full bg-[#111827] rounded-[1.5rem] p-5 border border-slate-800/80 mb-5 flex flex-col items-center text-center">
               
               {/* Crest Centered above QR */}
-              <div className="w-36 h-36 flex items-center justify-center mb-0.5 drop-shadow-xl">
+              <div className="w-24 h-24 flex items-center justify-center mb-0.5 drop-shadow-xl">
                 <img 
                   src="https://cossma.com.mx/cnls.png" 
                   alt="Escudo de Armas" 
@@ -696,8 +696,8 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
 
       {/* --- CREATE / EDIT FORM OVERLAY MODAL --- */}
       {isFormOpen && (
-        <div className="fixed inset-0 bg-black/75 flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="w-full max-w-md bg-[#1B1B1F] border border-zinc-800 rounded-2xl p-6 shadow-2xl relative font-sans">
+        <div className="fixed inset-0 bg-black/75 flex items-center justify-center p-4 z-50 animate-fade-in overflow-y-auto">
+          <div className="w-full max-w-md bg-[#1B1B1F] border border-zinc-800 rounded-2xl p-6 shadow-2xl relative font-sans my-auto max-h-[92vh] overflow-y-auto">
             
             <button
               onClick={() => setIsFormOpen(false)}

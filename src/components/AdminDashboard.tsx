@@ -352,8 +352,8 @@ export default function AdminDashboard({ onUsersUpdated, currentUser }: AdminDas
 
       {/* FORM MODAL PANEL (SLIDE / DIALOG OVERLAY) */}
       {isFormOpen && createPortal(
-        <div id="overlay-visitor-crud" className="fixed inset-0 bg-black/85 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div id="visitor-form-modal-body" className="bg-[#2A2A2E] rounded-2xl border border-[#3e3e42] shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+        <div id="overlay-visitor-crud" className="fixed inset-0 bg-black/85 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in overflow-y-auto">
+          <div id="visitor-form-modal-body" className="bg-[#2A2A2E] rounded-2xl border border-[#3e3e42] shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto my-auto">
             <div className="p-5 border-b border-[#3e3e42] flex items-center justify-between">
               <h3 className="text-sm font-bold text-slate-100 uppercase tracking-wider flex items-center gap-2">
                 <Shield className="w-4 h-4 text-red-500" /> {editingId ? 'Modificar Pase de Acceso' : 'Emitir Credenciales QR'}
@@ -598,8 +598,8 @@ export default function AdminDashboard({ onUsersUpdated, currentUser }: AdminDas
 
       {/* QR MODAL PREVIEW OVERLAY */}
       {selectedQRUser && createPortal(
-        <div id="overlay-qr-display" className="fixed inset-0 bg-black/85 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div id="qr-display-body" className="bg-[#2A2A2E] rounded-2xl border border-[#3e3e42] shadow-2xl max-w-sm w-full p-6 text-center text-xs text-slate-200">
+        <div id="overlay-qr-display" className="fixed inset-0 bg-black/85 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in overflow-y-auto">
+          <div id="qr-display-body" className="bg-[#2A2A2E] rounded-2xl border border-[#3e3e42] shadow-2xl max-w-sm w-full p-6 text-center text-xs text-slate-200 my-auto max-h-[92vh] overflow-y-auto">
             <div className="flex justify-between items-center pb-3 border-b border-[#3e3e42] mb-6">
               <h3 className="font-bold text-slate-200 uppercase tracking-wider">Premises Entry Pass (QR)</h3>
               <button 
@@ -629,11 +629,10 @@ export default function AdminDashboard({ onUsersUpdated, currentUser }: AdminDas
             <h4 className="text-base font-bold text-slate-100 tracking-tight">{selectedQRUser.name}</h4>
             <p className="text-[10px] font-mono text-slate-400 mt-0.5">Identificación: <span className="text-slate-300 font-bold">{selectedQRUser.documentId}</span></p>
 
-            {/* Quick Test Copy Section */}
+            {/* Token Section */}
             <div id="quick-copy-token-sandbox" className="mt-4 bg-[#1A1A1E] border border-[#3e3e42] p-2 rounded-xl text-left">
               <div className="flex items-center justify-between text-[10px] text-slate-400 uppercase tracking-wider mb-1">
-                <span>Token del Pase (Para Test)</span>
-                <span className="text-[9px] text-red-400 bg-red-500/10 border border-red-500/20 px-1.5 rounded-xs font-bold font-mono">Test Mode</span>
+                <span>Token del Pase</span>
               </div>
               <div className="flex items-center gap-2">
                 <code className="text-[10px] font-mono text-slate-350 flex-1 truncate block py-1 bg-black border border-[#3e3e42] rounded px-1.5">
@@ -643,7 +642,7 @@ export default function AdminDashboard({ onUsersUpdated, currentUser }: AdminDas
                   id="btn-copy-test-token"
                   onClick={() => handleCopyToken(selectedQRUser.qrcodeToken)}
                   className="p-1.5 bg-slate-900 border border-slate-800 text-slate-405 hover:text-white rounded-lg transition"
-                  title="Copiar token para prueba manual"
+                  title="Copiar token"
                 >
                   {copiedToken ? <Check className="w-3.5 h-3.5 text-emerald-450" /> : <Copy className="w-3.5 h-3.5" />}
                 </button>
@@ -667,7 +666,7 @@ export default function AdminDashboard({ onUsersUpdated, currentUser }: AdminDas
                 id="btn-share-pass-placeholder"
                 onClick={() => {
                   navigator.clipboard.writeText(`${window.location.origin}/?pass=${selectedQRUser.qrcodeToken}`);
-                  alert('¡Enlace de pase público copiado al portapapeles! Ábrelo en tu teléfono móvil para realizar la prueba de cámara o en una pestaña nueva para simular.');
+                  alert('¡Enlace de pase público copiado al portapapeles! Ábrelo en tu teléfono móvil o en una pestaña nueva para visualizarlo.');
                 }}
                 className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-xl text-xs transition cursor-pointer"
               >
@@ -681,8 +680,8 @@ export default function AdminDashboard({ onUsersUpdated, currentUser }: AdminDas
 
       {/* CUSTOM CONFIRMATION DIALOG */}
       {deleteConfirmId && createPortal(
-        <div id="delete-confirmation-overlay" className="fixed inset-0 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-[#2A2A2E] rounded-2xl border border-[#3e3e42] shadow-2xl max-w-sm w-full p-6 text-center text-xs text-slate-200">
+        <div id="delete-confirmation-overlay" className="fixed inset-0 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in overflow-y-auto">
+          <div className="bg-[#2A2A2E] rounded-2xl border border-[#3e3e42] shadow-2xl max-w-sm w-full p-6 text-center text-xs text-slate-200 my-auto max-h-[92vh] overflow-y-auto">
             <div className="w-12 h-12 bg-red-550/15 text-red-500 border border-red-500/25 rounded-2xl flex items-center justify-center mb-4 mx-auto group-hover:scale-110 transition">
               <Trash2 className="w-6 h-6" />
             </div>

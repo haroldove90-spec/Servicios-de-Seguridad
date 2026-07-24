@@ -734,8 +734,8 @@ export default function ResidenciasManager({ onRefresh, onVisitResidencia }: Res
 
       {/* Residence Form Overlay Modal (Original) */}
       {isFormOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-[#18181c] border border-[#2e2e38] rounded-2.5xl shadow-2xl overflow-hidden animate-scale-in">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="w-full max-w-md bg-[#18181c] border border-[#2e2e38] rounded-2.5xl shadow-2xl overflow-hidden animate-scale-in my-auto max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-4.5 bg-[#1e1e24] border-b border-[#2e2e38]">
               <h3 className="text-sm font-bold uppercase tracking-wider text-white">
                 {editingId ? 'Editar Residencia' : 'Registrar Residencia'}
@@ -879,8 +879,8 @@ export default function ResidenciasManager({ onRefresh, onVisitResidencia }: Res
 
       {/* Visitor Registration Form Modal associated specifically with a subdivision residence */}
       {isVisitorFormOpen && visitorResidencia && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-[#18181c] border border-[#2e2e38] rounded-2.5xl shadow-2xl overflow-hidden animate-scale-in">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="w-full max-w-md bg-[#18181c] border border-[#2e2e38] rounded-2.5xl shadow-2xl overflow-hidden animate-scale-in my-auto max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-4.5 bg-[#1e1e24] border-b border-[#2e2e38]">
               <div>
                 <h3 className="text-xs font-black uppercase tracking-wider text-white">Registrar Visita</h3>
@@ -1030,8 +1030,8 @@ export default function ResidenciasManager({ onRefresh, onVisitResidencia }: Res
 
       {/* Visitor QR Pass phone screen Modal */}
       {selectedVisitorQR && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-[340px] bg-slate-900 border-4 border-slate-800 rounded-[2.5rem] shadow-2xl relative overflow-hidden flex flex-col items-center p-5 pt-10 pb-6 border-b-8 animate-scale-in select-none">
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="w-full max-w-[340px] bg-slate-900 border-4 border-slate-800 rounded-[2.5rem] shadow-2xl relative overflow-hidden flex flex-col items-center p-5 pt-10 pb-6 border-b-8 animate-scale-in select-none my-auto max-h-[92vh] overflow-y-auto">
             {/* Bezel Notch */}
             <div className="absolute top-3 left-1/2 -translate-x-1/2 w-24 h-4.5 bg-slate-950 rounded-full flex items-center justify-center">
               <div className="w-1.5 h-1.5 rounded-full bg-slate-800 mr-2"></div>
@@ -1152,8 +1152,8 @@ export default function ResidenciasManager({ onRefresh, onVisitResidencia }: Res
 
       {/* Success Modal: Automatically Created Credentials info */}
       {createdCredentials && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-55 flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-[#18181c] border border-emerald-500/30 rounded-2.5xl shadow-2xl overflow-hidden animate-scale-in">
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-55 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="w-full max-w-lg bg-[#18181c] border border-emerald-500/30 rounded-2.5xl shadow-2xl overflow-hidden animate-scale-in my-auto max-h-[92vh] overflow-y-auto">
             <div className="flex items-center gap-3 px-6 py-4.5 bg-[#1a2e26] border-b border-emerald-500/20 text-emerald-400">
               <div className="w-9 h-9 rounded-full bg-emerald-500/10 flex items-center justify-center">
                 <CheckCircle className="w-5 h-5 text-emerald-400" />
