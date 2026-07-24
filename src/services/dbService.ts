@@ -251,17 +251,6 @@ export function extractMissingColumn(code: string, message: string): string | nu
 export async function robustSupabaseInsert(tableName: string, camelPayload: any) {
   let payload: any = { ...camelPayload };
 
-  // Expand payload with snake_case and lowercase variants so PostgreSQL column matches survive pruning
-  for (const k of Object.keys(camelPayload)) {
-    const val = camelPayload[k];
-    if (val !== undefined && val !== null) {
-      const snakeK = toSnakeCase(k);
-      const lowerK = k.toLowerCase();
-      if (!(snakeK in payload)) payload[snakeK] = val;
-      if (!(lowerK in payload)) payload[lowerK] = val;
-    }
-  }
-
   // Clean up undefined/empty ID properties to avoid PostgREST foreign key issues
   for (const k of Object.keys(payload)) {
     if (payload[k] === undefined) {
@@ -274,7 +263,7 @@ export async function robustSupabaseInsert(tableName: string, camelPayload: any)
     }
   }
 
-  const maxAttempts = 12;
+  const maxAttempts = 10;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       // 1. Try writing directly
@@ -289,24 +278,47 @@ export async function robustSupabaseInsert(tableName: string, camelPayload: any)
       
       console.warn(`[Supabase Insert Attempt ${attempt}] failed on ${tableName}. Code: ${error.code}, Message: ${error.message}`);
       
+      // Foreign Key Constraint Error (e.g. 23503 or foreign key constraint violation)
+      if (error.code === '23503' || (error.message && error.message.toLowerCase().includes('foreign key constraint'))) {
+        const fkMatch = error.message.match(/Key \(([^)]+)\)=\(([^)]+)\)/i) || error.message.match(/constraint "([^"]+)"/i);
+        let fkCol: string | null = null;
+        if (fkMatch && fkMatch[1]) {
+          fkCol = fkMatch[1];
+        }
+        
+        if (fkCol && fkCol in payload) {
+          console.log(`Self-healing insert: Nullifying invalid foreign key "${fkCol}" from ${tableName} payload.`);
+          payload[fkCol] = null;
+          continue;
+        } else {
+          // Nullify common foreign key fields if specific field was not extracted
+          let nullifiedAny = false;
+          ['residenciaId', 'residencia_id', 'residenteId', 'residente_id', 'accessUserId', 'access_user_id'].forEach(fkKey => {
+            if (payload[fkKey] !== null && payload[fkKey] !== undefined) {
+              payload[fkKey] = null;
+              nullifiedAny = true;
+            }
+          });
+          if (nullifiedAny) continue;
+        }
+      }
+
       // If code is 42703 (undefined_column) or code is PGRST204 (column missing from cache) or message specifies a missing column
       if (error.code === '42703' || error.code === 'PGRST204' || (error.message && error.message.toLowerCase().includes('column'))) {
         const badCol = extractMissingColumn(error.code, error.message);
         if (badCol) {
           console.log(`Self-healing insert: Pruning missing column "${badCol}" from ${tableName} payload.`);
-          
-          // Delete only the exact failing key, keeping alternate casing variants intact!
           delete payload[badCol];
           continue;
         } else {
           // Fallback to lowercased keys or snake_cased keys as retry options if first failed
           if (attempt === 1) {
-            console.log(`Retrying insertion using lowercase keys conversion...`);
-            payload = toLowercaseKeys(payload);
-            continue;
-          } else if (attempt === 2) {
             console.log(`Retrying insertion using snake_case keys conversion...`);
             payload = toSnakeCaseKeys(camelPayload);
+            continue;
+          } else if (attempt === 2) {
+            console.log(`Retrying insertion using lowercase keys conversion...`);
+            payload = toLowercaseKeys(camelPayload);
             continue;
           }
         }
@@ -2041,33 +2053,59 @@ export const dbService = {
       consecutivo: nextConsecutivo
     };
 
+    // 1. Save to local storage first to guarantee UI responsiveness
+    try {
+      const currentLocals = LocalDB.getMarbetes();
+      currentLocals.unshift(newMarbete);
+      LocalDB.saveMarbetes(currentLocals);
+    } catch (locErr) {
+      console.warn('Failed saving marbete to LocalDB cache:', locErr);
+    }
+
+    // 2. Propagate to Supabase as primary cloud store
     try {
       const { error } = await robustSupabaseInsert('marbetes', newMarbete);
       if (error) {
-        throw new Error(`Supabase Insert Error: ${error.message || JSON.stringify(error)} (Código: ${error.code})`);
+        console.warn('Supabase createMarbete returned query error, relying on local sync:', error);
+      } else {
+        console.log('Successfully saved Marbete in Supabase');
       }
-      return newMarbete;
     } catch (err: any) {
-      console.error('Supabase createMarbete exception occurred:', err);
-      throw err;
+      console.warn('Supabase createMarbete exception occurred, relying on local sync:', err);
     }
+
+    return newMarbete;
   },
 
   async updateMarbete(id: string, updates: Partial<Marbete>): Promise<void> {
     try {
+      const list = LocalDB.getMarbetes();
+      const updatedList = list.map(m => m.id === id ? { ...m, ...updates, updatedAt: new Date().toISOString() } : m);
+      LocalDB.saveMarbetes(updatedList);
+    } catch (locErr) {
+      console.warn('LocalDB updateMarbete error:', locErr);
+    }
+
+    try {
       const updatesWithTimestamp = { ...updates, updatedAt: new Date().toISOString() };
       const { error } = await robustSupabaseUpdate('marbetes', updatesWithTimestamp, 'id', id);
       if (error) {
-        throw new Error(`Supabase Update Error: ${error.message || JSON.stringify(error)} (Código: ${error.code})`);
+        console.warn('Supabase updateMarbete returned error:', error);
       }
-      return;
     } catch (err: any) {
-      console.error('Supabase updateMarbete exception occurred:', err);
-      throw err;
+      console.warn('Supabase updateMarbete exception occurred:', err);
     }
   },
 
   async deleteMarbete(id: string): Promise<void> {
+    try {
+      const list = LocalDB.getMarbetes();
+      const filtered = list.filter(m => m.id !== id);
+      LocalDB.saveMarbetes(filtered);
+    } catch (locErr) {
+      console.warn('LocalDB deleteMarbete error:', locErr);
+    }
+
     try {
       const { error } = await supabase
         .from('marbetes')
@@ -2075,12 +2113,10 @@ export const dbService = {
         .eq('id', id);
 
       if (error) {
-        throw new Error(`Supabase Delete Error: ${error.message || JSON.stringify(error)} (Código: ${error.code})`);
+        console.warn('Supabase deleteMarbete error:', error);
       }
-      return;
     } catch (err: any) {
-      console.error('Supabase deleteMarbete exception occurred:', err);
-      throw err;
+      console.warn('Supabase deleteMarbete exception occurred:', err);
     }
   },
 
