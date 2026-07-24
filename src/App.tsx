@@ -1045,43 +1045,120 @@ export default function App() {
     }
 
     if (token) {
-      setVisitorPassToken(token);
+      let cleanToken = token.trim();
+      if (cleanToken.includes('pass=')) {
+        cleanToken = cleanToken.split('pass=')[1].split('&')[0].trim();
+      } else if (cleanToken.includes('token=')) {
+        cleanToken = cleanToken.split('token=')[1].split('&')[0].trim();
+      }
+
+      setVisitorPassToken(cleanToken);
       setVisitorPassLoading(true);
-      dbService.getAuthorizedUsers().then((users) => {
-        const found = users.find(u => u.qrcodeToken === token);
-        if (found) {
-          setVisitorPassUser(found);
-          // Generate high quality QR code for public phone rendering
-          const passUrl = `${window.location.origin}${window.location.pathname}?pass=${token}`;
-          generateQRWithLogo(passUrl).then(url => {
+
+      const resolvePass = async () => {
+        try {
+          // 1. Try authorized users by token
+          const user = await dbService.getAuthorizedUserByToken(cleanToken);
+          if (user) {
+            setVisitorPassUser(user);
+            const passUrl = `${window.location.origin}${window.location.pathname}?pass=${encodeURIComponent(cleanToken)}`;
+            const url = await generateQRWithLogo(passUrl);
             setVisitorPassQRUrl(url);
             setVisitorPassLoading(false);
-          }).catch(err => {
-            console.error('Pase QR failed', err);
+            return;
+          }
+
+          // 2. Try marbetes by token
+          const marbete = await dbService.getMarbeteByToken(cleanToken);
+          if (marbete) {
+            setVisitorPassMarbete(marbete);
+            const passUrl = `${window.location.origin}${window.location.pathname}?pass=${encodeURIComponent(cleanToken)}`;
+            const url = await generateQRWithLogo(passUrl);
+            setVisitorPassQRUrl(url);
             setVisitorPassLoading(false);
-          });
-        } else {
-          // Check in marbetes!
-          dbService.getMarbetes().then((marbetes) => {
-            const foundMarbete = marbetes.find(m => m.qrcodeToken === token);
-            if (foundMarbete) {
-              setVisitorPassMarbete(foundMarbete);
-              const passUrl = `${window.location.origin}${window.location.pathname}?pass=${token}`;
-              generateQRWithLogo(passUrl).then(url => {
-                setVisitorPassQRUrl(url);
-                setVisitorPassLoading(false);
-              }).catch(err => {
-                console.error('Marbete QR failed', err);
-                setVisitorPassLoading(false);
-              });
-            } else {
-              setVisitorPassLoading(false);
-            }
-          }).catch(() => {
+            return;
+          }
+
+          // 3. Try residente by token
+          const residente = await dbService.getResidenteByToken(cleanToken);
+          if (residente) {
+            const formattedResidentPass = {
+              id: residente.id,
+              name: `${residente.nombre || 'Residente'} (Residente)`,
+              documentId: residente.residenciaNombre || residente.direccion || 'Residencia Registrada',
+              status: residente.isActive !== false ? 'active' : 'inactive',
+              qrcodeToken: residente.qrcodeToken || cleanToken,
+              role: 'residente',
+              validUntil: residente.validUntil || new Date(Date.now() + 365*24*60*60*1000).toISOString()
+            };
+            setVisitorPassUser(formattedResidentPass);
+            const passUrl = `${window.location.origin}${window.location.pathname}?pass=${encodeURIComponent(cleanToken)}`;
+            const url = await generateQRWithLogo(passUrl);
+            setVisitorPassQRUrl(url);
             setVisitorPassLoading(false);
-          });
+            return;
+          }
+
+          // 4. Case-insensitive fallback across all collections
+          const allUsers = await dbService.getAuthorizedUsers();
+          const foundUser = allUsers.find(u => 
+            u.qrcodeToken?.trim().toLowerCase() === cleanToken.toLowerCase() ||
+            u.id?.trim().toLowerCase() === cleanToken.toLowerCase()
+          );
+          if (foundUser) {
+            setVisitorPassUser(foundUser);
+            const passUrl = `${window.location.origin}${window.location.pathname}?pass=${encodeURIComponent(cleanToken)}`;
+            const url = await generateQRWithLogo(passUrl);
+            setVisitorPassQRUrl(url);
+            setVisitorPassLoading(false);
+            return;
+          }
+
+          const allMarbetes = await dbService.getMarbetes();
+          const foundMar = allMarbetes.find(m => 
+            m.qrcodeToken?.trim().toLowerCase() === cleanToken.toLowerCase() ||
+            m.id?.trim().toLowerCase() === cleanToken.toLowerCase()
+          );
+          if (foundMar) {
+            setVisitorPassMarbete(foundMar);
+            const passUrl = `${window.location.origin}${window.location.pathname}?pass=${encodeURIComponent(cleanToken)}`;
+            const url = await generateQRWithLogo(passUrl);
+            setVisitorPassQRUrl(url);
+            setVisitorPassLoading(false);
+            return;
+          }
+
+          const allRes = await dbService.getResidentes();
+          const foundRes = allRes.find(r => 
+            r.qrcodeToken?.trim().toLowerCase() === cleanToken.toLowerCase() ||
+            r.id?.trim().toLowerCase() === cleanToken.toLowerCase()
+          );
+          if (foundRes) {
+            const formattedResidentPass = {
+              id: foundRes.id,
+              name: `${foundRes.nombre || 'Residente'} (Residente)`,
+              documentId: foundRes.residenciaNombre || foundRes.direccion || 'Residencia Registrada',
+              status: foundRes.isActive !== false ? 'active' : 'inactive',
+              qrcodeToken: foundRes.qrcodeToken || cleanToken,
+              role: 'residente',
+              validUntil: foundRes.validUntil || new Date(Date.now() + 365*24*60*60*1000).toISOString()
+            };
+            setVisitorPassUser(formattedResidentPass);
+            const passUrl = `${window.location.origin}${window.location.pathname}?pass=${encodeURIComponent(cleanToken)}`;
+            const url = await generateQRWithLogo(passUrl);
+            setVisitorPassQRUrl(url);
+            setVisitorPassLoading(false);
+            return;
+          }
+
+          setVisitorPassLoading(false);
+        } catch (err) {
+          console.warn('Error resolving visitor pass token:', err);
+          setVisitorPassLoading(false);
         }
-      });
+      };
+
+      resolvePass();
     }
   }, []);
 
