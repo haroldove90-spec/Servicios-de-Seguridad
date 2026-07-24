@@ -700,6 +700,8 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
             const vOneTime = parts[2] === '1';
             const vUsed = parts[3] === '1';
             const isMarbeteExpired = new Date(matchedMarbete.validUntil) < new Date();
+            const resMatch = matchedMarbete.vehiculoInfo.match(/\[RESIDENT:([^\]]+)\]/);
+            const residentAuthorizerName = resMatch ? resMatch[1] : matchedMarbete.residenteNombre;
             
             matchedUser = {
               id: matchedMarbete.id.replace('mar_sync_', ''),
@@ -707,7 +709,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
               documentId: matchedMarbete.vehiculoPlacas || 'VISITA',
               email: parts[5] || 'visita@local.casa',
               phone: parts[4] || '',
-              status: isMarbeteExpired ? UserStatus.EXPIRED : (vUsed ? UserStatus.USED : ((matchedMarbete.status === 'activo' || matchedMarbete.status === 'active') ? UserStatus.ACTIVE : UserStatus.INACTIVE)),
+              status: isMarbeteExpired ? UserStatus.EXPIRED : (((matchedMarbete.status as string) === 'activo' || matchedMarbete.status === UserStatus.ACTIVE) ? UserStatus.ACTIVE : UserStatus.EXPIRED),
               qrcodeToken: matchedMarbete.qrcodeToken || tokenToQuery,
               oneTime: vOneTime,
               used: vUsed,
@@ -722,7 +724,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
               residenciaId: matchedMarbete.residenciaId,
               residenciaNombre: matchedMarbete.residenciaNombre,
               isResidentCreated: true,
-              residentName: matchedMarbete.residenteNombre
+              residentName: residentAuthorizerName
             };
           } else {
             const isMarbeteExpired = new Date(matchedMarbete.validUntil) < new Date();

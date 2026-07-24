@@ -624,8 +624,12 @@ export default function ResidentDashboard({ currentResidentUser, onRefresh }: Re
             {/* Expire and Location details */}
             <div className="bg-[#212128] border border-[#2d2d3a] rounded-2xl p-4 w-full text-left space-y-2.5 mb-6 text-xs font-sans">
               <div className="flex items-center justify-between text-slate-400">
+                <span>Visita autorizada por:</span>
+                <strong className="text-white">{selectedVisitQR.residentName || currentResidentUser.name || 'Residente'}</strong>
+              </div>
+              <div className="flex items-center justify-between text-slate-400">
                 <span>Residencia destino:</span>
-                <strong className="text-white">{selectedVisitQR.residenciaNombre || 'N/A'}</strong>
+                <strong className="text-white">{selectedVisitQR.residenciaNombre || currentResidentUser.residenciaNombre || 'N/A'}</strong>
               </div>
               <div className="flex items-center justify-between text-slate-400">
                 <span>Válido hasta:</span>
@@ -647,39 +651,39 @@ export default function ResidentDashboard({ currentResidentUser, onRefresh }: Re
               </div>
             </div>
 
-            {/* Download Marbete Button */}
-            {(selectedVisitQR as any).isMarbeteItem && (
-              <button
-                id="btn-download-marbete-dashboard"
-                onClick={() => {
-                  const consecutivoMatch = selectedVisitQR.documentId.match(/MARBETE-(\d+)/);
-                  const consecutivoValue = consecutivoMatch ? parseInt(consecutivoMatch[1], 10) : 1001;
-                  
-                  const marbeteObj: Marbete = {
-                    id: selectedVisitQR.id.replace('mar_dash_', ''),
-                    consecutivo: consecutivoValue,
-                    residenteId: selectedVisitQR.createdBy || '',
-                    residenteNombre: selectedVisitQR.name.split(' (Marbete')[0],
-                    residenciaId: selectedVisitQR.residenciaId || '',
-                    residenciaNombre: selectedVisitQR.residenciaNombre || '',
-                    vehiculoPlacas: (selectedVisitQR as any).vehiculoPlacas || '',
-                    vehiculoInfo: (selectedVisitQR as any).cleanVehicleInfo || '',
-                    qrcodeToken: selectedVisitQR.qrcodeToken,
-                    status: selectedVisitQR.status as any,
-                    validFrom: selectedVisitQR.validFrom,
-                    validUntil: selectedVisitQR.validUntil,
-                    createdAt: selectedVisitQR.createdAt || new Date().toISOString(),
-                    updatedAt: selectedVisitQR.updatedAt || new Date().toISOString()
-                  };
-                  if (generatedQRUrl) {
-                    exportMarbeteToJPG(marbeteObj, generatedQRUrl);
-                  }
-                }}
-                className="w-full flex items-center justify-center gap-1.5 px-4 py-3 bg-red-650 hover:bg-red-600 text-white font-bold text-xs rounded-2xl shadow-lg transition cursor-pointer mb-3 uppercase tracking-wider"
-              >
-                <Download className="w-4 h-4" /> Descargar Imagen Marbete (JPG)
-              </button>
-            )}
+            {/* Download Marbete / Pass Image Button */}
+            <button
+              id="btn-download-marbete-dashboard"
+              onClick={() => {
+                const consecutivoMatch = selectedVisitQR.documentId.match(/MARBETE-(\d+)/);
+                const consecutivoValue = consecutivoMatch ? parseInt(consecutivoMatch[1], 10) : Math.floor(100000 + Math.random() * 899999);
+                const visitorOnlyName = selectedVisitQR.name.split(' (')[0];
+                const residentAuthorizer = selectedVisitQR.residentName || currentResidentUser.name || '';
+                
+                const marbeteObj: Marbete = {
+                  id: selectedVisitQR.id.replace('mar_dash_', ''),
+                  consecutivo: consecutivoValue,
+                  residenteId: selectedVisitQR.createdBy || '',
+                  residenteNombre: `${visitorOnlyName} (Visita de ${residentAuthorizer})`,
+                  residenciaId: selectedVisitQR.residenciaId || '',
+                  residenciaNombre: selectedVisitQR.residenciaNombre || currentResidentUser.residenciaNombre || 'Residencia',
+                  vehiculoPlacas: (selectedVisitQR as any).vehiculoPlacas || selectedVisitQR.documentId || 'VISITA',
+                  vehiculoInfo: (selectedVisitQR as any).cleanVehicleInfo ? `${(selectedVisitQR as any).cleanVehicleInfo} [RESIDENT:${residentAuthorizer}]` : `[RESIDENT:${residentAuthorizer}]`,
+                  qrcodeToken: selectedVisitQR.qrcodeToken,
+                  status: selectedVisitQR.status as any,
+                  validFrom: selectedVisitQR.validFrom,
+                  validUntil: selectedVisitQR.validUntil,
+                  createdAt: selectedVisitQR.createdAt || new Date().toISOString(),
+                  updatedAt: selectedVisitQR.updatedAt || new Date().toISOString()
+                };
+                if (generatedQRUrl) {
+                  exportMarbeteToJPG(marbeteObj, generatedQRUrl);
+                }
+              }}
+              className="w-full flex items-center justify-center gap-1.5 px-4 py-3 bg-red-650 hover:bg-red-600 text-white font-bold text-xs rounded-2xl shadow-lg transition cursor-pointer mb-3 uppercase tracking-wider"
+            >
+              <Download className="w-4 h-4" /> Guardar en Mi Teléfono (JPG)
+            </button>
 
             {/* Share action bar */}
             <div className="grid grid-cols-2 gap-3 w-full font-sans">

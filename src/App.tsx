@@ -1450,32 +1450,66 @@ export default function App() {
               </div>
 
               {/* Resident, Residence, and Vehicle description */}
-              <div className="mt-4 w-full text-center">
-                <h3 className="text-base font-extrabold text-white uppercase leading-tight tracking-wide">{visitorPassMarbete.residenteNombre}</h3>
-                <p className="text-xs text-slate-400 font-mono mt-0.5">{visitorPassMarbete.residenciaNombre}</p>
-                
-                {/* Vehicle plates and description */}
-                {(visitorPassMarbete.vehiculoPlacas || visitorPassMarbete.vehiculoInfo) && (
-                  <div className="mt-2.5 mx-auto max-w-xs bg-slate-900 border border-slate-800 p-2 rounded-xl text-center leading-snug">
-                    {visitorPassMarbete.vehiculoPlacas && (
-                      <p className="text-xs font-mono text-red-400 font-bold uppercase tracking-wider">
-                        PLACAS: {visitorPassMarbete.vehiculoPlacas}
-                      </p>
-                    )}
-                    {visitorPassMarbete.vehiculoInfo && (
-                      <p className="text-[11px] text-slate-300 font-sans mt-0.5 font-medium">
-                        {visitorPassMarbete.vehiculoInfo}
-                      </p>
-                    )}
-                  </div>
-                )}
+              {(() => {
+                let vName = visitorPassMarbete.residenteNombre || 'VISITA';
+                let rAuthorizer = '';
+                if (visitorPassMarbete.vehiculoInfo && visitorPassMarbete.vehiculoInfo.startsWith('VISIT_SYNC|')) {
+                  const parts = visitorPassMarbete.vehiculoInfo.split('|');
+                  vName = parts[1] || vName;
+                  const resMatch = visitorPassMarbete.vehiculoInfo.match(/\[RESIDENT:([^\]]+)\]/);
+                  if (resMatch) rAuthorizer = resMatch[1];
+                }
+                if (vName.includes(' (Visita de ')) {
+                  const p = vName.split(' (Visita de ');
+                  vName = p[0];
+                  if (!rAuthorizer) rAuthorizer = p[1].replace(')', '');
+                } else if (vName.includes(' (Marbete')) {
+                  vName = vName.split(' (Marbete')[0];
+                }
 
-                {/* Expiration date */}
-                <div className="mt-3.5 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-450 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
-                  <Calendar className="w-3.5 h-3.5" />
-                  <span>VENCE: {new Date(visitorPassMarbete.validUntil).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase()}</span>
-                </div>
-              </div>
+                let cleanVehicleInfo = visitorPassMarbete.vehiculoInfo || '';
+                if (cleanVehicleInfo.startsWith('VISIT_SYNC|')) {
+                  cleanVehicleInfo = '';
+                } else {
+                  cleanVehicleInfo = cleanVehicleInfo
+                    .replace(/\[WA:[^\]]+\]/g, '')
+                    .replace(/\[CREATOR:[^\]]+\]/g, '')
+                    .replace(/\[RESIDENT:[^\]]+\]/g, '')
+                    .trim();
+                }
+
+                return (
+                  <div className="mt-4 w-full text-center">
+                    <h3 className="text-base font-extrabold text-white uppercase leading-tight tracking-wide">{vName}</h3>
+                    {rAuthorizer && (
+                      <p className="text-xs text-amber-400 font-semibold mt-1">👤 Visita autorizada por: {rAuthorizer}</p>
+                    )}
+                    <p className="text-xs text-slate-400 font-mono mt-0.5">{visitorPassMarbete.residenciaNombre}</p>
+                    
+                    {/* Vehicle plates and description */}
+                    {(visitorPassMarbete.vehiculoPlacas || cleanVehicleInfo) && (
+                      <div className="mt-2.5 mx-auto max-w-xs bg-slate-900 border border-slate-800 p-2 rounded-xl text-center leading-snug">
+                        {visitorPassMarbete.vehiculoPlacas && visitorPassMarbete.vehiculoPlacas !== 'VISITA' && (
+                          <p className="text-xs font-mono text-red-400 font-bold uppercase tracking-wider">
+                            PLACAS: {visitorPassMarbete.vehiculoPlacas}
+                          </p>
+                        )}
+                        {cleanVehicleInfo && (
+                          <p className="text-[11px] text-slate-300 font-sans mt-0.5 font-medium">
+                            {cleanVehicleInfo}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Expiration date */}
+                    <div className="mt-3.5 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-450 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+                      <Calendar className="w-3.5 h-3.5" />
+                      <span>VENCE: {new Date(visitorPassMarbete.validUntil).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase()}</span>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Interactive buttons */}
               <div className="w-full border-t border-slate-800 pt-5 mt-6 flex flex-col gap-2 font-sans">
@@ -1492,30 +1526,47 @@ export default function App() {
           ) : visitorPassUser ? (
             <>
               {/* Visitor Wallet View */}
-              <div className="w-full bg-[#1A1A1E] rounded-2xl p-4 border border-[#3e3e42]/80 mb-5 relative">
-                {/* Floating status badge */}
-                <span className={`absolute top-3 right-3 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
-                  visitorPassUser.status === 'active' && (!visitorPassUser.oneTime || !visitorPassUser.used)
-                    ? 'bg-emerald-500/15 text-emerald-450 border border-emerald-500/30'
-                    : 'bg-rose-500/15 text-rose-450 border border-rose-500/30'
-                }`}>
-                  {visitorPassUser.status === 'active' && (!visitorPassUser.oneTime || !visitorPassUser.used) ? 'VÁLIDO ✅' : 'INVÁLIDO 🚫'}
-                </span>
+              {(() => {
+                const visitorOnlyName = visitorPassUser.name.split(' (')[0];
+                let residentAuthorizerName = visitorPassUser.residentName || '';
+                if (!residentAuthorizerName && visitorPassUser.name.includes(' (Visita de ')) {
+                  residentAuthorizerName = visitorPassUser.name.split(' (Visita de ')[1].replace(')', '');
+                }
 
-                <div className="w-12 h-12 bg-red-650/15 border border-red-500/20 rounded-full flex items-center justify-center mb-4">
-                  <UserCircle className="w-6 h-6 text-red-500" />
-                </div>
+                return (
+                  <div className="w-full bg-[#1A1A1E] rounded-2xl p-4 border border-[#3e3e42]/80 mb-5 relative">
+                    {/* Floating status badge */}
+                    <span className={`absolute top-3 right-3 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                      visitorPassUser.status === 'active' && (!visitorPassUser.oneTime || !visitorPassUser.used)
+                        ? 'bg-emerald-500/15 text-emerald-450 border border-emerald-500/30'
+                        : 'bg-rose-500/15 text-rose-450 border border-rose-500/30'
+                    }`}>
+                      {visitorPassUser.status === 'active' && (!visitorPassUser.oneTime || !visitorPassUser.used) ? 'VÁLIDO ✅' : 'INVÁLIDO 🚫'}
+                    </span>
 
-                <h3 className="text-lg font-extrabold text-white leading-tight">{visitorPassUser.name}</h3>
-                <p className="text-xs text-slate-400 font-mono mt-1">ID: {visitorPassUser.documentId}</p>
+                    <div className="w-12 h-12 bg-red-650/15 border border-red-500/20 rounded-full flex items-center justify-center mb-4">
+                      <UserCircle className="w-6 h-6 text-red-500" />
+                    </div>
 
-                {/* Verification alerts */}
-                {visitorPassUser.oneTime && (
-                  <div className="mt-3 text-[10px] bg-amber-500/10 text-amber-300 px-2.5 py-1.5 rounded-lg border border-amber-500/20 font-medium inline-block">
-                    {visitorPassUser.used ? '⚠️ Pase Único: Ya Canjeado' : '⚡ Pase Único (Un solo uso)'}
+                    <h3 className="text-lg font-extrabold text-white leading-tight">{visitorOnlyName}</h3>
+                    <p className="text-xs text-slate-400 font-mono mt-1">ID: {visitorPassUser.documentId}</p>
+
+                    {residentAuthorizerName && (
+                      <p className="text-xs text-amber-400 font-semibold mt-1.5">👤 Visita autorizada por: {residentAuthorizerName}</p>
+                    )}
+                    {visitorPassUser.residenciaNombre && (
+                      <p className="text-xs text-slate-400 font-mono mt-0.5">🏠 {visitorPassUser.residenciaNombre}</p>
+                    )}
+
+                    {/* Verification alerts */}
+                    {visitorPassUser.oneTime && (
+                      <div className="mt-3 text-[10px] bg-amber-500/10 text-amber-300 px-2.5 py-1.5 rounded-lg border border-amber-500/20 font-medium inline-block">
+                        {visitorPassUser.used ? '⚠️ Pase Único: Ya Canjeado' : '⚡ Pase Único (Un solo uso)'}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                );
+              })()}
 
               {/* QR Image rendering box */}
               <div className="bg-white p-4.5 rounded-2xl shadow-xl shadow-black/80 inline-block border-2 border-slate-800 mt-2">

@@ -1229,12 +1229,18 @@ export const dbService = {
             documentId: mar.vehiculoPlacas || 'VISITA',
             email: parts[5] || 'visita-resident@local.casa',
             phone: parts[4] || '',
-            status: (mar.status === 'activo' || mar.status === 'active') ? UserStatus.ACTIVE : UserStatus.INACTIVE,
+            status: ((mar.status as string) === 'activo' || mar.status === UserStatus.ACTIVE) ? UserStatus.ACTIVE : UserStatus.EXPIRED,
             qrcodeToken: mar.qrcodeToken || '',
             oneTime: parts[2] === '1',
             used: parts[3] === '1',
             validFrom: mar.validFrom || new Date().toISOString(),
             validUntil: mar.validUntil || new Date(Date.now() + 86400000).toISOString(),
+            days: [],
+            startTime: '00:00',
+            endTime: '23:59',
+            createdAt: mar.createdAt || new Date().toISOString(),
+            updatedAt: mar.updatedAt || new Date().toISOString(),
+            createdBy: 'resident-sync',
             residenciaNombre: mar.residenciaNombre || '',
             isResidentCreated: true,
             residentName: mar.residenteNombre || ''
@@ -1303,6 +1309,7 @@ export const dbService = {
         let vUsed = false;
         let vPhone = '';
         let vEmail = '';
+        let vResidentName = mar.residenteNombre || '';
 
         if (mar.vehiculoInfo && mar.vehiculoInfo.startsWith('VISIT_SYNC|')) {
           const parts = mar.vehiculoInfo.split('|');
@@ -1311,6 +1318,8 @@ export const dbService = {
           vUsed = parts[3] === '1';
           vPhone = parts[4] || '';
           vEmail = parts[5] || '';
+          const resMatch = mar.vehiculoInfo.match(/\[RESIDENT:([^\]]+)\]/);
+          if (resMatch) vResidentName = resMatch[1];
         }
 
         const mappedUser: AuthorizedUser = {
@@ -1319,15 +1328,21 @@ export const dbService = {
           documentId: mar.vehiculoPlacas || 'VISITA',
           email: vEmail || 'visita-resident@local.casa',
           phone: vPhone || '',
-          status: (mar.status === 'activo' || mar.status === 'active') ? UserStatus.ACTIVE : UserStatus.INACTIVE,
+          status: ((mar.status as string) === 'activo' || mar.status === UserStatus.ACTIVE) ? UserStatus.ACTIVE : UserStatus.EXPIRED,
           qrcodeToken: mar.qrcodeToken || tokenClean,
           oneTime: vOneTime,
           used: vUsed,
           validFrom: mar.validFrom || new Date().toISOString(),
           validUntil: mar.validUntil || new Date(Date.now() + 86400000).toISOString(),
+          days: [],
+          startTime: '00:00',
+          endTime: '23:59',
+          createdAt: mar.createdAt || new Date().toISOString(),
+          updatedAt: mar.updatedAt || new Date().toISOString(),
+          createdBy: 'resident-sync',
           residenciaNombre: mar.residenciaNombre || '',
           isResidentCreated: true,
-          residentName: mar.residenteNombre || ''
+          residentName: vResidentName || ''
         };
         console.log('Found authorized user via mirror marbete in Supabase:', mappedUser.name);
         return mappedUser;
@@ -1388,19 +1403,22 @@ export const dbService = {
 
     // 3. Create mirror marbete record in Supabase to guarantee cloud persistence across devices
     try {
+      const visitorNameOnly = newUser.name;
+      const residentAuthorizer = newUser.residentName || '';
+
       const mirrorMarbete = {
         id: 'mar_sync_' + id,
         consecutivo: Math.floor(100000 + Math.random() * 899999),
         residenteId: null,
-        residenteNombre: newUser.residentName || newUser.name,
+        residenteNombre: visitorNameOnly,
         residenciaId: null,
         residenciaNombre: newUser.residenciaNombre || 'Residencia',
         vehiculoPlacas: newUser.documentId || 'VISITA',
-        vehiculoInfo: `VISIT_SYNC|${newUser.name}|${newUser.oneTime ? '1' : '0'}|${newUser.used ? '1' : '0'}|${newUser.phone || ''}|${newUser.email || ''}`,
+        vehiculoInfo: `VISIT_SYNC|${visitorNameOnly}|${newUser.oneTime ? '1' : '0'}|${newUser.used ? '1' : '0'}|${newUser.phone || ''}|${newUser.email || ''}|[RESIDENT:${residentAuthorizer}]`,
         qrcodeToken: newUser.qrcodeToken,
         validFrom: newUser.validFrom || new Date().toISOString(),
         validUntil: newUser.validUntil || new Date(Date.now() + 86400000).toISOString(),
-        status: (newUser.status === 'activo' || newUser.status === 'active') ? 'activo' : 'inactivo',
+        status: ((newUser.status as unknown as string) === 'activo' || newUser.status === UserStatus.ACTIVE) ? 'activo' : 'inactivo',
         createdAt: newUser.createdAt || new Date().toISOString(),
         updatedAt: newUser.updatedAt || new Date().toISOString()
       };
@@ -1461,7 +1479,7 @@ export const dbService = {
         const current = existingMar[0];
         const parts = (current.vehiculoInfo || '').split('|');
         const newUsed = updates.used !== undefined ? (updates.used ? '1' : '0') : (parts[3] || '0');
-        const newStatus = updates.status ? ((updates.status === 'activo' || updates.status === 'active') ? 'activo' : 'inactivo') : current.status;
+        const newStatus = updates.status ? (((updates.status as unknown as string) === 'activo' || updates.status === UserStatus.ACTIVE) ? 'activo' : 'inactivo') : current.status;
         const updatedVeh = `VISIT_SYNC|${updates.name || parts[1] || current.residenteNombre}|${updates.oneTime !== undefined ? (updates.oneTime ? '1' : '0') : (parts[2] || '1')}|${newUsed}|${updates.phone || parts[4] || ''}|${updates.email || parts[5] || ''}`;
         
         await supabase.from('marbetes').update({

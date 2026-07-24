@@ -77,19 +77,61 @@ export function exportMarbeteToJPG(marbete: Marbete, qrCodeDataUrl: string): voi
       ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
 
       // Now draw resident and vehicle details below the QR container
+      let visitorDisplayName = marbete.residenteNombre || 'VISITA';
+      let residentAuthorizer = '';
+
+      if (marbete.vehiculoInfo && marbete.vehiculoInfo.startsWith('VISIT_SYNC|')) {
+        const parts = marbete.vehiculoInfo.split('|');
+        visitorDisplayName = parts[1] || visitorDisplayName;
+        const resMatch = marbete.vehiculoInfo.match(/\[RESIDENT:([^\]]+)\]/);
+        if (resMatch) residentAuthorizer = resMatch[1];
+      }
+
+      if (visitorDisplayName.includes(' (Visita de ')) {
+        const p = visitorDisplayName.split(' (Visita de ');
+        visitorDisplayName = p[0];
+        if (!residentAuthorizer) residentAuthorizer = p[1].replace(')', '');
+      } else if (visitorDisplayName.includes(' (Marbete')) {
+        visitorDisplayName = visitorDisplayName.split(' (Marbete')[0];
+      }
+
+      // Clean vehicle details for display
+      let cleanInfo = marbete.vehiculoInfo || '';
+      if (cleanInfo.startsWith('VISIT_SYNC|')) {
+        cleanInfo = '';
+      } else {
+        cleanInfo = cleanInfo
+          .replace(/\[WA:[^\]]+\]/g, '')
+          .replace(/\[CREATOR:[^\]]+\]/g, '')
+          .replace(/\[RESIDENT:[^\]]+\]/g, '')
+          .trim();
+      }
+
       ctx.fillStyle = '#f8fafc'; // slate-50
       ctx.font = 'bold 26px sans-serif';
-      ctx.fillText(marbete.residenteNombre.toUpperCase(), canvas.width / 2, 840);
+      ctx.fillText(visitorDisplayName.toUpperCase(), canvas.width / 2, 835);
 
-      ctx.fillStyle = '#94a3b8'; // slate-400
-      ctx.font = '18px sans-serif';
-      ctx.fillText(marbete.residenciaNombre, canvas.width / 2, 875);
+      if (residentAuthorizer) {
+        ctx.fillStyle = '#fbbf24'; // amber-400
+        ctx.font = 'bold 16px sans-serif';
+        ctx.fillText(`VISITA AUTORIZADA POR: ${residentAuthorizer.toUpperCase()}`, canvas.width / 2, 865);
 
-      if (marbete.vehiculoPlacas || marbete.vehiculoInfo) {
+        ctx.fillStyle = '#94a3b8'; // slate-400
+        ctx.font = '16px sans-serif';
+        ctx.fillText(marbete.residenciaNombre, canvas.width / 2, 890);
+      } else {
+        ctx.fillStyle = '#94a3b8'; // slate-400
+        ctx.font = '18px sans-serif';
+        ctx.fillText(marbete.residenciaNombre, canvas.width / 2, 870);
+      }
+
+      if (marbete.vehiculoPlacas || cleanInfo) {
         ctx.fillStyle = '#cbd5e1'; // slate-300
-        ctx.font = 'bold 20px monospace';
-        const platesAndDetails = `${marbete.vehiculoPlacas ? `PLACAS: ${marbete.vehiculoPlacas}` : ''} ${marbete.vehiculoInfo ? `| ${marbete.vehiculoInfo}` : ''}`;
-        ctx.fillText(platesAndDetails, canvas.width / 2, 915);
+        ctx.font = 'bold 18px monospace';
+        const platesAndDetails = `${marbete.vehiculoPlacas && marbete.vehiculoPlacas !== 'VISITA' ? `PLACAS: ${marbete.vehiculoPlacas}` : ''} ${cleanInfo ? `| ${cleanInfo}` : ''}`.trim();
+        if (platesAndDetails) {
+          ctx.fillText(platesAndDetails, canvas.width / 2, 920);
+        }
       }
 
       ctx.fillStyle = '#10b981'; // emerald-500
