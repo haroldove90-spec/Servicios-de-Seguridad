@@ -511,6 +511,30 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
     reader.readAsDataURL(file);
   };
 
+  const playAuthorizedAudio = () => {
+    try {
+      const pitidoAudio = new Audio('https://orcjrjshauiudlewnczr.supabase.co/storage/v1/object/public/pitido/pitido.mp3');
+      pitidoAudio.volume = 0.9;
+      pitidoAudio.play().catch(err => {
+        console.warn('Audio playback blocked or failed:', err);
+      });
+    } catch (audioErr) {
+      console.warn('Audio creation error:', audioErr);
+    }
+  };
+
+  const playUnauthorizedAudio = () => {
+    try {
+      const pitido2Audio = new Audio('https://orcjrjshauiudlewnczr.supabase.co/storage/v1/object/public/pitido2/pitido2.mp3');
+      pitido2Audio.volume = 0.9;
+      pitido2Audio.play().catch(err => {
+        console.warn('Audio playback blocked or failed:', err);
+      });
+    } catch (audioErr) {
+      console.warn('Audio creation error:', audioErr);
+    }
+  };
+
   const handleVerifyToken = async (token: string): Promise<boolean> => {
     if (!token) return false;
     setPermissionError(null);
@@ -522,6 +546,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
           message: '⚠ SISTEMA EN CRISIS: Control de Acceso QR Bloqueado de forma permanente mientras la ALERTA DE PÁNICO permanezca activa.',
           status: LogStatus.REVOKED_USER
         });
+        playUnauthorizedAudio();
         return false;
       }
       
@@ -699,6 +724,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
           status: LogStatus.EXPIRED_TOKEN
         };
         setScanResult(failedResult);
+        playUnauthorizedAudio();
         
         // Log failed attempt
         await dbService.createAccessLog({
@@ -729,6 +755,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
           status: LogStatus.REVOKED_USER
         };
         setScanResult(mismatchResult);
+        playUnauthorizedAudio();
         
         // Log unauthorized attempt for this residence guard
         await dbService.createAccessLog({
@@ -791,6 +818,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
         };
         setScanResult(result);
         logScan(matchedUser, LogStatus.REVOKED_USER, detectedType);
+        playUnauthorizedAudio();
         return false;
       }
 
@@ -803,6 +831,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
         };
         setScanResult(result);
         logScan(matchedUser, LogStatus.EXPIRED_TOKEN, detectedType);
+        playUnauthorizedAudio();
         return false;
       }
 
@@ -822,6 +851,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
             };
             setScanResult(result);
             logScan(matchedUser, LogStatus.OUTSIDE_SCHEDULE, detectedType);
+            playUnauthorizedAudio();
             return false;
           }
         }
@@ -851,6 +881,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
             };
             setScanResult(result);
             logScan(matchedUser, LogStatus.EXPIRED_TOKEN, detectedType);
+            playUnauthorizedAudio();
             return false;
           }
         }
@@ -872,6 +903,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
         };
         setScanResult(result);
         logScan(matchedUser, LogStatus.OUTSIDE_SCHEDULE, detectedType);
+        playUnauthorizedAudio();
         return false;
       }
 
@@ -887,6 +919,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
           };
           setScanResult(result);
           logScan(matchedUser, LogStatus.OUTSIDE_SCHEDULE, detectedType);
+          playUnauthorizedAudio();
           return false;
         }
       }
@@ -901,6 +934,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
         };
         setScanResult(result);
         logScan(matchedUser, LogStatus.ALREADY_USED, detectedType);
+        playUnauthorizedAudio();
         return false;
       }
 
@@ -939,15 +973,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
       await logScan(matchedUser, LogStatus.SUCCESS, detectedType);
 
       // Play authorized access audio beep (pitido.mp3)
-      try {
-        const pitidoAudio = new Audio('https://orcjrjshauiudlewnczr.supabase.co/storage/v1/object/public/pitido/pitido.mp3');
-        pitidoAudio.volume = 0.9;
-        pitidoAudio.play().catch(err => {
-          console.warn('Audio playback blocked or failed:', err);
-        });
-      } catch (audioErr) {
-        console.warn('Audio creation error:', audioErr);
-      }
+      playAuthorizedAudio();
 
       // Fire confetti for a high-craft delightful verification animation!
       confetti({
@@ -964,6 +990,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
         message: `Error al procesar la verificación: ${err?.message || String(err)}`,
         status: LogStatus.EXPIRED_TOKEN
       });
+      playUnauthorizedAudio();
       return false;
     }
   };
