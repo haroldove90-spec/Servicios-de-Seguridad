@@ -184,11 +184,9 @@ export default function ResidentDashboard({ currentResidentUser, onRefresh }: Re
     try {
       const qrToken = 'visit_qr_' + Math.random().toString(36).substring(2, 11);
       
-      // Auto 1 day validity duration parameters
+      // Auto 24 hours validity duration parameters (Single-use pass)
       const validFrom = new Date();
-      const validUntil = new Date();
-      validUntil.setDate(validUntil.getDate() + 1); // 1-day expiration automatically
-      validUntil.setHours(23, 59, 59, 999); // Ensure validity through the end of tomorrow
+      const validUntil = new Date(validFrom.getTime() + 24 * 60 * 60 * 1000); // Exact 24 hours from creation time
 
       const formattedPhone = formWhatsapp.trim().startsWith('+') ? formWhatsapp.trim() : `+52${formWhatsapp.trim().replace(/\D/g, '')}`;
 
@@ -274,7 +272,7 @@ export default function ResidentDashboard({ currentResidentUser, onRefresh }: Re
       message = `Hola, *${visit.name.split(' (')[0]}* 👋\n\nTe comparto tu *Marbete Vehicular Digital* autorizado para ingresar a la villa/residencia:\n🏠 *${visit.residenciaNombre}*\n🚗 *Vehículo:* ${vehicleStr}\n⏰ Vigencia hasta el ${new Date(visit.validUntil).toLocaleDateString()} a las ${new Date(visit.validUntil).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}\n\nPresenta este QR en caseta para tu ingreso vehicular o lector de acceso:\n👉 ${passUrl}\n\n⚠️ *Favor de presentar su INE o Licencia al ingresar a la residencia*`;
       cleanPhone = visitorWA.replace(/\+/g, '').replace(/\s+/g, '');
     } else {
-      message = `Hola ${visit.name.split(' (')[0]}, te comparto tu Pase Digital de Acceso QR para ingresar a la villa/residencia:\n🏠 *${visit.residenciaNombre}*\n⏰ Válido por 1 día (Vence el ${new Date(visit.validUntil).toLocaleDateString()} a las ${new Date(visit.validUntil).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})})\n\nPresenta este QR en caseta para tu ingreso:\n👉 ${passUrl}\n\n⚠️ *Favor de presentar su INE o Licencia al ingresar a la residencia*`;
+      message = `Hola ${visit.name.split(' (')[0]}, te comparto tu Pase Digital de Acceso QR para ingresar a la villa/residencia:\n🏠 *${visit.residenciaNombre}*\n⚡ *Pase de un solo uso* (Válido por 24 hrs hasta el ${new Date(visit.validUntil).toLocaleDateString()} a las ${new Date(visit.validUntil).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})})\n\nPresenta este QR en caseta para tu ingreso:\n👉 ${passUrl}\n\n⚠️ *Favor de presentar su INE o Licencia al ingresar a la residencia*`;
       cleanPhone = visit.phone.replace(/\+/g, '').replace(/\s+/g, '');
     }
     
@@ -557,8 +555,8 @@ export default function ResidentDashboard({ currentResidentUser, onRefresh }: Re
               <div className="p-3 bg-blue-500/10 border border-blue-500/15 rounded-xl flex gap-2">
                 <Clock className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
                 <p className="text-[10px] text-slate-200 leading-normal font-sans">
-                  <strong className="text-white block mb-0.5">Vigencia automática de 1 día:</strong>
-                  El pase de entrada se registrará de forma inmediata y expirará exactamente transcurridos 24 horas a partir del momento de registro.
+                  <strong className="text-white block mb-0.5">Vigencia de 24 Horas (Un Solo Uso):</strong>
+                  El pase vencerá exactamente a las 24 horas de emitirse y quedará invalidado automáticamente tras su primer ingreso en caseta.
                 </p>
               </div>
 
