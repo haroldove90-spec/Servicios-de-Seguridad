@@ -191,9 +191,11 @@ export default function ResidentDashboard({ currentResidentUser, onRefresh }: Re
 
       const formattedPhone = formWhatsapp.trim().startsWith('+') ? formWhatsapp.trim() : `+52${formWhatsapp.trim().replace(/\D/g, '')}`;
 
+      const resPrefix = (currentResidentUser.residenciaNombre || currentResidentUser.residenciaId || 'RES').replace(/\s+/g, '').substring(0, 3).toUpperCase();
+
       const newVisitPayload: Omit<AuthorizedUser, 'id'> = {
         name: `${formNombre.trim()} (Visita de ${currentResidentUser.name})`,
-        documentId: 'VISIT-' + currentResidentUser.residenciaNombre?.substring(0, 3).toUpperCase() + '-' + Math.random().toString(36).substring(2, 7).toUpperCase(),
+        documentId: 'VISIT-' + resPrefix + '-' + Math.random().toString(36).substring(2, 7).toUpperCase(),
         email: 'visita-resident@local.casa',
         phone: formattedPhone,
         status: UserStatus.ACTIVE,
@@ -208,8 +210,8 @@ export default function ResidentDashboard({ currentResidentUser, onRefresh }: Re
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         createdBy: currentResidentUser.uid,
-        residenciaId: currentResidentUser.residenciaId || '',
-        residenciaNombre: currentResidentUser.residenciaNombre || '',
+        residenciaId: currentResidentUser.residenciaId || (currentResidentUser as any).residencia_id || '',
+        residenciaNombre: currentResidentUser.residenciaNombre || (currentResidentUser as any).residencia_nombre || '',
         isResidentCreated: true,
         residentName: currentResidentUser.name,
         residentPhone: currentResidentUser.phone || '',

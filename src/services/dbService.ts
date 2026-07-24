@@ -249,9 +249,20 @@ export function extractMissingColumn(code: string, message: string): string | nu
 }
 
 export async function robustSupabaseInsert(tableName: string, camelPayload: any) {
-  let payload = { ...camelPayload };
-  
-  // Clean up undefined/empty ID properties to avoid PostgREST foreign key issues (like empty strings)
+  let payload: any = { ...camelPayload };
+
+  // Expand payload with snake_case and lowercase variants so PostgreSQL column matches survive pruning
+  for (const k of Object.keys(camelPayload)) {
+    const val = camelPayload[k];
+    if (val !== undefined && val !== null) {
+      const snakeK = toSnakeCase(k);
+      const lowerK = k.toLowerCase();
+      if (!(snakeK in payload)) payload[snakeK] = val;
+      if (!(lowerK in payload)) payload[lowerK] = val;
+    }
+  }
+
+  // Clean up undefined/empty ID properties to avoid PostgREST foreign key issues
   for (const k of Object.keys(payload)) {
     if (payload[k] === undefined) {
       delete payload[k];
@@ -263,7 +274,7 @@ export async function robustSupabaseInsert(tableName: string, camelPayload: any)
     }
   }
 
-  const maxAttempts = 10;
+  const maxAttempts = 12;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       // 1. Try writing directly
@@ -284,16 +295,8 @@ export async function robustSupabaseInsert(tableName: string, camelPayload: any)
         if (badCol) {
           console.log(`Self-healing insert: Pruning missing column "${badCol}" from ${tableName} payload.`);
           
-          // Delete from payload
+          // Delete only the exact failing key, keeping alternate casing variants intact!
           delete payload[badCol];
-          
-          // Delete other naming casing styles of this key to prevent cascades
-          const badColLower = badCol.toLowerCase();
-          for (const key of Object.keys(payload)) {
-            if (key.toLowerCase() === badColLower || toSnakeCase(key) === badColLower || key === badCol) {
-              delete payload[key];
-            }
-          }
           continue;
         } else {
           // Fallback to lowercased keys or snake_cased keys as retry options if first failed
@@ -319,9 +322,20 @@ export async function robustSupabaseInsert(tableName: string, camelPayload: any)
 }
 
 export async function robustSupabaseUpdate(tableName: string, camelUpdates: any, idKey: string, idVal: string) {
-  let updates = { ...camelUpdates };
-  
-  // Clean up undefined/empty ID properties to avoid PostgREST foreign key issues (like empty strings)
+  let updates: any = { ...camelUpdates };
+
+  // Expand updates with snake_case and lowercase variants
+  for (const k of Object.keys(camelUpdates)) {
+    const val = camelUpdates[k];
+    if (val !== undefined && val !== null) {
+      const snakeK = toSnakeCase(k);
+      const lowerK = k.toLowerCase();
+      if (!(snakeK in updates)) updates[snakeK] = val;
+      if (!(lowerK in updates)) updates[lowerK] = val;
+    }
+  }
+
+  // Clean up undefined/empty ID properties
   for (const k of Object.keys(updates)) {
     if (updates[k] === undefined) {
       delete updates[k];
@@ -333,7 +347,7 @@ export async function robustSupabaseUpdate(tableName: string, camelUpdates: any,
     }
   }
 
-  const maxAttempts = 10;
+  const maxAttempts = 12;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       const { error } = await supabase
@@ -349,15 +363,7 @@ export async function robustSupabaseUpdate(tableName: string, camelUpdates: any,
         const badCol = extractMissingColumn(error.code, error.message);
         if (badCol) {
           console.log(`Self-healing update: Pruning missing column "${badCol}" from ${tableName} updates.`);
-          
           delete updates[badCol];
-          
-          const badColLower = badCol.toLowerCase();
-          for (const key of Object.keys(updates)) {
-            if (key.toLowerCase() === badColLower || toSnakeCase(key) === badColLower || key === badCol) {
-              delete updates[key];
-            }
-          }
           continue;
         } else {
           if (attempt === 1) {
@@ -382,9 +388,20 @@ export async function robustSupabaseUpdate(tableName: string, camelUpdates: any,
 }
 
 export async function robustSupabaseUpsert(tableName: string, camelPayload: any) {
-  let payload = { ...camelPayload };
-  
-  // Clean up undefined/empty ID properties to avoid PostgREST foreign key issues (like empty strings)
+  let payload: any = { ...camelPayload };
+
+  // Expand payload with snake_case and lowercase variants
+  for (const k of Object.keys(camelPayload)) {
+    const val = camelPayload[k];
+    if (val !== undefined && val !== null) {
+      const snakeK = toSnakeCase(k);
+      const lowerK = k.toLowerCase();
+      if (!(snakeK in payload)) payload[snakeK] = val;
+      if (!(lowerK in payload)) payload[lowerK] = val;
+    }
+  }
+
+  // Clean up undefined/empty ID properties
   for (const k of Object.keys(payload)) {
     if (payload[k] === undefined) {
       delete payload[k];
@@ -396,7 +413,7 @@ export async function robustSupabaseUpsert(tableName: string, camelPayload: any)
     }
   }
 
-  const maxAttempts = 10;
+  const maxAttempts = 12;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       const { data, error } = await supabase
@@ -414,15 +431,7 @@ export async function robustSupabaseUpsert(tableName: string, camelPayload: any)
         const badCol = extractMissingColumn(error.code, error.message);
         if (badCol) {
           console.log(`Self-healing upsert: Pruning missing column "${badCol}" from ${tableName} payload.`);
-          
           delete payload[badCol];
-          
-          const badColLower = badCol.toLowerCase();
-          for (const key of Object.keys(payload)) {
-            if (key.toLowerCase() === badColLower || toSnakeCase(key) === badColLower || key === badCol) {
-              delete payload[key];
-            }
-          }
           continue;
         } else {
           if (attempt === 1) {
@@ -1205,7 +1214,14 @@ export const dbService = {
 
   async getAuthorizedUserByToken(token: string): Promise<AuthorizedUser | null> {
     if (!token) return null;
-    const tokenClean = token.trim();
+    let tokenClean = token.trim();
+
+    // Extract token if a full URL or query string is provided
+    if (tokenClean.includes('pass=')) {
+      tokenClean = tokenClean.split('pass=')[1].split('&')[0].split(' ')[0].trim();
+    } else if (tokenClean.includes('token=')) {
+      tokenClean = tokenClean.split('token=')[1].split('&')[0].split(' ')[0].trim();
+    }
     
     // 1. Direct query from Supabase using possible column names or lowercases
     try {
@@ -1214,7 +1230,9 @@ export const dbService = {
         const mapped = data.map(normalizeUserRow);
         const found = mapped.find(u => 
           u.qrcodeToken?.trim() === tokenClean || 
-          u.qrcodeToken?.trim().toLowerCase() === tokenClean.toLowerCase()
+          u.qrcodeToken?.trim().toLowerCase() === tokenClean.toLowerCase() ||
+          u.documentId?.trim().toLowerCase() === tokenClean.toLowerCase() ||
+          u.id?.trim().toLowerCase() === tokenClean.toLowerCase()
         );
         if (found) {
           console.log('Found authorized user by token directly in Supabase using scan find:', found.name);
@@ -1229,7 +1247,9 @@ export const dbService = {
     const localUsers = LocalDB.getUsers();
     const foundLocal = localUsers.find(u => 
       u.qrcodeToken?.trim() === tokenClean || 
-      u.qrcodeToken?.trim().toLowerCase() === tokenClean.toLowerCase()
+      u.qrcodeToken?.trim().toLowerCase() === tokenClean.toLowerCase() ||
+      u.documentId?.trim().toLowerCase() === tokenClean.toLowerCase() ||
+      u.id?.trim().toLowerCase() === tokenClean.toLowerCase()
     );
     if (foundLocal) {
       return foundLocal;
