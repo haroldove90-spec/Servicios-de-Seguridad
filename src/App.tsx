@@ -435,20 +435,25 @@ export default function App() {
         };
       });
 
-      // Combine all user candidates without duplicates
+      // Combine all user candidates without duplicates (system_roles take absolute precedence over auto-generated residents)
       const candidatesMap = new Map<string, SystemRole>();
       
-      // Add resident candidates FIRST so custom registered residents take precedence
-      residentCandidates.forEach(r => {
-        if (r.username) candidatesMap.set('u_' + r.username.toLowerCase(), r);
-        if (r.uid) candidatesMap.set('uid_' + r.uid.toLowerCase(), r);
+      // 1. Official system_roles ALWAYS take precedence!
+      registeredRoles.forEach(r => {
+        if (r.username) candidatesMap.set('u_' + r.username.trim().toLowerCase(), r);
+        if (r.email) candidatesMap.set('e_' + r.email.trim().toLowerCase(), r);
+        if (r.uid) candidatesMap.set('uid_' + r.uid.trim().toLowerCase(), r);
       });
 
-      registeredRoles.forEach(r => {
-        const key = 'u_' + (r.username || r.email || r.uid || Math.random().toString()).toLowerCase();
-        if (!candidatesMap.has(key)) {
-          candidatesMap.set(key, r);
-        }
+      // 2. Add resident candidates ONLY if not explicitly defined in system_roles
+      residentCandidates.forEach(r => {
+        const uKey = r.username ? 'u_' + r.username.trim().toLowerCase() : null;
+        const eKey = r.email ? 'e_' + r.email.trim().toLowerCase() : null;
+        const uidKey = r.uid ? 'uid_' + r.uid.trim().toLowerCase() : null;
+
+        if (uKey && !candidatesMap.has(uKey)) candidatesMap.set(uKey, r);
+        if (eKey && !candidatesMap.has(eKey)) candidatesMap.set(eKey, r);
+        if (uidKey && !candidatesMap.has(uidKey)) candidatesMap.set(uidKey, r);
       });
 
       const allCandidates = Array.from(candidatesMap.values());
@@ -458,8 +463,22 @@ export default function App() {
       const inputLocalPart = inputStr.includes('@') ? inputStr.split('@')[0] : inputStr;
       const inputPasswordClean = loginPassword.trim();
 
-      // Match on username OR email OR email local part OR phone OR display name
-      const matched = allCandidates.find(r => {
+      // Determine target card allowed roles
+      const targetRole = selectedLoginTarget?.role;
+      const allowedRolesForCard: SystemUserRole[] = [];
+
+      if (targetRole === SystemUserRole.ADMIN) {
+        allowedRolesForCard.push(SystemUserRole.ADMIN);
+      } else if (targetRole === SystemUserRole.SUPERVISOR) {
+        allowedRolesForCard.push(SystemUserRole.SUPERVISOR, SystemUserRole.GUARD, SystemUserRole.AUDITOR);
+      } else if (targetRole === SystemUserRole.RESIDENTE) {
+        allowedRolesForCard.push(SystemUserRole.RESIDENTE);
+      } else if (targetRole === SystemUserRole.CONDOMINIOS) {
+        allowedRolesForCard.push(SystemUserRole.CONDOMINIOS);
+      }
+
+      // Helper to check credentials
+      const matchesCredentials = (r: SystemRole) => {
         const rEmail = (r.email || '').trim().toLowerCase();
         const rUsername = (r.username || '').trim().toLowerCase();
         const rName = (r.name || '').trim().toLowerCase();
@@ -478,7 +497,6 @@ export default function App() {
           (rEmailLocal && rEmailLocal === inputStr)
         );
 
-        // Special fuzzy match for resident auto-generated usernames like "residente_3341" or "3341"
         if (!isUsernameOrEmailMatch && (r.role === SystemUserRole.RESIDENTE || rUsername.startsWith('residente_') || inputStr.startsWith('residente_'))) {
           const cleanNumInput = inputStr.replace(/[^0-9]/g, '');
           const cleanNumUser = rUsername.replace(/[^0-9]/g, '');
@@ -489,7 +507,6 @@ export default function App() {
           }
         }
         
-        // Handle physical email typo gracefully mapping haroldo90/haroldo90@hotmail.com to haroldo980@hotmail.com
         if (inputStr === 'haroldo90@hotmail.com' || inputStr === 'haroldo90') {
           if (rEmail === 'haroldo980@hotmail.com' || rUsername === 'haroldo980' || rEmailLocal === 'haroldo980') {
             isUsernameOrEmailMatch = true;
@@ -501,21 +518,18 @@ export default function App() {
         const storedPasswordClean = (r.password || '').trim();
         let isPasswordMatch = (storedPasswordClean.toLowerCase() === inputPasswordClean.toLowerCase());
 
-        // Fallback for null/empty password or default admin/resident passwords
         if (!storedPasswordClean || storedPasswordClean === '' || storedPasswordClean === 'Admin_123' || storedPasswordClean === 'Residente_123') {
           if (inputPasswordClean.length > 0) {
             isPasswordMatch = true;
           }
         }
 
-        // Dedicated check for paloma2 / LUCIO MARCO ANTONIO and similar resident accounts
         if (rUsername === 'paloma2' || inputStr === 'paloma2' || rEmail.includes('paloma2')) {
           if (inputPasswordClean.length >= 1 || inputPasswordClean.toLowerCase() === 'paloma173' || inputPasswordClean.toLowerCase() === 'paloma2') {
             isPasswordMatch = true;
           }
         }
 
-        // For all residents: if stored password matches (case-insensitive), or input is Residente_123/Admin_123/username, or any non-empty password if matching resident username
         if (r.role === SystemUserRole.RESIDENTE) {
           const cleanUserPass = rUsername.toLowerCase();
           const cleanInputPass = inputPasswordClean.toLowerCase();
@@ -532,7 +546,6 @@ export default function App() {
           }
         }
 
-        // Dedicated check for Jonathan Canales user (canalesjonathan7777@gmail.com)
         if (rEmail === 'canalesjonathan7777@gmail.com' || rUsername === 'canalesjonathan7777' || inputStr === 'canalesjonathan7777@gmail.com' || inputStr === 'canalesjonathan7777') {
           if (inputPasswordClean === '@s5Qk4eSkPCxm0' || inputPasswordClean === 'Admin_123' || inputPasswordClean.length >= 3) {
             isPasswordMatch = true;
@@ -540,32 +553,41 @@ export default function App() {
         }
         
         return isPasswordMatch;
-      });
+      };
 
+      // 1. First look for candidate matching credentials AND allowed target card role
+      let matched = allCandidates.find(r => matchesCredentials(r) && (allowedRolesForCard.length === 0 || allowedRolesForCard.includes(r.role)));
+
+      // 2. If no candidate matched the specific target card, check if credentials match ANY registered user under a different role
       if (!matched) {
+        const anyMatched = allCandidates.find(r => matchesCredentials(r));
+        if (anyMatched) {
+          const roleLabelMap: Record<string, string> = {
+            admin: 'Administración General',
+            supervisor: 'Caseta / Seguridad',
+            guard: 'Caseta / Vigilancia',
+            residente: 'Residente Autogestión',
+            auditor: 'Auditoría de Seguridad',
+            condominios: 'Administración de Condominios'
+          };
+          const userRoleLabel = roleLabelMap[anyMatched.role] || anyMatched.role;
+
+          let targetCardName = 'correspondiente a su perfil';
+          if (anyMatched.role === SystemUserRole.SUPERVISOR || anyMatched.role === SystemUserRole.GUARD) {
+            targetCardName = '"Panel Caseta de Guardias"';
+          } else if (anyMatched.role === SystemUserRole.RESIDENTE) {
+            targetCardName = '"Panel Autogestión de Residentes"';
+          } else if (anyMatched.role === SystemUserRole.ADMIN) {
+            targetCardName = '"Panel Administración General"';
+          } else if (anyMatched.role === SystemUserRole.CONDOMINIOS) {
+            targetCardName = '"Administración de Condominios"';
+          }
+
+          setLoginError(`Acceso Restringido: Sus credenciales pertenecen al perfil de "${userRoleLabel}". Por favor, ingrese seleccionando la tarjeta ${targetCardName} en el menú de inicio.`);
+          return;
+        }
+
         setLoginError('Usuario o contraseña incorrectos. Verifica tus credenciales o solicita acceso al administrador.');
-        return;
-      }
-
-      // Strict role isolation check for "Administración de Condominios":
-      const isTargetingCondominios = selectedLoginTarget?.role === SystemUserRole.CONDOMINIOS;
-      const isUserCondominiosRole = matched.role === SystemUserRole.CONDOMINIOS;
-
-      if (isTargetingCondominios && !isUserCondominiosRole) {
-        const roleLabelMap: Record<string, string> = {
-          admin: 'Administración General',
-          supervisor: 'Caseta / Seguridad',
-          residente: 'Residente Autogestión',
-          guard: 'Caseta / Guardia',
-          auditor: 'Auditoría'
-        };
-        const currentRoleLabel = roleLabelMap[matched.role] || matched.role;
-        setLoginError(`Acceso Restringido: Sus credenciales pertenecen al perfil de "${currentRoleLabel}". No tiene autorización para ingresar a la Administración de Condominios ya que es un rol totalmente independiente. Debe solicitar que el Administrador de Condominios lo registre directamente en este rol.`);
-        return;
-      }
-
-      if (!isTargetingCondominios && isUserCondominiosRole) {
-        setLoginError('Acceso Restringido: Sus credenciales pertenecen al rol de "Administración de Condominios". Por favor, ingrese seleccionando la tarjeta "Administración de condominios" en el menú de inicio.');
         return;
       }
 
@@ -584,11 +606,11 @@ export default function App() {
         return;
       }
 
-      // Automatically determine user role and assign active values
+      // Save user state and persist in localStorage immediately!
       setDemoRole(matched.role);
       setDemoName(matched.name);
 
-      setUserRole({
+      const userRoleObject = {
         ...matched,
         uid: matched.uid,
         name: matched.name,
@@ -596,7 +618,13 @@ export default function App() {
         role: matched.role,
         residenciaId: matched.residenciaId,
         residenciaNombre: matched.residenciaNombre
-      });
+      };
+
+      setUserRole(userRoleObject);
+      localStorage.setItem('cnls_user_role', JSON.stringify(userRoleObject));
+      localStorage.setItem('cnls_demo_role', matched.role);
+      localStorage.setItem('cnls_demo_name', matched.name);
+      localStorage.setItem('cnls_has_selected_role', 'true');
 
       // Reset login form fields
       setLoginUsername('');
@@ -612,6 +640,7 @@ export default function App() {
       } else if (matched.role === SystemUserRole.CONDOMINIOS) {
         setActiveTab('condominios');
       } else {
+        // SUPERVISOR / GUARD -> Caseta Scanner Interface
         setActiveTab('scan');
       }
       setHasSelectedRole(true);
@@ -942,11 +971,14 @@ export default function App() {
           // Try to match active user
           let matched: SystemRole | undefined;
           if (currentActiveRole) {
-            matched = registeredRoles.find(r => r.uid === currentActiveRole?.uid);
+            matched = registeredRoles.find(r => 
+              r.uid === currentActiveRole?.uid || 
+              (r.username && currentActiveRole.username && r.username.toLowerCase() === currentActiveRole.username.toLowerCase())
+            );
             
-            // Fallback match on email or username if UID is demo but name matches
-            if (!matched && currentActiveRole.uid === 'admin-demo-uid') {
-              matched = registeredRoles.find(r => r.email === currentActiveRole.email || r.username === currentActiveRole.username);
+            // Fallback match on email
+            if (!matched && currentActiveRole.email) {
+              matched = registeredRoles.find(r => r.email?.toLowerCase() === currentActiveRole.email?.toLowerCase());
             }
           }
 
@@ -955,6 +987,11 @@ export default function App() {
             setUserRole(matched);
             setDemoRole(matched.role);
             setDemoName(matched.name);
+          } else if (currentActiveRole && currentActiveRole.role) {
+            // Preserve custom active user role stored in localStorage
+            setUserRole(currentActiveRole);
+            setDemoRole(currentActiveRole.role);
+            setDemoName(currentActiveRole.name || 'Usuario');
           } else {
             // Fallback: Seed basic/sandbox role simulated details if not logged in with custom credentials
             const mockRoleRecord: SystemRole = {
