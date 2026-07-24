@@ -977,7 +977,16 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
       }
 
       // 5. One-time access check
-      if (matchedUser.oneTime && matchedUser.used && detectedType === LogType.CHECK_IN) {
+      const isSingleUsePass = matchedUser.oneTime || matchedUser.documentId?.startsWith('VISIT-') || matchedUser.isResidentCreated;
+      
+      const allAccessLogs = await dbService.getAccessLogs();
+      const hasPriorCheckIn = allAccessLogs.some(l => 
+        (l.userId === matchedUser.id || l.documentId === matchedUser.documentId || (matchedUser.qrcodeToken && l.documentId === matchedUser.qrcodeToken)) &&
+        (l.type === LogType.CHECK_IN || l.type === 'check-in') &&
+        (l.status === LogStatus.SUCCESS || l.status === 'success')
+      );
+
+      if (isSingleUsePass && (matchedUser.used || hasPriorCheckIn) && detectedType === LogType.CHECK_IN) {
         const result = {
           success: false,
           message: `Acceso Denegado: El pase de un solo uso ya ha sido UTILIZADO anteriormente y no se permite la re-entrada.`,
@@ -1016,8 +1025,9 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
       };
       setScanResult(successResult);
 
-      // If one-time checkin, mark the user as used!
-      if (matchedUser.oneTime && detectedType === LogType.CHECK_IN) {
+      // If single-use pass checkin, mark the user as used in DB!
+      if (isSingleUsePass && detectedType === LogType.CHECK_IN) {
+        matchedUser.used = true;
         await dbService.updateAuthorizedUser(matchedUser.id, { used: true });
       }
 
@@ -1087,20 +1097,19 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
   const handleSaveEvidence = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!capturedPhoto) return;
-    if (!currentGuard?.residenciaId) {
-      alert("Error: El vigilante actual no está asignado a ninguna residencia.");
-      return;
-    }
+
+    const targetResidenciaId = currentGuard?.residenciaId || currentGuard?.casetaId || 'residencia_general';
+    const targetResidenciaNombre = currentGuard?.residenciaNombre || currentGuard?.casetaNombre || 'Residencia';
 
     setSavingEvidence(true);
     try {
       await dbService.createEvidencia({
-        residenciaId: currentGuard.residenciaId,
-        residenciaNombre: currentGuard.residenciaNombre || 'Residencia',
-        casetaId: currentGuard.casetaId || undefined,
-        casetaNombre: currentGuard.casetaNombre || undefined,
-        guardId: currentGuard.uid,
-        guardName: currentGuard.name,
+        residenciaId: targetResidenciaId,
+        residenciaNombre: targetResidenciaNombre,
+        casetaId: currentGuard?.casetaId || undefined,
+        casetaNombre: currentGuard?.casetaNombre || undefined,
+        guardId: currentGuard?.uid || 'guard-1',
+        guardName: currentGuard?.name || 'Vigilante',
         photoUrl: capturedPhoto,
         placas: evidenceType === 'placa' ? platesInput.trim().toUpperCase() : platesInput.trim(),
         timestamp: new Date().toISOString(),
@@ -1114,7 +1123,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
       setEvidenceNotesInput('');
       
       // Reload lists
-      reloadEvidencias();
+      await reloadEvidencias();
       setActiveSubTab('evidencias');
     } catch (err) {
       console.error("Error saving evidence:", err);
@@ -1271,7 +1280,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
               : 'border-transparent text-slate-400 hover:text-slate-200'
           }`}
         >
-          📸 Evidencias de Placas ({evidenciasList.filter(e => e.residenciaId === currentGuard?.residenciaId).length})
+          📸 Evidencias de Placas e IDs ({evidenciasList.filter(e => !currentGuard?.residenciaId || e.residenciaId === currentGuard.residenciaId || e.residenciaId === 'residencia_general' || !e.residenciaId).length})
         </button>
       </div>
 
@@ -1665,18 +1674,18 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
           {/* Evidencias List / Grid */}
           <div className="flex-1 overflow-y-auto max-h-[480px] space-y-4 pr-1">
             <div className="flex items-center justify-between text-[11px] text-slate-400 font-semibold mb-2 bg-[#020617] p-2 rounded-xl border border-slate-900">
-              <span>Evidencias Registradas de la Residencia: {currentGuard?.residenciaNombre}</span>
+              <span>Evidencias Registradas ({currentGuard?.residenciaNombre || 'General / Caseta'}):</span>
               <button 
                 type="button"
                 onClick={reloadEvidencias}
-                className="hover:text-red-400 transition"
+                className="hover:text-red-400 transition flex items-center gap-1"
                 title="Actualizar lista de evidencias"
               >
-                <RefreshCw className="w-3.5 h-3.5 animate-pulse" />
+                <RefreshCw className="w-3.5 h-3.5 animate-pulse" /> Recargar
               </button>
             </div>
 
-            {evidenciasList.filter(ev => ev.residenciaId === currentGuard?.residenciaId).map((ev) => {
+            {evidenciasList.filter(ev => !currentGuard?.residenciaId || ev.residenciaId === currentGuard.residenciaId || ev.residenciaId === 'residencia_general' || !ev.residenciaId).map((ev) => {
               const parsedTime = new Date(ev.timestamp).toLocaleString([], {
                 day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
               });

@@ -77,6 +77,10 @@ export default function ResidentDashboard({ currentResidentUser, onRefresh }: Re
       };
 
       const residentMarbetes = allMarbetes.filter(m => {
+        // Ignore visit sync mirror marbetes from vehicle marbete list
+        if (m.vehiculoInfo && m.vehiculoInfo.startsWith('VISIT_SYNC|')) return false;
+        if (m.id && m.id.startsWith('mar_sync_')) return false;
+
         // Match by [CREATOR:uid] inside vehicleInfo first to be 100% bulletproof for resident-created marbetes!
         const hasCreatorTag = m.vehiculoInfo && m.vehiculoInfo.includes(`[CREATOR:${currentResidentUser.uid}]`);
         if (hasCreatorTag) return true;
@@ -90,6 +94,47 @@ export default function ResidentDashboard({ currentResidentUser, onRefresh }: Re
         ));
         
         return (matchesResidence && matchesResidentName) || matchesResidentUID || matchesResidentName || matchesResidentInCollection;
+      });
+
+      // Also recover any VISIT_SYNC mirror marbetes as proper Visitor passes if missing from local state
+      const visitSyncMarbetes = allMarbetes.filter(m => m.vehiculoInfo && m.vehiculoInfo.startsWith('VISIT_SYNC|') && (
+        m.residenciaId === currentResidentUser.residenciaId ||
+        m.vehiculoInfo.includes(`[RESIDENT:${currentResidentUser.name}]`) ||
+        isNameMatch(m.residenteNombre, currentResidentUser.name)
+      ));
+
+      const recoveredSyncVisits: AuthorizedUser[] = visitSyncMarbetes.map(m => {
+        const parts = (m.vehiculoInfo || '').split('|');
+        const vName = parts[1] || m.residenteNombre;
+        const vOneTime = parts[2] === '1';
+        const vUsed = parts[3] === '1';
+        const isExpired = new Date(m.validUntil) < new Date();
+
+        return {
+          id: m.id.replace('mar_sync_', ''),
+          name: vName,
+          documentId: m.vehiculoPlacas || 'VISIT-RES',
+          phone: parts[4] || '',
+          email: parts[5] || 'visita-resident@local.casa',
+          status: isExpired ? UserStatus.EXPIRED : (vUsed ? UserStatus.USED : UserStatus.ACTIVE),
+          qrcodeToken: m.qrcodeToken,
+          oneTime: vOneTime,
+          used: vUsed,
+          validFrom: m.validFrom,
+          validUntil: m.validUntil,
+          days: [],
+          startTime: '00:00',
+          endTime: '23:59',
+          createdAt: m.createdAt,
+          updatedAt: m.updatedAt,
+          residenciaId: m.residenciaId || currentResidentUser.residenciaId || '',
+          residenciaNombre: m.residenciaNombre || currentResidentUser.residenciaNombre || '',
+          isResidentCreated: true,
+          createdBy: currentResidentUser.uid,
+          residentName: currentResidentUser.name,
+          residentPhone: currentResidentUser.phone || '',
+          isMarbeteItem: false
+        } as AuthorizedUser;
       });
 
       const convertedMarbetes: AuthorizedUser[] = residentMarbetes.map(m => {
@@ -135,12 +180,16 @@ export default function ResidentDashboard({ currentResidentUser, onRefresh }: Re
         } as any;
       });
 
-      // Deduplicate: if an authorized user with MARBETE-consecutivo already exists in residentVisits, skip converting
+      // Deduplicate recovered visits and marbetes
+      const missingSyncVisits = recoveredSyncVisits.filter(sv => 
+        !residentVisits.some(rv => rv.qrcodeToken === sv.qrcodeToken || rv.documentId === sv.documentId)
+      );
+
       const filteredConvertedMarbetes = convertedMarbetes.filter(cm => 
         !residentVisits.some(rv => rv.documentId === cm.documentId)
       );
 
-      const combined = [...residentVisits, ...filteredConvertedMarbetes];
+      const combined = [...residentVisits, ...missingSyncVisits, ...filteredConvertedMarbetes];
       combined.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
       setVisits(combined);
