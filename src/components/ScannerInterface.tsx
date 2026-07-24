@@ -938,6 +938,17 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
       // Log the successful access audit trail
       await logScan(matchedUser, LogStatus.SUCCESS, detectedType);
 
+      // Play authorized access audio beep (pitido.mp3)
+      try {
+        const pitidoAudio = new Audio('https://orcjrjshauiudlewnczr.supabase.co/storage/v1/object/public/pitido/pitido.mp3');
+        pitidoAudio.volume = 0.9;
+        pitidoAudio.play().catch(err => {
+          console.warn('Audio playback blocked or failed:', err);
+        });
+      } catch (audioErr) {
+        console.warn('Audio creation error:', audioErr);
+      }
+
       // Fire confetti for a high-craft delightful verification animation!
       confetti({
         particleCount: 120,
