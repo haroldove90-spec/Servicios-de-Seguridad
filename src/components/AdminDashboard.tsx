@@ -138,6 +138,16 @@ export default function AdminDashboard({ onUsersUpdated, currentUser }: AdminDas
     const assignedRes = residencias.find(r => r.id === formResidenciaId);
     const resNombre = assignedRes ? assignedRes.nombre : (currentUser?.residenciaId ? currentUser.residenciaNombre : '');
 
+    let validFromDate = new Date(formValidFrom);
+    if (isNaN(validFromDate.getTime())) validFromDate = new Date();
+
+    let validUntilDate = new Date(formValidUntil);
+    if (typeof formValidUntil === 'string' && formValidUntil.length === 10 && formValidUntil.includes('-')) {
+      const parts = formValidUntil.split('-').map(Number);
+      validUntilDate = new Date(parts[0], parts[1] - 1, parts[2], 23, 59, 59, 999);
+    }
+    if (isNaN(validUntilDate.getTime())) validUntilDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
     const payload = {
       name: formName.trim(),
       documentId: formDocumentId.trim(),
@@ -146,8 +156,8 @@ export default function AdminDashboard({ onUsersUpdated, currentUser }: AdminDas
       status: formStatus,
       oneTime: formOneTime,
       used: editingId ? (visitors.find(v => v.id === editingId)?.used || false) : false,
-      validFrom: new Date(formValidFrom).toISOString(),
-      validUntil: new Date(formValidUntil).toISOString(),
+      validFrom: validFromDate.toISOString(),
+      validUntil: validUntilDate.toISOString(),
       days: formDays,
       startTime: formStartTime,
       endTime: formEndTime,

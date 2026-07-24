@@ -188,6 +188,7 @@ export default function ResidentDashboard({ currentResidentUser, onRefresh }: Re
       const validFrom = new Date();
       const validUntil = new Date();
       validUntil.setDate(validUntil.getDate() + 1); // 1-day expiration automatically
+      validUntil.setHours(23, 59, 59, 999); // Ensure validity through the end of tomorrow
 
       const formattedPhone = formWhatsapp.trim().startsWith('+') ? formWhatsapp.trim() : `+52${formWhatsapp.trim().replace(/\D/g, '')}`;
 

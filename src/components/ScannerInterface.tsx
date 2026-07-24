@@ -808,31 +808,52 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
 
       // 3. Temporal Expiration Check (Dates)
       const now = new Date();
-      const validFrom = new Date(matchedUser.validFrom);
-      const validUntil = new Date(matchedUser.validUntil);
 
-      if (now < validFrom) {
-        const result = {
-          success: false,
-          message: `Acceso Denegado: El pase de ${matchedUser.name} no está activo aún (Válido desde: ${validFrom.toLocaleDateString()}).`,
-          user: matchedUser,
-          status: LogStatus.OUTSIDE_SCHEDULE
-        };
-        setScanResult(result);
-        logScan(matchedUser, LogStatus.OUTSIDE_SCHEDULE, detectedType);
-        return false;
+      // Check validFrom if present and valid
+      if (matchedUser.validFrom) {
+        const validFromDate = new Date(matchedUser.validFrom);
+        if (!isNaN(validFromDate.getTime()) && validFromDate.getFullYear() > 1970) {
+          if (now < validFromDate) {
+            const result = {
+              success: false,
+              message: `Acceso Denegado: El pase de ${matchedUser.name} no está activo aún (Válido desde: ${validFromDate.toLocaleDateString()}).`,
+              user: matchedUser,
+              status: LogStatus.OUTSIDE_SCHEDULE
+            };
+            setScanResult(result);
+            logScan(matchedUser, LogStatus.OUTSIDE_SCHEDULE, detectedType);
+            return false;
+          }
+        }
       }
 
-      if (now > validUntil) {
-        const result = {
-          success: false,
-          message: `Acceso Denegado: El pase expiró el ${validUntil.toLocaleDateString()} a las ${validUntil.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}.`,
-          user: matchedUser,
-          status: LogStatus.EXPIRED_TOKEN
-        };
-        setScanResult(result);
-        logScan(matchedUser, LogStatus.EXPIRED_TOKEN, detectedType);
-        return false;
+      // Check validUntil if present and valid
+      if (matchedUser.validUntil) {
+        const rawUntilStr = String(matchedUser.validUntil).trim();
+        let validUntilDate = new Date(rawUntilStr);
+
+        // If string is YYYY-MM-DD or date without time, adjust to end of day (23:59:59.999)
+        if (rawUntilStr.length === 10 && rawUntilStr.includes('-')) {
+          const parts = rawUntilStr.split('-').map(Number);
+          validUntilDate = new Date(parts[0], parts[1] - 1, parts[2], 23, 59, 59, 999);
+        } else if (!isNaN(validUntilDate.getTime()) && validUntilDate.getHours() === 0 && validUntilDate.getMinutes() === 0 && validUntilDate.getSeconds() === 0) {
+          // Midnight timestamp (e.g. 2026-07-24T00:00:00.000Z), set to end of that day 23:59:59
+          validUntilDate.setHours(23, 59, 59, 999);
+        }
+
+        if (!isNaN(validUntilDate.getTime()) && validUntilDate.getFullYear() > 1970) {
+          if (now > validUntilDate) {
+            const result = {
+              success: false,
+              message: `Acceso Denegado: El pase expiró el ${validUntilDate.toLocaleDateString()} a las ${validUntilDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}.`,
+              user: matchedUser,
+              status: LogStatus.EXPIRED_TOKEN
+            };
+            setScanResult(result);
+            logScan(matchedUser, LogStatus.EXPIRED_TOKEN, detectedType);
+            return false;
+          }
+        }
       }
 
       // 4. Access Schedule constraints (Time & Days)

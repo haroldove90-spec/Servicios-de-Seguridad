@@ -219,7 +219,15 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
 
       // Synchronously record/update in authorized_users (so Guard scans are valid instantly!)
       const startOfYear = new Date();
-      const endOfYear = new Date(formValidUntil);
+      let endOfYear = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+      if (formValidUntil) {
+        if (formValidUntil.length === 10 && formValidUntil.includes('-')) {
+          const parts = formValidUntil.split('-').map(Number);
+          endOfYear = new Date(parts[0], parts[1] - 1, parts[2], 23, 59, 59, 999);
+        } else {
+          endOfYear = new Date(formValidUntil);
+        }
+      }
 
       const authUserPayload: Omit<AuthorizedUser, 'id'> = {
         name: cleanName + (formIsVisitor ? ' (Visita)' : ' (Residente)'),
