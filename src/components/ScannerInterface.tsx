@@ -550,12 +550,25 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
         return false;
       }
       
-      const tokenClean = token.trim();
+      const tokenClean = token.trim().replace(/^["']|["']$/g, '');
       let tokenToQuery = tokenClean;
+
+      // Extract from JSON payload if QR code contains a JSON object
+      try {
+        if (tokenClean.startsWith('{') && tokenClean.endsWith('}')) {
+          const parsed = JSON.parse(tokenClean);
+          const extracted = parsed.pass || parsed.token || parsed.qrcodeToken || parsed.qr || parsed.id || parsed.code || parsed.qrcode;
+          if (extracted && typeof extracted === 'string') {
+            tokenToQuery = extracted.trim();
+          }
+        }
+      } catch (e) {
+        console.warn('JSON parse attempt on token input skipped:', e);
+      }
       
       // Decrypt/Decode URL encoding if fully encoded
       try {
-        if (tokenClean.includes('%')) {
+        if (tokenToQuery.includes('%')) {
           tokenToQuery = decodeURIComponent(tokenToQuery);
         }
       } catch (err) {
@@ -563,7 +576,11 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
       }
 
       // Support extremely robust extraction of 'pass=' or 'token=' from URL or search string/hash
-      if (tokenToQuery.includes('?') || tokenToQuery.includes('#') || tokenToQuery.startsWith('http://') || tokenToQuery.startsWith('https://')) {
+      if (tokenToQuery.includes('pass=')) {
+        tokenToQuery = tokenToQuery.split('pass=')[1].split('&')[0].split(' ')[0].split('"')[0].trim();
+      } else if (tokenToQuery.includes('token=')) {
+        tokenToQuery = tokenToQuery.split('token=')[1].split('&')[0].split(' ')[0].split('"')[0].trim();
+      } else if (tokenToQuery.includes('?') || tokenToQuery.includes('#') || tokenToQuery.startsWith('http://') || tokenToQuery.startsWith('https://')) {
         try {
           let urlString = tokenToQuery;
           if (!tokenToQuery.startsWith('http://') && !tokenToQuery.startsWith('https://')) {
@@ -571,7 +588,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
           }
           const url = new URL(urlString);
           
-          let extraction = url.searchParams.get('pass') || url.searchParams.get('token');
+          let extraction = url.searchParams.get('pass') || url.searchParams.get('token') || url.searchParams.get('id');
           
           if (!extraction && url.hash) {
             const hashStr = url.hash;
@@ -586,36 +603,28 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
             tokenToQuery = extraction.trim();
           }
         } catch (urlErr) {
-          console.warn('URL parameters extraction failed, parsing using string split fallback:', urlErr);
-          if (tokenToQuery.includes('pass=')) {
-            const index = tokenToQuery.indexOf('pass=');
-            const afterPass = tokenToQuery.substring(index + 5);
-            const ampIndex = afterPass.indexOf('&');
-            tokenToQuery = ampIndex !== -1 ? afterPass.substring(0, ampIndex) : afterPass;
-          } else if (tokenToQuery.includes('token=')) {
-            const index = tokenToQuery.indexOf('token=');
-            const afterTok = tokenToQuery.substring(index + 6);
-            const ampIndex = afterTok.indexOf('&');
-            tokenToQuery = ampIndex !== -1 ? afterTok.substring(0, ampIndex) : afterTok;
-          }
+          console.warn('URL parameters extraction failed:', urlErr);
         }
       }
 
-      tokenToQuery = tokenToQuery.trim();
+      tokenToQuery = tokenToQuery.trim().replace(/^["']|["']$/g, '');
+      const qLower = tokenToQuery.toLowerCase();
       
-      // 1. Direct real-time lookup from Supabase with key-normalization
+      // 1. Direct real-time lookup from Supabase / cache with key-normalization
       let matchedUser = await dbService.getAuthorizedUserByToken(tokenToQuery);
       
-      // 2. Cache-fallback if direct lookup yielded nothing
+      // 2. Comprehensive search across all authorized users
       if (!matchedUser) {
         const users = await dbService.getAuthorizedUsers();
         matchedUser = users.find(u => 
           u.qrcodeToken?.trim() === tokenToQuery || 
-          u.qrcodeToken?.trim().toLowerCase() === tokenToQuery.toLowerCase()
+          u.qrcodeToken?.trim().toLowerCase() === qLower ||
+          u.id?.trim().toLowerCase() === qLower ||
+          u.documentId?.trim().toLowerCase() === qLower
         );
       }
 
-      // Dynamic self-healing recovery for registered residents (like Sandra Santiago)
+      // Dynamic self-healing recovery for registered residents
       if (!matchedUser) {
         let matchedRes = await dbService.getResidenteByToken(tokenToQuery);
         
@@ -623,7 +632,9 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
           const allResidents = await dbService.getResidentes();
           matchedRes = allResidents.find(r => 
             r.qrcodeToken?.trim() === tokenToQuery || 
-            r.qrcodeToken?.trim().toLowerCase() === tokenToQuery.toLowerCase()
+            r.qrcodeToken?.trim().toLowerCase() === qLower ||
+            r.id?.trim().toLowerCase() === qLower ||
+            r.accessUserId?.trim().toLowerCase() === qLower
           );
         }
         
@@ -635,7 +646,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
             email: 'residente@local.casa',
             phone: matchedRes.whatsapp || '',
             status: UserStatus.ACTIVE,
-            qrcodeToken: tokenToQuery,
+            qrcodeToken: matchedRes.qrcodeToken || tokenToQuery,
             oneTime: false,
             used: false,
             validFrom: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
@@ -660,6 +671,10 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
             matchedUser = createdAuth;
           } catch (err) {
             console.error('Dynamic authorized_users recovery failed:', err);
+            matchedUser = {
+              id: 'res_fallback_' + matchedRes.id,
+              ...autoPayload
+            };
           }
         }
       }
@@ -671,7 +686,10 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
           const allMarbetes = await dbService.getMarbetes();
           matchedMarbete = allMarbetes.find(m => 
             m.qrcodeToken?.trim() === tokenToQuery || 
-            m.qrcodeToken?.trim().toLowerCase() === tokenToQuery.toLowerCase()
+            m.qrcodeToken?.trim().toLowerCase() === qLower ||
+            m.id?.trim().toLowerCase() === qLower ||
+            ('marbete-' + m.consecutivo).toLowerCase() === qLower ||
+            String(m.consecutivo) === tokenToQuery
           );
         }
 
@@ -685,7 +703,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
             email: 'marbete@local.casa',
             phone: '',
             status: marbeteStatus,
-            qrcodeToken: tokenToQuery,
+            qrcodeToken: matchedMarbete.qrcodeToken || tokenToQuery,
             oneTime: false,
             used: false,
             validFrom: matchedMarbete.validFrom,
