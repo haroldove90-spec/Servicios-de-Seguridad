@@ -694,39 +694,71 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
         }
 
         if (matchedMarbete) {
-          const isMarbeteExpired = new Date(matchedMarbete.validUntil) < new Date();
-          const marbeteStatus = isMarbeteExpired ? UserStatus.EXPIRED : matchedMarbete.status;
-
-          const marbeteAuthPayload: Omit<AuthorizedUser, 'id'> = {
-            name: `${matchedMarbete.residenteNombre} (Marbete #${matchedMarbete.consecutivo})`,
-            documentId: 'MARBETE-' + matchedMarbete.consecutivo,
-            email: 'marbete@local.casa',
-            phone: '',
-            status: marbeteStatus,
-            qrcodeToken: matchedMarbete.qrcodeToken || tokenToQuery,
-            oneTime: false,
-            used: false,
-            validFrom: matchedMarbete.validFrom,
-            validUntil: matchedMarbete.validUntil,
-            days: [],
-            startTime: '00:00',
-            endTime: '23:59',
-            createdAt: matchedMarbete.createdAt,
-            updatedAt: matchedMarbete.updatedAt,
-            createdBy: 'marbete-system-auto',
-            residenciaId: matchedMarbete.residenciaId,
-            residenciaNombre: matchedMarbete.residenciaNombre
-          };
-
-          try {
-            const createdAuth = await dbService.createAuthorizedUser(marbeteAuthPayload);
-            matchedUser = createdAuth;
-          } catch (err) {
-            console.error('Dynamic marbete authorized_user creation failed:', err);
+          if (matchedMarbete.vehiculoInfo?.startsWith('VISIT_SYNC|')) {
+            const parts = matchedMarbete.vehiculoInfo.split('|');
+            const vName = parts[1] || matchedMarbete.residenteNombre;
+            const vOneTime = parts[2] === '1';
+            const vUsed = parts[3] === '1';
+            const isMarbeteExpired = new Date(matchedMarbete.validUntil) < new Date();
+            
             matchedUser = {
-              id: 'mar_fallback_' + matchedMarbete.id,
-              ...marbeteAuthPayload
+              id: matchedMarbete.id.replace('mar_sync_', ''),
+              name: vName,
+              documentId: matchedMarbete.vehiculoPlacas || 'VISITA',
+              email: parts[5] || 'visita@local.casa',
+              phone: parts[4] || '',
+              status: isMarbeteExpired ? UserStatus.EXPIRED : (vUsed ? UserStatus.USED : ((matchedMarbete.status === 'activo' || matchedMarbete.status === 'active') ? UserStatus.ACTIVE : UserStatus.INACTIVE)),
+              qrcodeToken: matchedMarbete.qrcodeToken || tokenToQuery,
+              oneTime: vOneTime,
+              used: vUsed,
+              validFrom: matchedMarbete.validFrom,
+              validUntil: matchedMarbete.validUntil,
+              days: [],
+              startTime: '00:00',
+              endTime: '23:59',
+              createdAt: matchedMarbete.createdAt,
+              updatedAt: matchedMarbete.updatedAt,
+              createdBy: 'resident-visit-sync',
+              residenciaId: matchedMarbete.residenciaId,
+              residenciaNombre: matchedMarbete.residenciaNombre,
+              isResidentCreated: true,
+              residentName: matchedMarbete.residenteNombre
             };
+          } else {
+            const isMarbeteExpired = new Date(matchedMarbete.validUntil) < new Date();
+            const marbeteStatus = isMarbeteExpired ? UserStatus.EXPIRED : matchedMarbete.status;
+
+            const marbeteAuthPayload: Omit<AuthorizedUser, 'id'> = {
+              name: `${matchedMarbete.residenteNombre} (Marbete #${matchedMarbete.consecutivo})`,
+              documentId: 'MARBETE-' + matchedMarbete.consecutivo,
+              email: 'marbete@local.casa',
+              phone: '',
+              status: marbeteStatus,
+              qrcodeToken: matchedMarbete.qrcodeToken || tokenToQuery,
+              oneTime: false,
+              used: false,
+              validFrom: matchedMarbete.validFrom,
+              validUntil: matchedMarbete.validUntil,
+              days: [],
+              startTime: '00:00',
+              endTime: '23:59',
+              createdAt: matchedMarbete.createdAt,
+              updatedAt: matchedMarbete.updatedAt,
+              createdBy: 'marbete-system-auto',
+              residenciaId: matchedMarbete.residenciaId,
+              residenciaNombre: matchedMarbete.residenciaNombre
+            };
+
+            try {
+              const createdAuth = await dbService.createAuthorizedUser(marbeteAuthPayload);
+              matchedUser = createdAuth;
+            } catch (err) {
+              console.error('Dynamic marbete authorized_user creation failed:', err);
+              matchedUser = {
+                id: 'mar_fallback_' + matchedMarbete.id,
+                ...marbeteAuthPayload
+              };
+            }
           }
         }
       }

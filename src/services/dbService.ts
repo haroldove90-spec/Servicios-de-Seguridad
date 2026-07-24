@@ -1212,6 +1212,40 @@ export const dbService = {
     }
 
     const localUsers = LocalDB.getUsers();
+    
+    // Fetch mirror marbetes from Supabase as a primary cloud fallback
+    try {
+      const { data: syncMarbetes } = await supabase
+        .from('marbetes')
+        .select('*')
+        .like('vehiculoInfo', 'VISIT_SYNC|%');
+      
+      if (syncMarbetes && syncMarbetes.length > 0) {
+        syncMarbetes.forEach(mar => {
+          const parts = (mar.vehiculoInfo || '').split('|');
+          const syncUser: AuthorizedUser = {
+            id: mar.id.replace('mar_sync_', ''),
+            name: parts[1] || mar.residenteNombre || 'Visita Autorizada',
+            documentId: mar.vehiculoPlacas || 'VISITA',
+            email: parts[5] || 'visita-resident@local.casa',
+            phone: parts[4] || '',
+            status: (mar.status === 'activo' || mar.status === 'active') ? UserStatus.ACTIVE : UserStatus.INACTIVE,
+            qrcodeToken: mar.qrcodeToken || '',
+            oneTime: parts[2] === '1',
+            used: parts[3] === '1',
+            validFrom: mar.validFrom || new Date().toISOString(),
+            validUntil: mar.validUntil || new Date(Date.now() + 86400000).toISOString(),
+            residenciaNombre: mar.residenciaNombre || '',
+            isResidentCreated: true,
+            residentName: mar.residenteNombre || ''
+          };
+          remoteUsers.push(syncUser);
+        });
+      }
+    } catch (syncErr) {
+      console.warn('Fetch mirror marbetes failed:', syncErr);
+    }
+
     if (!success && remoteUsers.length === 0) {
       return localUsers;
     }
@@ -1221,12 +1255,12 @@ export const dbService = {
     localUsers.forEach(u => unifiedMap.set(u.id, u));
     remoteUsers.forEach(u => unifiedMap.set(u.id, u));
 
-    return Array.from(unifiedMap.values()).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return Array.from(unifiedMap.values()).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
   },
 
   async getAuthorizedUserByToken(token: string): Promise<AuthorizedUser | null> {
     if (!token) return null;
-    let tokenClean = token.trim();
+    let tokenClean = token.trim().replace(/^["']|["']$/g, '');
 
     // Extract token if a full URL or query string is provided
     if (tokenClean.includes('pass=')) {
@@ -1255,7 +1289,54 @@ export const dbService = {
       console.warn('getAuthorizedUserByToken direct Supabase exception:', err);
     }
 
-    // 2. Direct lookup from local storage
+    // 2. Query mirror marbetes from Supabase
+    try {
+      const { data: mData } = await supabase
+        .from('marbetes')
+        .select('*')
+        .or(`qrcodeToken.eq.${tokenClean},qrcodeToken.ilike.${tokenClean}`);
+      
+      if (mData && mData.length > 0) {
+        const mar = mData[0];
+        let vName = mar.residenteNombre || 'Visita Autorizada';
+        let vOneTime = true;
+        let vUsed = false;
+        let vPhone = '';
+        let vEmail = '';
+
+        if (mar.vehiculoInfo && mar.vehiculoInfo.startsWith('VISIT_SYNC|')) {
+          const parts = mar.vehiculoInfo.split('|');
+          vName = parts[1] || vName;
+          vOneTime = parts[2] === '1';
+          vUsed = parts[3] === '1';
+          vPhone = parts[4] || '';
+          vEmail = parts[5] || '';
+        }
+
+        const mappedUser: AuthorizedUser = {
+          id: mar.id.replace('mar_sync_', ''),
+          name: vName,
+          documentId: mar.vehiculoPlacas || 'VISITA',
+          email: vEmail || 'visita-resident@local.casa',
+          phone: vPhone || '',
+          status: (mar.status === 'activo' || mar.status === 'active') ? UserStatus.ACTIVE : UserStatus.INACTIVE,
+          qrcodeToken: mar.qrcodeToken || tokenClean,
+          oneTime: vOneTime,
+          used: vUsed,
+          validFrom: mar.validFrom || new Date().toISOString(),
+          validUntil: mar.validUntil || new Date(Date.now() + 86400000).toISOString(),
+          residenciaNombre: mar.residenciaNombre || '',
+          isResidentCreated: true,
+          residentName: mar.residenteNombre || ''
+        };
+        console.log('Found authorized user via mirror marbete in Supabase:', mappedUser.name);
+        return mappedUser;
+      }
+    } catch (mErr) {
+      console.warn('Mirror marbete search by token failed:', mErr);
+    }
+
+    // 3. Direct lookup from local storage
     const localUsers = LocalDB.getUsers();
     const foundLocal = localUsers.find(u => 
       u.qrcodeToken?.trim() === tokenClean || 
@@ -1267,7 +1348,7 @@ export const dbService = {
       return foundLocal;
     }
 
-    // 3. Fallback to Firebase
+    // 4. Fallback to Firebase
     if (!IS_FIREBASE_DUMMY) {
       try {
         const colRef = collection(db, 'authorized_users');
@@ -1305,11 +1386,35 @@ export const dbService = {
       console.warn('Supabase createAuthorizedUser exception, relying on local sync:', err);
     }
 
+    // 3. Create mirror marbete record in Supabase to guarantee cloud persistence across devices
+    try {
+      const mirrorMarbete = {
+        id: 'mar_sync_' + id,
+        consecutivo: Math.floor(100000 + Math.random() * 899999),
+        residenteId: null,
+        residenteNombre: newUser.residentName || newUser.name,
+        residenciaId: null,
+        residenciaNombre: newUser.residenciaNombre || 'Residencia',
+        vehiculoPlacas: newUser.documentId || 'VISITA',
+        vehiculoInfo: `VISIT_SYNC|${newUser.name}|${newUser.oneTime ? '1' : '0'}|${newUser.used ? '1' : '0'}|${newUser.phone || ''}|${newUser.email || ''}`,
+        qrcodeToken: newUser.qrcodeToken,
+        validFrom: newUser.validFrom || new Date().toISOString(),
+        validUntil: newUser.validUntil || new Date(Date.now() + 86400000).toISOString(),
+        status: (newUser.status === 'activo' || newUser.status === 'active') ? 'activo' : 'inactivo',
+        createdAt: newUser.createdAt || new Date().toISOString(),
+        updatedAt: newUser.updatedAt || new Date().toISOString()
+      };
+      await robustSupabaseInsert('marbetes', mirrorMarbete);
+      console.log('Successfully created mirror marbete in Supabase for cross-device visitor pass lookup!');
+    } catch (mErr) {
+      console.warn('Mirror marbete creation exception:', mErr);
+    }
+
     if (IS_FIREBASE_DUMMY) {
       return newUser;
     }
 
-    // 3. Propagate to Firebase as auxiliary cloud store
+    // 4. Propagate to Firebase as auxiliary cloud store
     try {
       const docRef = doc(db, 'authorized_users', id);
       await setDoc(docRef, newUser);
@@ -1344,6 +1449,31 @@ export const dbService = {
       console.warn('Supabase updateAuthorizedUser exception, using fallback sync:', err);
     }
 
+    // Update mirror marbete in Supabase
+    try {
+      const mirrorId = id.startsWith('mar_sync_') ? id : 'mar_sync_' + id;
+      const { data: existingMar } = await supabase
+        .from('marbetes')
+        .select('*')
+        .or(`id.eq.${mirrorId},qrcodeToken.eq.${updates.qrcodeToken || ''}`);
+      
+      if (existingMar && existingMar.length > 0) {
+        const current = existingMar[0];
+        const parts = (current.vehiculoInfo || '').split('|');
+        const newUsed = updates.used !== undefined ? (updates.used ? '1' : '0') : (parts[3] || '0');
+        const newStatus = updates.status ? ((updates.status === 'activo' || updates.status === 'active') ? 'activo' : 'inactivo') : current.status;
+        const updatedVeh = `VISIT_SYNC|${updates.name || parts[1] || current.residenteNombre}|${updates.oneTime !== undefined ? (updates.oneTime ? '1' : '0') : (parts[2] || '1')}|${newUsed}|${updates.phone || parts[4] || ''}|${updates.email || parts[5] || ''}`;
+        
+        await supabase.from('marbetes').update({
+          status: newStatus,
+          vehiculoInfo: updatedVeh,
+          updatedAt: new Date().toISOString()
+        }).eq('id', current.id);
+      }
+    } catch (mErr) {
+      console.warn('Mirror marbete update exception:', mErr);
+    }
+
     if (IS_FIREBASE_DUMMY) {
       return;
     }
@@ -1371,6 +1501,14 @@ export const dbService = {
         .eq('id', id);
     } catch (err) {
       console.warn('Supabase deleteAuthorizedUser exception:', err);
+    }
+
+    // Delete mirror marbete from Supabase
+    try {
+      const mirrorId = id.startsWith('mar_sync_') ? id : 'mar_sync_' + id;
+      await supabase.from('marbetes').delete().or(`id.eq.${id},id.eq.${mirrorId}`);
+    } catch (mErr) {
+      console.warn('Mirror marbete delete exception:', mErr);
     }
 
     if (IS_FIREBASE_DUMMY) {
