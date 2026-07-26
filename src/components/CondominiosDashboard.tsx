@@ -4,7 +4,8 @@ import {
   TrendingUp, CreditCard, Calendar, MessageSquare, Bell, Camera, 
   PhoneCall, Package, Check, Clipboard, QrCode, AlertTriangle, 
   Activity, ArrowUpRight, ArrowDownRight, Upload, Globe, RefreshCw, Send, Trash2,
-  LogOut, Plus, Search, Filter, Lock, Unlock, Home, Crown, Building2, UserCheck, Smartphone, BadgeCheck
+  LogOut, Plus, Search, Filter, Lock, Unlock, Home, Crown, Building2, UserCheck, Smartphone, BadgeCheck,
+  CheckCircle2, PackageCheck
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -93,7 +94,8 @@ interface CondominiosDashboardProps {
 
 export default function CondominiosDashboard({ currentUser, onSignOut }: CondominiosDashboardProps) {
   // Navigation
-  const [activeSubSection, setActiveSubSection] = useState<'inicio' | 'clientes' | 'finanzas' | 'operaciones' | 'facturacion' | 'checklist'>('inicio');
+  const [activeSubSection, setActiveSubSection] = useState<'inicio' | 'superadmin' | 'admininmobiliaria' | 'comite' | 'residente' | 'guardia'>('inicio');
+  const [adminCondoTab, setAdminCondoTab] = useState<'finanzas' | 'facturacion'>('finanzas');
 
   // --- 6. GESTIÓN DE CLIENTES STATE & HANDLERS ---
   const [clientes, setClientes] = useState<ClienteCondominio[]>([
@@ -357,6 +359,42 @@ export default function CondominiosDashboard({ currentUser, onSignOut }: Condomi
   const [newParcelCarrier, setNewParcelCarrier] = useState('Amazon');
   const [newParcelTracking, setNewParcelTracking] = useState('');
 
+  // Guardia helper states
+  const [scannerInput, setScannerInput] = useState('');
+  const [scanResult, setScanResult] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+  const [intercomTarget, setIntercomTarget] = useState('');
+  const [parcelResident, setParcelResident] = useState('');
+  const [parcelCarrier, setParcelCarrier] = useState('');
+  const [parcelTracking, setParcelTracking] = useState('');
+
+  const simulateQrScan = () => {
+    if (!scannerInput) return;
+    setScanResult({
+      type: 'success',
+      msg: `✓ PASE VÁLIDO: Acceso autorizado para ${scannerInput}. Código escaneado a las ${new Date().toLocaleTimeString('es-MX')}.`
+    });
+  };
+
+  const handleRegisterParcel = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!parcelResident && !newParcelCondo) return;
+    const newP: Parcel = {
+      id: 'pkg-' + Date.now(),
+      condo: newParcelCondo || 'Casa 101',
+      resident: parcelResident || newParcelResident || 'Residente',
+      carrier: parcelCarrier || newParcelCarrier || 'Amazon',
+      trackingNumber: parcelTracking || newParcelTracking || 'TRACK-' + Math.floor(Math.random() * 8999 + 1000),
+      receivedAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
+      status: 'en_recepcion'
+    };
+    setParcels(prev => [newP, ...prev]);
+    setParcelResident('');
+    setParcelCarrier('');
+    setParcelTracking('');
+    setNewParcelCondo('');
+    showSuccessBanner('✓ Paquete registrado y notificación enviada al residente.');
+  };
+
   // --- 3. OPERACIÓN & COMUNIDAD STATE ---
   // Amenities Reservations
   const [reservations, setReservations] = useState<AmenityReservation[]>([
@@ -502,19 +540,19 @@ export default function CondominiosDashboard({ currentUser, onSignOut }: Condomi
 
   // Intercom Simulated Calling
   const triggerIntercomCall = () => {
-    if (!intercomCondo) return;
+    const target = intercomTarget || intercomCondo || 'Casa 101';
     setIntercomState('calling');
-    setIntercomLogs(prev => [`[${new Date().toLocaleTimeString()}] Llamando al interfón de la ${intercomCondo}...`, ...prev]);
+    setIntercomLogs(prev => [`[${new Date().toLocaleTimeString()}] Llamando al interfón de ${target}...`, ...prev]);
 
     // Simulate ringing, then picking up
     callTimerRef.current = setTimeout(() => {
       setIntercomState('connected');
       setIntercomLogs(prev => [
-        `[${new Date().toLocaleTimeString()}] Conectado con ${intercomCondo}.`,
-        `🗣️ Residente: "¡Hola Caseta! Buenas tardes. Sí, autorizo el ingreso del chofer de Uber, dele paso."`,
+        `[${new Date().toLocaleTimeString()}] Conectado con ${target}.`,
+        `🗣️ Residente: "¡Hola Caseta! Buenas tardes. Sí, autorizo el ingreso del visitante, dele paso."`,
         ...prev
       ]);
-    }, 3000);
+    }, 2000);
   };
 
   const endIntercomCall = () => {
@@ -681,7 +719,7 @@ export default function CondominiosDashboard({ currentUser, onSignOut }: Condomi
           <nav className="space-y-1.5">
             <button
               onClick={() => setActiveSubSection('inicio')}
-              className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer select-none text-left ${
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-xs font-bold rounded-xl transition cursor-pointer select-none text-left ${
                 activeSubSection === 'inicio'
                   ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/25'
                   : 'text-slate-400 hover:bg-[#1C1C1E] hover:text-slate-200'
@@ -691,64 +729,73 @@ export default function CondominiosDashboard({ currentUser, onSignOut }: Condomi
               <span>Inicio — Roles de Acceso</span>
             </button>
 
+            <div className="pt-3 pb-1 px-2 text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider text-left">
+              Roles Independientes
+            </div>
+
+            {/* 1. Super Administrador */}
             <button
-              onClick={() => setActiveSubSection('clientes')}
-              className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer select-none text-left ${
-                activeSubSection === 'clientes'
-                  ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/25'
+              onClick={() => setActiveSubSection('superadmin')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-xs font-bold rounded-xl transition cursor-pointer select-none text-left ${
+                activeSubSection === 'superadmin'
+                  ? 'bg-red-600/20 border border-red-500/50 text-red-300 shadow-md'
                   : 'text-slate-400 hover:bg-[#1C1C1E] hover:text-slate-200'
               }`}
             >
-              <Users className="w-4.5 h-4.5 shrink-0 text-purple-400" />
-              <span>Gestión de Clientes</span>
+              <Crown className="w-4.5 h-4.5 shrink-0 text-red-400" />
+              <span className="truncate">Rol: Super Administrador</span>
             </button>
 
+            {/* 2. Admin Condominio / Inmobiliaria */}
             <button
-              onClick={() => setActiveSubSection('finanzas')}
-              className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer select-none text-left ${
-                activeSubSection === 'finanzas'
-                  ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/25'
+              onClick={() => setActiveSubSection('admininmobiliaria')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-xs font-bold rounded-xl transition cursor-pointer select-none text-left ${
+                activeSubSection === 'admininmobiliaria'
+                  ? 'bg-purple-600/20 border border-purple-500/50 text-purple-300 shadow-md'
                   : 'text-slate-400 hover:bg-[#1C1C1E] hover:text-slate-200'
               }`}
             >
-              <DollarSign className="w-4.5 h-4.5 shrink-0 text-purple-400" />
-              <span>Finanzas y Cobros</span>
+              <Building2 className="w-4.5 h-4.5 shrink-0 text-purple-400" />
+              <span className="truncate">Rol: Admin Condominio</span>
             </button>
 
+            {/* 3. Comité de Vigilancia */}
             <button
-              onClick={() => setActiveSubSection('operaciones')}
-              className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer select-none text-left ${
-                activeSubSection === 'operaciones'
-                  ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/25'
+              onClick={() => setActiveSubSection('comite')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-xs font-bold rounded-xl transition cursor-pointer select-none text-left ${
+                activeSubSection === 'comite'
+                  ? 'bg-amber-600/20 border border-amber-500/50 text-amber-300 shadow-md'
                   : 'text-slate-400 hover:bg-[#1C1C1E] hover:text-slate-200'
               }`}
             >
-              <Activity className="w-4.5 h-4.5 shrink-0 text-purple-400" />
-              <span>Operación y Comunidad</span>
+              <UserCheck className="w-4.5 h-4.5 shrink-0 text-amber-400" />
+              <span className="truncate">Rol: Comité Vigilancia</span>
             </button>
 
+            {/* 4. Residente (App/PWA) */}
             <button
-              onClick={() => setActiveSubSection('facturacion')}
-              className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer select-none text-left ${
-                activeSubSection === 'facturacion'
-                  ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/25'
+              onClick={() => setActiveSubSection('residente')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-xs font-bold rounded-xl transition cursor-pointer select-none text-left ${
+                activeSubSection === 'residente'
+                  ? 'bg-blue-600/20 border border-blue-500/50 text-blue-300 shadow-md'
                   : 'text-slate-400 hover:bg-[#1C1C1E] hover:text-slate-200'
               }`}
             >
-              <FileText className="w-4.5 h-4.5 shrink-0 text-purple-400" />
-              <span>Facturación CFDI 4.0</span>
+              <Smartphone className="w-4.5 h-4.5 shrink-0 text-blue-400" />
+              <span className="truncate">Rol: Residente (App/PWA)</span>
             </button>
 
+            {/* 5. Guardia / Conserje */}
             <button
-              onClick={() => setActiveSubSection('checklist')}
-              className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer border border-dashed border-purple-500/20 select-none text-left ${
-                activeSubSection === 'checklist'
-                  ? 'bg-purple-600/20 border-purple-500 text-purple-300 shadow-md'
-                  : 'text-purple-400/80 hover:bg-purple-950/15 hover:text-purple-300'
+              onClick={() => setActiveSubSection('guardia')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-xs font-bold rounded-xl transition cursor-pointer select-none text-left ${
+                activeSubSection === 'guardia'
+                  ? 'bg-emerald-600/20 border border-emerald-500/50 text-emerald-300 shadow-md'
+                  : 'text-slate-400 hover:bg-[#1C1C1E] hover:text-slate-200'
               }`}
             >
-              <Clipboard className="w-4.5 h-4.5 shrink-0" />
-              <span>Checklist de Activación</span>
+              <BadgeCheck className="w-4.5 h-4.5 shrink-0 text-emerald-400" />
+              <span className="truncate">Rol: Guardia / Conserje</span>
             </button>
           </nav>
         </div>
@@ -880,7 +927,7 @@ export default function CondominiosDashboard({ currentUser, onSignOut }: Condomi
 
                 {/* 1. Super Administrador */}
                 <div
-                  onClick={() => setActiveSubSection('clientes')}
+                  onClick={() => setActiveSubSection('superadmin')}
                   className="group bg-[#1E1E22] hover:bg-[#25252A] border border-[#2d2d32] hover:border-red-500/50 rounded-2xl p-6 transition-all duration-300 cursor-pointer shadow-lg hover:scale-[1.02] flex flex-col justify-between text-left"
                 >
                   <div>
@@ -889,7 +936,7 @@ export default function CondominiosDashboard({ currentUser, onSignOut }: Condomi
                         <Crown className="w-6 h-6 text-red-400" />
                       </div>
                       <span className="text-[10px] font-mono font-extrabold px-2.5 py-1 bg-red-500/10 border border-red-500/20 text-red-400 rounded-full uppercase">
-                        Global / SaaS
+                        SaaS / Global
                       </span>
                     </div>
                     <h4 className="text-base font-black text-white group-hover:text-red-400 transition">
@@ -900,14 +947,14 @@ export default function CondominiosDashboard({ currentUser, onSignOut }: Condomi
                     </p>
                   </div>
                   <div className="mt-6 pt-4 border-t border-[#2d2d32] flex items-center justify-between">
-                    <span className="text-xs font-bold text-red-400 group-hover:translate-x-1 transition">Gestionar Clientes →</span>
+                    <span className="text-xs font-bold text-red-400 group-hover:translate-x-1 transition">Acceder a Rol Super Admin →</span>
                     <span className="text-[10px] text-slate-500 font-mono">Control Total</span>
                   </div>
                 </div>
 
                 {/* 2. Administrador del Condominio / Inmobiliaria */}
                 <div
-                  onClick={() => setActiveSubSection('finanzas')}
+                  onClick={() => setActiveSubSection('admininmobiliaria')}
                   className="group bg-[#1E1E22] hover:bg-[#25252A] border border-[#2d2d32] hover:border-purple-500/50 rounded-2xl p-6 transition-all duration-300 cursor-pointer shadow-lg hover:scale-[1.02] flex flex-col justify-between text-left"
                 >
                   <div>
@@ -916,7 +963,7 @@ export default function CondominiosDashboard({ currentUser, onSignOut }: Condomi
                         <Building2 className="w-6 h-6 text-purple-400" />
                       </div>
                       <span className="text-[10px] font-mono font-extrabold px-2.5 py-1 bg-purple-500/10 border border-purple-500/20 text-purple-400 rounded-full uppercase">
-                        Administrativo
+                        Administración
                       </span>
                     </div>
                     <h4 className="text-base font-black text-white group-hover:text-purple-400 transition">
@@ -927,14 +974,14 @@ export default function CondominiosDashboard({ currentUser, onSignOut }: Condomi
                     </p>
                   </div>
                   <div className="mt-6 pt-4 border-t border-[#2d2d32] flex items-center justify-between">
-                    <span className="text-xs font-bold text-purple-400 group-hover:translate-x-1 transition">Ver Finanzas y Cobros →</span>
+                    <span className="text-xs font-bold text-purple-400 group-hover:translate-x-1 transition">Acceder a Rol Administrador →</span>
                     <span className="text-[10px] text-slate-500 font-mono">Gestión Contable</span>
                   </div>
                 </div>
 
                 {/* 3. Comité de Vigilancia (Mesa Directiva) */}
                 <div
-                  onClick={() => setActiveSubSection('checklist')}
+                  onClick={() => setActiveSubSection('comite')}
                   className="group bg-[#1E1E22] hover:bg-[#25252A] border border-[#2d2d32] hover:border-amber-500/50 rounded-2xl p-6 transition-all duration-300 cursor-pointer shadow-lg hover:scale-[1.02] flex flex-col justify-between text-left"
                 >
                   <div>
@@ -954,14 +1001,14 @@ export default function CondominiosDashboard({ currentUser, onSignOut }: Condomi
                     </p>
                   </div>
                   <div className="mt-6 pt-4 border-t border-[#2d2d32] flex items-center justify-between">
-                    <span className="text-xs font-bold text-amber-400 group-hover:translate-x-1 transition">Ver Checklist y Auditoría →</span>
+                    <span className="text-xs font-bold text-amber-400 group-hover:translate-x-1 transition">Acceder a Rol Comité →</span>
                     <span className="text-[10px] text-slate-500 font-mono">Mesa Directiva</span>
                   </div>
                 </div>
 
                 {/* 4. Residente / Propietario / Inquilino (App / PWA) */}
                 <div
-                  onClick={() => setActiveSubSection('operaciones')}
+                  onClick={() => setActiveSubSection('residente')}
                   className="group bg-[#1E1E22] hover:bg-[#25252A] border border-[#2d2d32] hover:border-blue-500/50 rounded-2xl p-6 transition-all duration-300 cursor-pointer shadow-lg hover:scale-[1.02] flex flex-col justify-between text-left"
                 >
                   <div>
@@ -981,14 +1028,14 @@ export default function CondominiosDashboard({ currentUser, onSignOut }: Condomi
                     </p>
                   </div>
                   <div className="mt-6 pt-4 border-t border-[#2d2d32] flex items-center justify-between">
-                    <span className="text-xs font-bold text-blue-400 group-hover:translate-x-1 transition">Ver Módulo Comunidad →</span>
+                    <span className="text-xs font-bold text-blue-400 group-hover:translate-x-1 transition">Acceder a Rol Residente →</span>
                     <span className="text-[10px] text-slate-500 font-mono">App Móvil / PWA</span>
                   </div>
                 </div>
 
                 {/* 5. Guardia de Seguridad / Conserje */}
                 <div
-                  onClick={() => setActiveSubSection('operaciones')}
+                  onClick={() => setActiveSubSection('guardia')}
                   className="group bg-[#1E1E22] hover:bg-[#25252A] border border-[#2d2d32] hover:border-emerald-500/50 rounded-2xl p-6 transition-all duration-300 cursor-pointer shadow-lg hover:scale-[1.02] flex flex-col justify-between text-left"
                 >
                   <div>
@@ -1008,7 +1055,7 @@ export default function CondominiosDashboard({ currentUser, onSignOut }: Condomi
                     </p>
                   </div>
                   <div className="mt-6 pt-4 border-t border-[#2d2d32] flex items-center justify-between">
-                    <span className="text-xs font-bold text-emerald-400 group-hover:translate-x-1 transition">Ver Paquetes y Accesos →</span>
+                    <span className="text-xs font-bold text-emerald-400 group-hover:translate-x-1 transition">Acceder a Rol Guardia →</span>
                     <span className="text-[10px] text-slate-500 font-mono">Caseta y Recepción</span>
                   </div>
                 </div>
@@ -1017,9 +1064,27 @@ export default function CondominiosDashboard({ currentUser, onSignOut }: Condomi
             </div>
           )}
 
-          {/* SECTION 0: GESTIÓN DE CLIENTES */}
-          {activeSubSection === 'clientes' && (
+          {/* 1. ROL: SUPER ADMINISTRADOR */}
+          {activeSubSection === 'superadmin' && (
             <div className="space-y-6 animate-fade-in">
+              <div className="p-4 bg-red-500/10 border border-red-500/25 rounded-2xl flex items-center justify-between text-left">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-red-500/20 text-red-400 border border-red-500/30 flex items-center justify-center shrink-0">
+                    <Crown className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-white">Rol Activo: 1. Super Administrador (Global / SaaS)</h3>
+                    <p className="text-xs text-red-300 font-mono">Alta de Inmobiliarias, Gestión de Licencias & Métricas de Ingresos MRR</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setActiveSubSection('inicio')} 
+                  className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-300 text-xs font-bold rounded-xl border border-red-500/30 transition cursor-pointer shrink-0"
+                >
+                  Cambiar Rol ←
+                </button>
+              </div>
+
               {/* Header metrics */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-4 flex items-center justify-between">
@@ -1293,9 +1358,55 @@ export default function CondominiosDashboard({ currentUser, onSignOut }: Condomi
             </div>
           )}
 
-        {/* SECTION 1: FINANZAS Y COBROS */}
-        {activeSubSection === 'finanzas' && (
+        {/* 2. ROL: ADMINISTRADOR DEL CONDOMINIO / INMOBILIARIA */}
+        {activeSubSection === 'admininmobiliaria' && (
           <div className="space-y-6 animate-fade-in">
+            <div className="p-4 bg-purple-500/10 border border-purple-500/25 rounded-2xl flex items-center justify-between text-left">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center justify-center shrink-0">
+                  <Building2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white">Rol Activo: 2. Administrador del Condominio / Inmobiliaria</h3>
+                  <p className="text-xs text-purple-300 font-mono">Finanzas, Cobro de Cuotas de Mantenimiento, Control de Morosidad & Facturación CFDI 4.0</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setActiveSubSection('inicio')} 
+                className="px-3 py-1.5 bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 text-xs font-bold rounded-xl border border-purple-500/30 transition cursor-pointer shrink-0"
+              >
+                Cambiar Rol ←
+              </button>
+            </div>
+
+            {/* Sub-tabs inside Admin Condominio */}
+            <div className="flex gap-2 border-b border-[#2d2d32] pb-3">
+              <button
+                onClick={() => setAdminCondoTab('finanzas')}
+                className={`px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer flex items-center gap-2 ${
+                  adminCondoTab === 'finanzas'
+                    ? 'bg-purple-600 text-white shadow-lg'
+                    : 'bg-[#1E1E22] text-slate-400 hover:text-white border border-[#2d2d32]'
+                }`}
+              >
+                <DollarSign className="w-4 h-4" />
+                <span>1. Finanzas, Cobros y Morosidad</span>
+              </button>
+              <button
+                onClick={() => setAdminCondoTab('facturacion')}
+                className={`px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer flex items-center gap-2 ${
+                  adminCondoTab === 'facturacion'
+                    ? 'bg-purple-600 text-white shadow-lg'
+                    : 'bg-[#1E1E22] text-slate-400 hover:text-white border border-[#2d2d32]'
+                }`}
+              >
+                <FileText className="w-4 h-4" />
+                <span>2. Facturación CFDI 4.0</span>
+              </button>
+            </div>
+
+            {adminCondoTab === 'finanzas' && (
+              <div className="space-y-6">
             {/* Quick Financial statistics Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-4 flex items-center justify-between">
@@ -1493,7 +1604,7 @@ export default function CondominiosDashboard({ currentUser, onSignOut }: Condomi
 
         {/* SECTION 2: ACCESOS Y SEGURIDAD (Desactivado/Independizado de CNLS) */}
         {false && (
-          <div className="space-y-6 animate-fade-in">
+          <div className="hidden">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
               {/* MODULE A: QR INVITATIONS CREATOR */}
@@ -1811,9 +1922,274 @@ export default function CondominiosDashboard({ currentUser, onSignOut }: Condomi
           </div>
         )}
 
-        {/* SECTION 3: COMUNIDAD Y AMENIDADES */}
-        {activeSubSection === 'operaciones' && (
-          <div className="space-y-6 animate-fade-in">
+          {/* TAB 2: FACTURACIÓN CFDI 4.0 INSIDE ADMIN CONDOMINIO */}
+          {adminCondoTab === 'facturacion' && (
+            <div className="space-y-6 animate-fade-in text-left">
+              <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-5 space-y-3">
+                <div className="flex items-center gap-2 text-purple-400">
+                  <FileText className="w-5 h-5" />
+                  <h3 className="text-base font-black text-white">Configuración CFDI 4.0 SAT Directo</h3>
+                </div>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Para timbrar facturas electrónicas válidas por cuotas de mantenimiento condominal de forma directa y automatizada, requiere configurar las credenciales del Emisor, dar de alta la constancia de situación fiscal del Receptor, y conectar con las API autorizadas por el SAT.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                {/* COMPONENT A: EMISOR (CLIENT) SETUP */}
+                <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-5 space-y-4">
+                  <div>
+                    <span className="text-[9px] font-bold text-purple-400 uppercase tracking-widest font-mono">A. Datos del Emisor</span>
+                    <h4 className="text-xs font-black text-white uppercase mt-0.5">Certificado de Sello Digital (CSD)</h4>
+                  </div>
+
+                  <div className="space-y-3 text-xs font-sans">
+                    <div>
+                      <label className="block text-[8px] font-extrabold text-slate-450 uppercase tracking-widest mb-1">RFC del Condominio (Emisor)</label>
+                      <input
+                        type="text"
+                        value={emisorRfc}
+                        onChange={(e) => setEmisorRfc(e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono uppercase font-bold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[8px] font-extrabold text-slate-450 uppercase tracking-widest mb-1">Régimen Fiscal (SAT)</label>
+                      <select
+                        value={emisorRegimen}
+                        onChange={(e) => setEmisorRegimen(e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono"
+                      >
+                        <option value="601">601 - General de Ley Personas Morales</option>
+                        <option value="603">603 - Personas Morales con Fines no Lucrativos</option>
+                        <option value="605">605 - Sueldos y Salarios e Ingresos Asimilados</option>
+                        <option value="626">626 - Régimen Simplificado de Confianza (RESICO)</option>
+                      </select>
+                    </div>
+
+                    {/* Drag-and-drop MOCK area */}
+                    <div className="space-y-2">
+                      <label className="block text-[8px] font-extrabold text-slate-450 uppercase tracking-widest">Cargar Llaves CSD (SAT)</label>
+                      
+                      <div className="border border-dashed border-slate-800 bg-slate-950/40 p-3 rounded-xl text-center cursor-pointer hover:bg-slate-950/70 transition">
+                        <Upload className="w-4 h-4 mx-auto text-purple-400 mb-1" />
+                        <p className="text-[9px] text-slate-300 font-bold">{csdUploadedCer || 'Cargar archivo .cer'}</p>
+                        <p className="text-[7.5px] text-slate-500 font-mono mt-0.5">Certificado de Sello Digital oficial</p>
+                      </div>
+
+                      <div className="border border-dashed border-slate-800 bg-slate-950/40 p-3 rounded-xl text-center cursor-pointer hover:bg-slate-950/70 transition">
+                        <Upload className="w-4 h-4 mx-auto text-purple-400 mb-1" />
+                        <p className="text-[9px] text-slate-300 font-bold">{csdUploadedKey || 'Cargar archivo .key'}</p>
+                        <p className="text-[7.5px] text-slate-500 font-mono mt-0.5">Llave privada del CSD</p>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[8px] font-extrabold text-slate-450 uppercase tracking-widest mb-1">Contraseña del CSD</label>
+                      <input
+                        type="password"
+                        value={csdPass}
+                        onChange={(e) => setCsdPass(e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono"
+                      />
+                    </div>
+
+                    {/* LCO checklist */}
+                    <div className="p-3 bg-purple-950/10 border border-purple-900/15 rounded-xl space-y-1 text-[9.5px]">
+                      <div className="flex items-center gap-1.5 font-bold text-purple-400">
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Validado en la LCO</span>
+                      </div>
+                      <p className="text-slate-400 leading-relaxed text-[8.5px]">
+                        RFC y sellos activos en la Lista de Contribuyentes Obligados del SAT de forma correcta y listos para timbrado.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* COMPONENT B: RECEPTOR (USERS) CATALOG & CFDI 4.0 MANDATORY FIELDS */}
+                <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-5 space-y-4">
+                  <div>
+                    <span className="text-[9px] font-bold text-amber-400 uppercase tracking-widest font-mono">B. Datos Obligatorios del Receptor</span>
+                    <h4 className="text-xs font-black text-white uppercase mt-0.5">Constancia de Situación Fiscal Receptores</h4>
+                  </div>
+
+                  <div className="space-y-4 font-sans text-xs">
+                    {/* Receptor Creation Form */}
+                    <form onSubmit={handleAddReceptor} className="space-y-2 bg-slate-950/30 p-3 border border-slate-900 rounded-xl">
+                      <span className="text-[8px] font-extrabold text-slate-500 uppercase tracking-widest block mb-1">Registrar Datos de Facturación de Residente</span>
+                      
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="text"
+                          required
+                          placeholder="Ej. Casa 105"
+                          value={newRecCondo}
+                          onChange={(e) => setNewRecCondo(e.target.value)}
+                          className="px-2 py-1 bg-slate-950 border border-slate-800 rounded-lg text-[10px] text-white"
+                        />
+                        <input
+                          type="text"
+                          required
+                          placeholder="RFC (XEXX010101000)"
+                          value={newRecRfc}
+                          onChange={(e) => setNewRecRfc(e.target.value)}
+                          className="px-2 py-1 bg-slate-950 border border-slate-800 rounded-lg text-[10px] text-white uppercase font-mono"
+                        />
+                      </div>
+
+                      <input
+                        type="text"
+                        required
+                        placeholder="RAZÓN SOCIAL EXACTA (SIN S.A. DE C.V.)"
+                        value={newRecRazon}
+                        onChange={(e) => setNewRecRazon(e.target.value)}
+                        className="w-full px-2 py-1 bg-slate-950 border border-slate-800 rounded-lg text-[10px] text-white uppercase"
+                      />
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="text"
+                          required
+                          maxLength={5}
+                          placeholder="C.P. Fiscal (5 dígitos)"
+                          value={newRecCp}
+                          onChange={(e) => setNewRecCp(e.target.value)}
+                          className="px-2 py-1 bg-slate-950 border border-slate-800 rounded-lg text-[10px] text-white font-mono"
+                        />
+                        <select
+                          value={newRecRegimen}
+                          onChange={(e) => setNewRecRegimen(e.target.value)}
+                          className="px-2 py-1 bg-slate-950 border border-slate-800 rounded-lg text-[9.5px] text-white"
+                        >
+                          <option value="605">605 - Sueldos</option>
+                          <option value="601">601 - Gral Personas Morales</option>
+                          <option value="612">612 - Persona Física Act. Emp</option>
+                          <option value="626">626 - RESICO</option>
+                        </select>
+                      </div>
+
+                      <button
+                        type="submit"
+                        className="w-full py-1.5 bg-amber-600 hover:bg-amber-500 text-white font-bold text-[10px] rounded-lg transition cursor-pointer"
+                      >
+                        Añadir & Validar Constancia
+                      </button>
+                    </form>
+
+                    {/* Receptor Log */}
+                    <div className="space-y-2 max-h-56 overflow-y-auto">
+                      {receptors.map(rec => (
+                        <div key={rec.id} className="p-2.5 bg-slate-950 border border-slate-900 rounded-xl relative">
+                          <div className="flex items-center justify-between font-bold text-[10px]">
+                            <span className="text-slate-300 font-sans">{rec.razonSocial} ({rec.condo})</span>
+                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase tracking-wider ${
+                              rec.status === 'verificado' 
+                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                            }`}>
+                              {rec.status}
+                            </span>
+                          </div>
+                          <p className="text-[9px] text-slate-500 font-mono mt-0.5">RFC: {rec.rfc} | C.P. {rec.cp} | Régimen: {rec.regimen} | Uso: {rec.usoCfdi}</p>
+                          {rec.status === 'error' && (
+                            <p className="text-[8px] text-rose-400 leading-relaxed font-sans mt-1">
+                              ❌ Error de validación: La Razón Social no coincide con el SAT (eliminar régimen de capitales) o el RFC/C.P es inválido.
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* COMPONENT C: PAC PROVIDER CONNECTION */}
+                <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-5 space-y-4">
+                  <div>
+                    <span className="text-[9px] font-bold text-sky-400 uppercase tracking-widest font-mono">C. Proveedor Autorizado de Timbrado</span>
+                    <h4 className="text-xs font-black text-white uppercase mt-0.5">Integración API PAC SAT</h4>
+                  </div>
+
+                  <div className="space-y-3 font-sans text-xs">
+                    <div>
+                      <label className="block text-[8px] font-extrabold text-slate-450 uppercase tracking-widest mb-1">Proveedor PAC Contratado</label>
+                      <select
+                        value={pacProvider}
+                        onChange={(e) => setPacProvider(e.target.value as any)}
+                        className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold"
+                      >
+                        <option value="fiscalapi">FiscalAPI México</option>
+                        <option value="facturama">Facturama API</option>
+                        <option value="finkok">Finkok SAT Connect</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[8px] font-extrabold text-slate-450 uppercase tracking-widest mb-1">Production Private API Key / Token</label>
+                      <input
+                        type="text"
+                        value={pacApiKey}
+                        onChange={(e) => setPacApiKey(e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono text-[10.5px]"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between py-1 px-1 bg-slate-950/40 rounded-xl border border-slate-900">
+                      <span className="text-[9px] font-extrabold uppercase text-slate-400 tracking-wider pl-1.5">Entorno Sandbox / Prueba</span>
+                      <input
+                        type="checkbox"
+                        checked={sandboxMode}
+                        onChange={(e) => setSandboxMode(e.target.checked)}
+                        className="w-4 h-4 text-purple-600 focus:ring-purple-500 rounded-sm bg-slate-900 border-slate-800 mr-2 cursor-pointer"
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={testPacConnection}
+                      disabled={testingConnection}
+                      className="w-full py-2 bg-[#232326] hover:bg-[#2d2d32] border border-[#2d2d32] text-slate-300 font-extrabold text-xs rounded-xl transition cursor-pointer flex items-center justify-center gap-1"
+                    >
+                      <Globe className="w-3.5 h-3.5 text-sky-400 animate-spin" style={{ animationDuration: testingConnection ? '1.5s' : '0s' }} />
+                      {testingConnection ? 'Probando credenciales PAC...' : 'Probar Conexión SAT'}
+                    </button>
+
+                    {testResult && (
+                      <div className="p-3 bg-emerald-950/10 border border-emerald-900/15 rounded-xl text-emerald-400 text-[9px] leading-relaxed font-sans font-bold">
+                        {testResult}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+          {/* 4. ROL: RESIDENTE / PROPIETARIO / INQUILINO (APP / PWA) */}
+          {activeSubSection === 'residente' && (
+            <div className="space-y-6 animate-fade-in text-left">
+              <div className="p-4 bg-blue-500/10 border border-blue-500/25 rounded-2xl flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center justify-center shrink-0">
+                    <Smartphone className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-white">Rol Activo: 4. Residente / Propietario / Inquilino (App / PWA)</h3>
+                    <p className="text-xs text-blue-300 font-mono">Generación de Pases QR para Visitas, Reserva de Amenidades & Comunicados de la Comunidad</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setActiveSubSection('inicio')} 
+                  className="px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 text-xs font-bold rounded-xl border border-blue-500/30 transition cursor-pointer shrink-0"
+                >
+                  Cambiar Rol ←
+                </button>
+              </div>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
               {/* MODULE A: AMENITIES CALENDAR RESERVATION */}
@@ -2093,255 +2469,212 @@ export default function CondominiosDashboard({ currentUser, onSignOut }: Condomi
           </div>
         )}
 
-        {/* SECTION 4: FACTURACIÓN CFDI 4.0 */}
-        {activeSubSection === 'facturacion' && (
-          <div className="space-y-6 animate-fade-in text-left">
-            <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-5 space-y-3">
-              <div className="flex items-center gap-2 text-purple-400">
-                <FileText className="w-5 h-5" />
-                <h3 className="text-base font-black text-white">Configuración CFDI 4.0 SAT Directo</h3>
-              </div>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Para timbrar facturas electrónicas válidas por cuotas de mantenimiento condominal de forma directa y automatizada, requiere configurar las credenciales del Emisor, dar de alta la constancia de situación fiscal del Receptor, y conectar con las API autorizadas por el SAT.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              
-              {/* COMPONENT A: EMISOR (CLIENT) SETUP */}
-              <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-5 space-y-4">
-                <div>
-                  <span className="text-[9px] font-bold text-purple-400 uppercase tracking-widest font-mono">A. Datos del Emisor</span>
-                  <h4 className="text-xs font-black text-white uppercase mt-0.5">Certificado de Sello Digital (CSD)</h4>
-                </div>
-
-                <div className="space-y-3 text-xs font-sans">
+          {/* 5. ROL: GUARDIA DE SEGURIDAD / CONSERJE */}
+          {activeSubSection === 'guardia' && (
+            <div className="space-y-6 animate-fade-in text-left">
+              <div className="p-4 bg-emerald-500/10 border border-emerald-500/25 rounded-2xl flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                    <BadgeCheck className="w-5 h-5" />
+                  </div>
                   <div>
-                    <label className="block text-[8px] font-extrabold text-slate-450 uppercase tracking-widest mb-1">RFC del Condominio (Emisor)</label>
-                    <input
-                      type="text"
-                      value={emisorRfc}
-                      onChange={(e) => setEmisorRfc(e.target.value)}
-                      className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono uppercase font-bold"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[8px] font-extrabold text-slate-450 uppercase tracking-widest mb-1">Régimen Fiscal (SAT)</label>
-                    <select
-                      value={emisorRegimen}
-                      onChange={(e) => setEmisorRegimen(e.target.value)}
-                      className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono"
-                    >
-                      <option value="601">601 - General de Ley Personas Morales</option>
-                      <option value="603">603 - Personas Morales con Fines no Lucrativos</option>
-                      <option value="605">605 - Sueldos y Salarios e Ingresos Asimilados</option>
-                      <option value="626">626 - Régimen Simplificado de Confianza (RESICO)</option>
-                    </select>
-                  </div>
-
-                  {/* Drag-and-drop MOCK area */}
-                  <div className="space-y-2">
-                    <label className="block text-[8px] font-extrabold text-slate-450 uppercase tracking-widest">Cargar Llaves CSD (SAT)</label>
-                    
-                    <div className="border border-dashed border-slate-800 bg-slate-950/40 p-3 rounded-xl text-center cursor-pointer hover:bg-slate-950/70 transition">
-                      <Upload className="w-4 h-4 mx-auto text-purple-400 mb-1" />
-                      <p className="text-[9px] text-slate-300 font-bold">{csdUploadedCer || 'Cargar archivo .cer'}</p>
-                      <p className="text-[7.5px] text-slate-500 font-mono mt-0.5">Certificado de Sello Digital oficial</p>
-                    </div>
-
-                    <div className="border border-dashed border-slate-800 bg-slate-950/40 p-3 rounded-xl text-center cursor-pointer hover:bg-slate-950/70 transition">
-                      <Upload className="w-4 h-4 mx-auto text-purple-400 mb-1" />
-                      <p className="text-[9px] text-slate-300 font-bold">{csdUploadedKey || 'Cargar archivo .key'}</p>
-                      <p className="text-[7.5px] text-slate-500 font-mono mt-0.5">Llave privada del CSD</p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[8px] font-extrabold text-slate-450 uppercase tracking-widest mb-1">Contraseña del CSD</label>
-                    <input
-                      type="password"
-                      value={csdPass}
-                      onChange={(e) => setCsdPass(e.target.value)}
-                      className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono"
-                    />
-                  </div>
-
-                  {/* LCO checklist */}
-                  <div className="p-3 bg-purple-950/10 border border-purple-900/15 rounded-xl space-y-1 text-[9.5px]">
-                    <div className="flex items-center gap-1.5 font-bold text-purple-400">
-                      <Check className="w-3.5 h-3.5" />
-                      <span>Validado en la LCO</span>
-                    </div>
-                    <p className="text-slate-400 leading-relaxed text-[8.5px]">
-                      RFC y sellos activos en la Lista de Contribuyentes Obligados del SAT de forma correcta y listos para timbrado.
-                    </p>
+                    <h3 className="text-sm font-black text-white">Rol Activo: 5. Guardia de Seguridad / Conserje</h3>
+                    <p className="text-xs text-emerald-300 font-mono">Caseta de Acceso: Escáner QR de Visitas, Control de Paquetería & Bitácora de Novedades</p>
                   </div>
                 </div>
+                <button 
+                  onClick={() => setActiveSubSection('inicio')} 
+                  className="px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-xs font-bold rounded-xl border border-emerald-500/30 transition cursor-pointer shrink-0"
+                >
+                  Cambiar Rol ←
+                </button>
               </div>
 
-              {/* COMPONENT B: RECEPTOR (USERS) CATALOG & CFDI 4.0 MANDATORY FIELDS */}
-              <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-5 space-y-4">
-                <div>
-                  <span className="text-[9px] font-bold text-amber-400 uppercase tracking-widest font-mono">B. Datos Obligatorios del Receptor</span>
-                  <h4 className="text-xs font-black text-white uppercase mt-0.5">Constancia de Situación Fiscal Receptores</h4>
-                </div>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-                <div className="space-y-4 font-sans text-xs">
-                  {/* Receptor Creation Form */}
-                  <form onSubmit={handleAddReceptor} className="space-y-2 bg-slate-950/30 p-3 border border-slate-900 rounded-xl">
-                    <span className="text-[8px] font-extrabold text-slate-500 uppercase tracking-widest block mb-1">Registrar Datos de Facturación de Residente</span>
-                    
-                    <div className="grid grid-cols-2 gap-2">
-                      <input
-                        type="text"
-                        required
-                        placeholder="Ej. Casa 105"
-                        value={newRecCondo}
-                        onChange={(e) => setNewRecCondo(e.target.value)}
-                        className="px-2 py-1 bg-slate-950 border border-slate-800 rounded-lg text-[10px] text-white"
-                      />
-                      <input
-                        type="text"
-                        required
-                        placeholder="RFC (XEXX010101000)"
-                        value={newRecRfc}
-                        onChange={(e) => setNewRecRfc(e.target.value)}
-                        className="px-2 py-1 bg-slate-950 border border-slate-800 rounded-lg text-[10px] text-white uppercase font-mono"
-                      />
+                {/* MODULE 1: ESCÁNER QR EN CASETA */}
+                <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-5 space-y-4">
+                  <div>
+                    <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest font-mono">Control de Caseta</span>
+                    <h3 className="text-base font-black text-white mt-1">Escáner Lector QR Visitas</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">Valida el pase dinámico generado por el residente.</p>
+                  </div>
+
+                  <div className="bg-slate-950 border border-slate-900 rounded-2xl p-4 text-center space-y-3">
+                    <div className="relative w-full h-36 bg-slate-900 rounded-xl border-2 border-dashed border-emerald-500/40 flex flex-col items-center justify-center overflow-hidden">
+                      <QrCode className="w-12 h-12 text-emerald-400 animate-pulse" />
+                      <p className="text-[10px] text-slate-400 font-mono mt-2">Coloque el pase QR frente al escáner</p>
+                      <div className="absolute inset-x-0 top-0 h-0.5 bg-emerald-400 animate-bounce" style={{ animationDuration: '2s' }} />
                     </div>
 
-                    <input
-                      type="text"
-                      required
-                      placeholder="RAZÓN SOCIAL EXACTA (SIN S.A. DE C.V.)"
-                      value={newRecRazon}
-                      onChange={(e) => setNewRecRazon(e.target.value)}
-                      className="w-full px-2 py-1 bg-slate-950 border border-slate-800 rounded-lg text-[10px] text-white uppercase"
-                    />
-
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-2">
                       <input
                         type="text"
-                        required
-                        maxLength={5}
-                        placeholder="C.P. Fiscal (5 dígitos)"
-                        value={newRecCp}
-                        onChange={(e) => setNewRecCp(e.target.value)}
-                        className="px-2 py-1 bg-slate-950 border border-slate-800 rounded-lg text-[10px] text-white font-mono"
+                        value={scannerInput}
+                        onChange={(e) => setScannerInput(e.target.value)}
+                        placeholder="O ingresa token (ej: QR-89421)"
+                        className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-white text-xs font-mono text-center uppercase"
                       />
-                      <select
-                        value={newRecRegimen}
-                        onChange={(e) => setNewRecRegimen(e.target.value)}
-                        className="px-2 py-1 bg-slate-950 border border-slate-800 rounded-lg text-[9.5px] text-white"
+                      <button
+                        onClick={simulateQrScan}
+                        className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5"
                       >
-                        <option value="605">605 - Sueldos</option>
-                        <option value="601">601 - Gral Personas Morales</option>
-                        <option value="612">612 - Persona Física Act. Emp</option>
-                        <option value="626">626 - RESICO</option>
-                      </select>
+                        <CheckCircle2 className="w-4 h-4" /> Validar Acceso Instantáneo
+                      </button>
+                    </div>
+
+                    {scanResult && (
+                      <div className={`p-3 rounded-xl border text-[10px] leading-relaxed font-mono ${
+                        scanResult.type === 'success'
+                          ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-300'
+                          : 'bg-rose-950/30 border-rose-500/40 text-rose-300'
+                      }`}>
+                        {scanResult.msg}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* MODULE 2: INTERFÓN DIGITAL */}
+                <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-5 space-y-4">
+                  <div>
+                    <span className="text-[9px] font-bold text-sky-400 uppercase tracking-widest font-mono">Comunicación Directa</span>
+                    <h3 className="text-base font-black text-white mt-1">Interfón Digital de Caseta</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">Llamada de voz a departamento sin cables.</p>
+                  </div>
+
+                  <div className="space-y-3 font-sans text-xs">
+                    <div>
+                      <label className="block text-[8px] font-extrabold text-slate-400 uppercase tracking-widest mb-1">Buscar Departamento / Torre</label>
+                      <input
+                        type="text"
+                        value={intercomTarget}
+                        onChange={(e) => setIntercomTarget(e.target.value)}
+                        placeholder="Ej. Torre A - Depto 402"
+                        className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono text-xs"
+                      />
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={triggerIntercomCall}
+                        disabled={intercomState === 'calling' || intercomState === 'connected'}
+                        className="flex-1 py-2.5 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-bold text-xs rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <PhoneCall className="w-4 h-4" /> Timbrar
+                      </button>
+                      {intercomState !== 'idle' && (
+                        <button
+                          onClick={endIntercomCall}
+                          className="px-4 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-xl transition cursor-pointer"
+                        >
+                          Colgar 📞
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="bg-slate-950 border border-slate-900 rounded-xl p-3 font-mono text-[9.5px] max-h-36 overflow-y-auto space-y-1">
+                      <span className="text-slate-500 font-bold block border-b border-slate-850 pb-1">Bitácora de Interfón</span>
+                      {intercomLogs.map((log, i) => (
+                        <div key={i} className="text-slate-300">{log}</div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* MODULE 3: CONTROL DE PAQUETERÍA */}
+                <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-5 space-y-4">
+                  <div>
+                    <span className="text-[9px] font-bold text-purple-400 uppercase tracking-widest font-mono">Recepcion de Envíos</span>
+                    <h3 className="text-base font-black text-white mt-1">Control de Paquetería</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">Registra la recepción de paquetes de Amazon, Mercado Libre, etc.</p>
+                  </div>
+
+                  <form onSubmit={handleRegisterParcel} className="space-y-3 font-sans text-xs">
+                    <div>
+                      <input
+                        type="text"
+                        required
+                        value={parcelResident}
+                        onChange={(e) => setParcelResident(e.target.value)}
+                        placeholder="Residente / Depto (ej: Clicerio / A-402)"
+                        className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        required
+                        value={parcelCarrier}
+                        onChange={(e) => setParcelCarrier(e.target.value)}
+                        placeholder="Paquetera (Amazon/DHL)"
+                        className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs"
+                      />
+                      <input
+                        type="text"
+                        required
+                        value={parcelTracking}
+                        onChange={(e) => setParcelTracking(e.target.value)}
+                        placeholder="# Guía o Tracking"
+                        className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs font-mono"
+                      />
                     </div>
 
                     <button
                       type="submit"
-                      className="w-full py-1.5 bg-amber-600 hover:bg-amber-500 text-white font-bold text-[10px] rounded-lg transition cursor-pointer"
+                      className="w-full py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5"
                     >
-                      Añadir & Validar Constancia
+                      <Package className="w-4 h-4" /> Registrar e Notificar
                     </button>
                   </form>
 
-                  {/* Receptor Log */}
-                  <div className="space-y-2 max-h-56 overflow-y-auto">
-                    {receptors.map(rec => (
-                      <div key={rec.id} className="p-2.5 bg-slate-950 border border-slate-900 rounded-xl relative">
-                        <div className="flex items-center justify-between font-bold text-[10px]">
-                          <span className="text-slate-300 font-sans">{rec.razonSocial} ({rec.condo})</span>
-                          <span className={`px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase tracking-wider ${
-                            rec.status === 'verificado' 
-                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                              : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                          }`}>
-                            {rec.status}
-                          </span>
+                  <div className="max-h-40 overflow-y-auto space-y-2 pt-1">
+                    {parcels.map(p => (
+                      <div key={p.id} className="p-2.5 bg-slate-950 border border-slate-900 rounded-xl flex items-center justify-between text-[10px]">
+                        <div>
+                          <p className="font-bold text-white">{p.carrier} - {p.residentName}</p>
+                          <p className="text-slate-500 font-mono text-[9px]">Guía: {p.trackingNumber}</p>
                         </div>
-                        <p className="text-[9px] text-slate-500 font-mono mt-0.5">RFC: {rec.rfc} | C.P. {rec.cp} | Régimen: {rec.regimen} | Uso: {rec.usoCfdi}</p>
-                        {rec.status === 'error' && (
-                          <p className="text-[8px] text-rose-400 leading-relaxed font-sans mt-1">
-                            ❌ Error de validación: La Razón Social no coincide con el SAT (eliminar régimen de capitales) o el RFC/C.P es inválido.
-                          </p>
+                        {p.status === 'en_recepcion' ? (
+                          <button
+                            onClick={() => deliverParcel(p.id)}
+                            className="px-2 py-1 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/20 font-bold text-[9px] rounded-lg transition cursor-pointer"
+                          >
+                            Entregar ✓
+                          </button>
+                        ) : (
+                          <span className="text-slate-500 font-bold text-[9px]">Entregado</span>
                         )}
                       </div>
                     ))}
                   </div>
                 </div>
+
               </div>
-
-              {/* COMPONENT C: PAC PROVIDER CONNECTION */}
-              <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-5 space-y-4">
-                <div>
-                  <span className="text-[9px] font-bold text-sky-400 uppercase tracking-widest font-mono">C. Proveedor Autorizado de Timbrado</span>
-                  <h4 className="text-xs font-black text-white uppercase mt-0.5">Integración API PAC SAT</h4>
-                </div>
-
-                <div className="space-y-3 font-sans text-xs">
-                  <div>
-                    <label className="block text-[8px] font-extrabold text-slate-450 uppercase tracking-widest mb-1">Proveedor PAC Contratado</label>
-                    <select
-                      value={pacProvider}
-                      onChange={(e) => setPacProvider(e.target.value as any)}
-                      className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-bold"
-                    >
-                      <option value="fiscalapi">FiscalAPI México</option>
-                      <option value="facturama">Facturama API</option>
-                      <option value="finkok">Finkok SAT Connect</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[8px] font-extrabold text-slate-450 uppercase tracking-widest mb-1">Production Private API Key / Token</label>
-                    <input
-                      type="text"
-                      value={pacApiKey}
-                      onChange={(e) => setPacApiKey(e.target.value)}
-                      className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-mono text-[10.5px]"
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between py-1 px-1 bg-slate-950/40 rounded-xl border border-slate-900">
-                    <span className="text-[9px] font-extrabold uppercase text-slate-400 tracking-wider pl-1.5">Entorno Sandbox / Prueba</span>
-                    <input
-                      type="checkbox"
-                      checked={sandboxMode}
-                      onChange={(e) => setSandboxMode(e.target.checked)}
-                      className="w-4 h-4 text-purple-600 focus:ring-purple-500 rounded-sm bg-slate-900 border-slate-800 mr-2 cursor-pointer"
-                    />
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={testPacConnection}
-                    disabled={testingConnection}
-                    className="w-full py-2 bg-[#232326] hover:bg-[#2d2d32] border border-[#2d2d32] text-slate-300 font-extrabold text-xs rounded-xl transition cursor-pointer flex items-center justify-center gap-1"
-                  >
-                    <Globe className="w-3.5 h-3.5 text-sky-400 animate-spin" style={{ animationDuration: testingConnection ? '1.5s' : '0s' }} />
-                    {testingConnection ? 'Probando credenciales PAC...' : 'Probar Conexión SAT'}
-                  </button>
-
-                  {testResult && (
-                    <div className="p-3 bg-emerald-950/10 border border-emerald-900/15 rounded-xl text-emerald-400 text-[9px] leading-relaxed font-sans font-bold">
-                      {testResult}
-                    </div>
-                  )}
-                </div>
-              </div>
-
             </div>
-          </div>
-        )}
+          )}
 
-        {/* SECTION 5: CHECKLIST DE ACTIVACIÓN DE ROL */}
-        {activeSubSection === 'checklist' && (
-          <div className="space-y-6 animate-fade-in text-left">
+      {/* 3. ROL: COMITÉ DE VIGILANCIA (MESA DIRECTIVA) */}
+      {activeSubSection === 'comite' && (
+        <div className="space-y-6 animate-fade-in text-left">
+          <div className="p-4 bg-amber-500/10 border border-amber-500/25 rounded-2xl flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0">
+                <UserCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-white">Rol Activo: 3. Comité de Vigilancia (Mesa Directiva)</h3>
+                <p className="text-xs text-amber-300 font-mono">Auditoría Financiera, Minutas, Supervisión de Balances & Checklist de Activación</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => setActiveSubSection('inicio')} 
+              className="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-bold rounded-xl border border-amber-500/30 transition cursor-pointer shrink-0"
+            >
+              Cambiar Rol ←
+            </button>
+          </div>
             <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-5 space-y-3">
               <div className="flex items-center gap-2 text-purple-400">
                 <Settings className="w-5 h-5" />
@@ -2777,62 +3110,62 @@ export default function CondominiosDashboard({ currentUser, onSignOut }: Condomi
       <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#141417] border-t border-[#232326] flex items-center justify-around z-50 px-1 select-none shadow-xl">
         <button
           onClick={() => setActiveSubSection('inicio')}
-          className={`flex flex-col items-center justify-center gap-1 text-[9px] font-extrabold h-full flex-1 transition cursor-pointer ${
+          className={`flex flex-col items-center justify-center gap-0.5 text-[8.5px] font-extrabold h-full flex-1 transition cursor-pointer ${
             activeSubSection === 'inicio' ? 'text-purple-400 font-black' : 'text-slate-500 hover:text-slate-350'
           }`}
         >
-          <Home className="w-4.5 h-4.5" />
+          <Home className="w-4 h-4" />
           <span>Inicio</span>
         </button>
 
         <button
-          onClick={() => setActiveSubSection('clientes')}
-          className={`flex flex-col items-center justify-center gap-1 text-[9px] font-extrabold h-full flex-1 transition cursor-pointer ${
-            activeSubSection === 'clientes' ? 'text-purple-400 font-black' : 'text-slate-500 hover:text-slate-350'
+          onClick={() => setActiveSubSection('superadmin')}
+          className={`flex flex-col items-center justify-center gap-0.5 text-[8.5px] font-extrabold h-full flex-1 transition cursor-pointer ${
+            activeSubSection === 'superadmin' ? 'text-red-400 font-black' : 'text-slate-500 hover:text-slate-350'
           }`}
         >
-          <Users className="w-4.5 h-4.5" />
-          <span>Clientes</span>
+          <Crown className="w-4 h-4" />
+          <span>SuperAdmin</span>
         </button>
 
         <button
-          onClick={() => setActiveSubSection('finanzas')}
-          className={`flex flex-col items-center justify-center gap-1 text-[9px] font-extrabold h-full flex-1 transition cursor-pointer ${
-            activeSubSection === 'finanzas' ? 'text-purple-400 font-black' : 'text-slate-500 hover:text-slate-350'
+          onClick={() => setActiveSubSection('admininmobiliaria')}
+          className={`flex flex-col items-center justify-center gap-0.5 text-[8.5px] font-extrabold h-full flex-1 transition cursor-pointer ${
+            activeSubSection === 'admininmobiliaria' ? 'text-purple-400 font-black' : 'text-slate-500 hover:text-slate-350'
           }`}
         >
-          <DollarSign className="w-4.5 h-4.5" />
-          <span>Finanzas</span>
+          <Building2 className="w-4 h-4" />
+          <span>Admin</span>
         </button>
 
         <button
-          onClick={() => setActiveSubSection('operaciones')}
-          className={`flex flex-col items-center justify-center gap-1 text-[9px] font-extrabold h-full flex-1 transition cursor-pointer ${
-            activeSubSection === 'operaciones' ? 'text-purple-400 font-black' : 'text-slate-500 hover:text-slate-350'
+          onClick={() => setActiveSubSection('comite')}
+          className={`flex flex-col items-center justify-center gap-0.5 text-[8.5px] font-extrabold h-full flex-1 transition cursor-pointer ${
+            activeSubSection === 'comite' ? 'text-amber-400 font-black' : 'text-slate-500 hover:text-slate-350'
           }`}
         >
-          <Activity className="w-4.5 h-4.5" />
-          <span>Comunidad</span>
+          <UserCheck className="w-4 h-4" />
+          <span>Comité</span>
         </button>
 
         <button
-          onClick={() => setActiveSubSection('facturacion')}
-          className={`flex flex-col items-center justify-center gap-1 text-[9px] font-extrabold h-full flex-1 transition cursor-pointer ${
-            activeSubSection === 'facturacion' ? 'text-purple-400 font-black' : 'text-slate-500 hover:text-slate-350'
+          onClick={() => setActiveSubSection('residente')}
+          className={`flex flex-col items-center justify-center gap-0.5 text-[8.5px] font-extrabold h-full flex-1 transition cursor-pointer ${
+            activeSubSection === 'residente' ? 'text-blue-400 font-black' : 'text-slate-500 hover:text-slate-350'
           }`}
         >
-          <FileText className="w-4.5 h-4.5" />
-          <span>CFDI 4.0</span>
+          <Smartphone className="w-4 h-4" />
+          <span>Residente</span>
         </button>
 
         <button
-          onClick={() => setActiveSubSection('checklist')}
-          className={`flex flex-col items-center justify-center gap-1 text-[9px] font-extrabold h-full flex-1 transition cursor-pointer ${
-            activeSubSection === 'checklist' ? 'text-purple-400 font-black' : 'text-slate-500 hover:text-slate-350'
+          onClick={() => setActiveSubSection('guardia')}
+          className={`flex flex-col items-center justify-center gap-0.5 text-[8.5px] font-extrabold h-full flex-1 transition cursor-pointer ${
+            activeSubSection === 'guardia' ? 'text-emerald-400 font-black' : 'text-slate-500 hover:text-slate-350'
           }`}
         >
-          <Clipboard className="w-4.5 h-4.5" />
-          <span>Checklist</span>
+          <BadgeCheck className="w-4 h-4" />
+          <span>Guardia</span>
         </button>
       </nav>
 

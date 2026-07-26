@@ -7,6 +7,7 @@ export enum UserStatus {
   ACTIVE = 'active',
   SUSPENDED = 'suspended',
   EXPIRED = 'expired',
+  USED = 'used',
 }
 
 export enum SystemUserRole {

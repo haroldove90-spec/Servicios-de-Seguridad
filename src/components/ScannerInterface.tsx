@@ -982,8 +982,8 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
       const allAccessLogs = await dbService.getAccessLogs();
       const hasPriorCheckIn = allAccessLogs.some(l => 
         (l.userId === matchedUser.id || l.documentId === matchedUser.documentId || (matchedUser.qrcodeToken && l.documentId === matchedUser.qrcodeToken)) &&
-        (l.type === LogType.CHECK_IN || l.type === 'check-in') &&
-        (l.status === LogStatus.SUCCESS || l.status === 'success')
+        (l.type === LogType.CHECK_IN) &&
+        (l.status === LogStatus.SUCCESS)
       );
 
       if (isSingleUsePass && (matchedUser.used || hasPriorCheckIn) && detectedType === LogType.CHECK_IN) {
