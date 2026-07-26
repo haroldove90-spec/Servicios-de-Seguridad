@@ -703,161 +703,55 @@ export default function CondominiosDashboard({ currentUser, onSignOut, initialSu
   const delinquencyRate = (totalDelinquency / totalInvoiced) * 100;
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-slate-100 flex flex-col md:flex-row w-full font-sans pb-16 md:pb-0">
+    <div className="min-h-screen bg-[#0A0A0A] text-slate-100 flex flex-col w-full font-sans pb-16 md:pb-0">
       
-      {/* 1. SIDEBAR NAVIGATION (Desktop Fullscreen) */}
-      <aside className="hidden md:flex flex-col w-64 bg-[#141417] border-r border-[#232326] h-screen sticky top-0 p-5 shrink-0 justify-between select-none">
-        <div className="space-y-6">
-          {/* Brand Logo Header */}
-          <div className="flex items-center gap-3 border-b border-[#232326] pb-5">
-            <img 
-              src="https://cossma.com.mx/cnls.png" 
-              alt="CNLS Logo" 
-              className="h-10 w-auto object-contain"
-              referrerPolicy="no-referrer"
-            />
-            <div className="text-left">
-              <h1 className="text-sm font-black text-white tracking-[0.2em] font-sans">CNLS</h1>
-              <p className="text-[9px] text-purple-400 font-extrabold uppercase tracking-widest mt-0.5">Condominios</p>
-            </div>
+      {/* UNIFIED TOP HEADER BAR (NO SIDEBAR) */}
+      <header className="flex items-center justify-between px-6 py-4 bg-[#141417] border-b border-[#232326] select-none shrink-0 sticky top-0 z-40">
+        <div className="flex items-center gap-3">
+          <img 
+            src="https://cossma.com.mx/cnls.png" 
+            alt="CNLS Logo" 
+            className="h-8 w-auto object-contain"
+            referrerPolicy="no-referrer"
+          />
+          <div className="text-left">
+            <h1 className="text-xs font-black text-white tracking-widest font-sans">CNLS</h1>
+            <p className="text-[8px] text-purple-400 font-extrabold uppercase tracking-widest">Condominios</p>
           </div>
+        </div>
 
-          {/* Sidebar Menu Buttons */}
-          <nav className="space-y-1.5">
+        {/* ROLE SWITCH NAVIGATION */}
+        <div className="flex items-center gap-2">
+          {activeSubSection !== 'inicio' ? (
             <button
               onClick={() => setActiveSubSection('inicio')}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-xs font-bold rounded-xl transition cursor-pointer select-none text-left ${
-                activeSubSection === 'inicio'
-                  ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/25'
-                  : 'text-slate-400 hover:bg-[#1C1C1E] hover:text-slate-200'
-              }`}
+              className="flex items-center gap-2 px-3.5 py-1.5 bg-[#1E1E22] hover:bg-purple-600/30 text-purple-300 hover:text-white border border-purple-500/30 rounded-xl text-xs font-bold transition cursor-pointer"
             >
-              <Home className="w-4.5 h-4.5 shrink-0 text-purple-400" />
-              <span>Inicio — Roles de Acceso</span>
+              <Home className="w-4 h-4 text-purple-400" />
+              <span>← Cambiar de Rol</span>
             </button>
-
-            <div className="pt-3 pb-1 px-2 text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider text-left">
-              Roles Independientes
-            </div>
-
-            {/* 1. Super Administrador */}
-            <button
-              onClick={() => setActiveSubSection('superadmin')}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-xs font-bold rounded-xl transition cursor-pointer select-none text-left ${
-                activeSubSection === 'superadmin'
-                  ? 'bg-red-600/20 border border-red-500/50 text-red-300 shadow-md'
-                  : 'text-slate-400 hover:bg-[#1C1C1E] hover:text-slate-200'
-              }`}
-            >
-              <Crown className="w-4.5 h-4.5 shrink-0 text-red-400" />
-              <span className="truncate">Rol: Super Administrador</span>
-            </button>
-
-            {/* 2. Admin Condominio / Inmobiliaria */}
-            <button
-              onClick={() => setActiveSubSection('admininmobiliaria')}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-xs font-bold rounded-xl transition cursor-pointer select-none text-left ${
-                activeSubSection === 'admininmobiliaria'
-                  ? 'bg-purple-600/20 border border-purple-500/50 text-purple-300 shadow-md'
-                  : 'text-slate-400 hover:bg-[#1C1C1E] hover:text-slate-200'
-              }`}
-            >
-              <Building2 className="w-4.5 h-4.5 shrink-0 text-purple-400" />
-              <span className="truncate">Rol: Admin Condominio</span>
-            </button>
-
-            {/* 3. Comité de Vigilancia */}
-            <button
-              onClick={() => setActiveSubSection('comite')}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-xs font-bold rounded-xl transition cursor-pointer select-none text-left ${
-                activeSubSection === 'comite'
-                  ? 'bg-amber-600/20 border border-amber-500/50 text-amber-300 shadow-md'
-                  : 'text-slate-400 hover:bg-[#1C1C1E] hover:text-slate-200'
-              }`}
-            >
-              <UserCheck className="w-4.5 h-4.5 shrink-0 text-amber-400" />
-              <span className="truncate">Rol: Comité Vigilancia</span>
-            </button>
-
-            {/* 4. Residente (App/PWA) */}
-            <button
-              onClick={() => setActiveSubSection('residente')}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-xs font-bold rounded-xl transition cursor-pointer select-none text-left ${
-                activeSubSection === 'residente'
-                  ? 'bg-blue-600/20 border border-blue-500/50 text-blue-300 shadow-md'
-                  : 'text-slate-400 hover:bg-[#1C1C1E] hover:text-slate-200'
-              }`}
-            >
-              <Smartphone className="w-4.5 h-4.5 shrink-0 text-blue-400" />
-              <span className="truncate">Rol: Residente (App/PWA)</span>
-            </button>
-
-            {/* 5. Guardia / Conserje */}
-            <button
-              onClick={() => setActiveSubSection('guardia')}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-xs font-bold rounded-xl transition cursor-pointer select-none text-left ${
-                activeSubSection === 'guardia'
-                  ? 'bg-emerald-600/20 border border-emerald-500/50 text-emerald-300 shadow-md'
-                  : 'text-slate-400 hover:bg-[#1C1C1E] hover:text-slate-200'
-              }`}
-            >
-              <BadgeCheck className="w-4.5 h-4.5 shrink-0 text-emerald-400" />
-              <span className="truncate">Rol: Guardia / Conserje</span>
-            </button>
-          </nav>
-        </div>
-
-        {/* User Block at bottom */}
-        <div className="border-t border-[#232326] pt-4 space-y-3 font-sans">
-          <div className="flex items-center gap-3 px-2">
-            <div className="w-8 h-8 rounded-full bg-purple-500/10 border border-purple-500/25 text-purple-400 font-extrabold text-xs flex items-center justify-center shrink-0">
-              {currentUser?.name ? currentUser.name.slice(0, 2).toUpperCase() : 'CO'}
-            </div>
-            <div className="text-left overflow-hidden">
-              <p className="text-xs font-bold text-slate-200 truncate">{currentUser?.name || 'Harold Anguiano'}</p>
-              <p className="text-[10px] text-purple-400 font-mono truncate">@{currentUser?.username || 'harold.anguiano'}</p>
-            </div>
-          </div>
-          {onSignOut && (
-            <button
-              onClick={onSignOut}
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-rose-400 hover:text-rose-200 hover:bg-rose-950/20 border border-rose-500/10 rounded-xl transition cursor-pointer select-none"
-            >
-              <LogOut className="w-4 h-4 shrink-0 text-rose-500" />
-              <span>Cerrar Sesión</span>
-            </button>
+          ) : (
+            <span className="text-[11px] font-bold text-purple-400 bg-purple-500/10 px-3 py-1 rounded-xl border border-purple-500/20">
+              Selección de Roles
+            </span>
           )}
-        </div>
-      </aside>
 
-      {/* 2. MAIN CONTENT VIEW CONTAINER */}
-      <div className="flex-1 flex flex-col min-h-screen overflow-x-hidden bg-[#0A0A0A]">
-        
-        {/* Mobile top-bar header */}
-        <header className="md:hidden flex items-center justify-between px-6 py-4 bg-[#141417] border-b border-[#232326] select-none shrink-0">
-          <div className="flex items-center gap-3">
-            <img 
-              src="https://cossma.com.mx/cnls.png" 
-              alt="CNLS Logo" 
-              className="h-8 w-auto object-contain"
-              referrerPolicy="no-referrer"
-            />
-            <div className="text-left">
-              <h1 className="text-xs font-black text-white tracking-widest font-sans">CNLS</h1>
-              <p className="text-[8px] text-purple-400 font-extrabold uppercase tracking-widest">Condominios</p>
-            </div>
-          </div>
           {onSignOut && (
             <button
               onClick={onSignOut}
-              className="p-2 bg-[#1E1E22] hover:bg-rose-950/20 text-rose-400 hover:text-rose-200 border border-rose-500/10 rounded-xl transition cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-950/30 hover:bg-rose-900/50 text-rose-300 border border-rose-500/20 rounded-xl text-xs font-bold transition cursor-pointer ml-2"
               title="Cerrar Sesión"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-3.5 h-3.5 text-rose-400" />
+              <span className="hidden sm:inline">Cerrar Sesión</span>
             </button>
           )}
-        </header>
+        </div>
+      </header>
 
+      {/* Main Content View Container */}
+      <div className="flex-1 flex flex-col min-h-screen overflow-x-hidden bg-[#0A0A0A]">
+        
         {/* Workspace core wrapper */}
         <div className="p-4 sm:p-6 md:p-8 space-y-6 max-w-7xl w-full mx-auto pb-24 md:pb-8 flex-1">
           
@@ -869,300 +763,82 @@ export default function CondominiosDashboard({ currentUser, onSignOut, initialSu
             </div>
           )}
 
-          {/* HEADER BANNER */}
-          <div className="p-6 bg-[#141417] text-slate-100 rounded-3xl border border-[#232326] overflow-hidden bg-gradient-to-r from-purple-950/45 via-[#1a132c]/50 to-slate-950/60 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2 text-[10px] uppercase font-bold text-purple-400 tracking-wider font-mono">
-                <Building className="w-4 h-4 text-purple-400 animate-pulse" />
-                <span>Consola Administrativa Integral</span>
-              </div>
-              <h2 className="text-xl font-black text-white tracking-tight mt-1">Administración de Condominios 🏢</h2>
-              <p className="text-xs text-slate-400 mt-0.5">Control de finanzas, seguridad biométrica, operaciones, avisos comunales y facturación CFDI 4.0.</p>
-              
-              {/* HIGH-VISIBILITY MODULE STATUS BADGES */}
-              <div className="flex flex-wrap gap-2 mt-3 font-sans">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-450 animate-pulse"></span>
-                  Módulo de Administración y Finanzas (Core): <span className="uppercase font-black text-[9px] text-white bg-emerald-600 px-1 py-0.5 rounded ml-1">ACTIVO ✓</span>
-                </span>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-450 animate-pulse"></span>
-                  Módulo de Seguridad y Accesos: <span className="uppercase font-black text-[9px] text-white bg-emerald-600 px-1 py-0.5 rounded ml-1">ACTIVO ✓</span>
-                </span>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-450 animate-pulse"></span>
-                  Módulo de Operación y Comunidad: <span className="uppercase font-black text-[9px] text-white bg-emerald-600 px-1 py-0.5 rounded ml-1">ACTIVO ✓</span>
-                </span>
-              </div>
-            </div>
-
-            {/* TOP METRICS GRAPHIC MINI-BAR */}
-            <div className="flex items-center gap-3 bg-[#1E1E22] px-4 py-2 border border-[#2d2d32] rounded-2xl shrink-0 self-start md:self-center">
-              <div className="text-left">
-                <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest font-mono">Morosidad General</span>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className="text-xs font-black text-rose-400">{delinquencyRate.toFixed(1)}%</span>
-                  <span className={`w-1.5 h-1.5 rounded-full ${delinquencyRate > 15 ? 'bg-rose-500 animate-ping' : 'bg-emerald-500'}`}></span>
-                </div>
-              </div>
-              <div className="w-16 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                <div className="bg-gradient-to-r from-emerald-500 to-rose-500 h-full" style={{ width: `${delinquencyRate}%` }}></div>
-              </div>
-            </div>
-          </div>
-
-          {/* DIRECT ROLE ACCESS TOOLBAR (ACCESOS DIRECTOS ROLES INDEPENDIENTES) */}
-          <div className="bg-[#141417] border border-[#232326] p-4 rounded-3xl space-y-3 shadow-xl font-sans">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#232326] pb-3">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-purple-400 shrink-0" />
-                <span className="text-xs font-black text-white uppercase tracking-wider">
-                  ACCESOS DIRECTOS — ROLES INDEPENDIENTES DE CONDOMINIOS
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] text-purple-400 font-mono font-bold bg-purple-500/10 px-2.5 py-0.5 rounded-full border border-purple-500/20">
-                  5 Roles Activos
-                </span>
-                <span className="text-[10px] text-emerald-400 font-mono font-bold bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
-                  Acceso Directo ✓
-                </span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 pt-1">
-              {/* 0. Inicio Roles */}
-              <button
-                onClick={() => setActiveSubSection('inicio')}
-                className={`flex items-center gap-2 px-3 py-2.5 rounded-2xl text-xs font-extrabold transition cursor-pointer text-left border ${
-                  activeSubSection === 'inicio'
-                    ? 'bg-purple-600 text-white border-purple-400 shadow-lg shadow-purple-600/30 ring-2 ring-purple-500/50 scale-[1.02]'
-                    : 'bg-[#1E1E22] hover:bg-[#28282D] text-slate-300 border-[#2D2D32] hover:border-purple-500/40'
-                }`}
-              >
-                <Home className="w-4 h-4 shrink-0 text-purple-400" />
-                <span className="truncate">Inicio (Roles)</span>
-              </button>
-
-              {/* 1. Super Administrador */}
-              <button
-                onClick={() => setActiveSubSection('superadmin')}
-                className={`flex items-center gap-2 px-3 py-2.5 rounded-2xl text-xs font-extrabold transition cursor-pointer text-left border ${
-                  activeSubSection === 'superadmin'
-                    ? 'bg-red-600/30 text-white border-red-500 shadow-lg shadow-red-600/20 ring-2 ring-red-500/50 scale-[1.02]'
-                    : 'bg-[#1E1E22] hover:bg-[#28282D] text-slate-300 border-[#2D2D32] hover:border-red-500/40'
-                }`}
-              >
-                <Crown className="w-4 h-4 shrink-0 text-red-400" />
-                <span className="truncate">1. Super Admin</span>
-              </button>
-
-              {/* 2. Admin Condominio */}
-              <button
-                onClick={() => setActiveSubSection('admininmobiliaria')}
-                className={`flex items-center gap-2 px-3 py-2.5 rounded-2xl text-xs font-extrabold transition cursor-pointer text-left border ${
-                  activeSubSection === 'admininmobiliaria'
-                    ? 'bg-purple-600/30 text-white border-purple-500 shadow-lg shadow-purple-600/20 ring-2 ring-purple-500/50 scale-[1.02]'
-                    : 'bg-[#1E1E22] hover:bg-[#28282D] text-slate-300 border-[#2D2D32] hover:border-purple-500/40'
-                }`}
-              >
-                <Building2 className="w-4 h-4 shrink-0 text-purple-400" />
-                <span className="truncate">2. Admin Condominio</span>
-              </button>
-
-              {/* 3. Comité Vigilancia */}
-              <button
-                onClick={() => setActiveSubSection('comite')}
-                className={`flex items-center gap-2 px-3 py-2.5 rounded-2xl text-xs font-extrabold transition cursor-pointer text-left border ${
-                  activeSubSection === 'comite'
-                    ? 'bg-amber-600/30 text-white border-amber-500 shadow-lg shadow-amber-600/20 ring-2 ring-amber-500/50 scale-[1.02]'
-                    : 'bg-[#1E1E22] hover:bg-[#28282D] text-slate-300 border-[#2D2D32] hover:border-amber-500/40'
-                }`}
-              >
-                <UserCheck className="w-4 h-4 shrink-0 text-amber-400" />
-                <span className="truncate">3. Comité Vigilancia</span>
-              </button>
-
-              {/* 4. Residente (App/PWA) */}
-              <button
-                onClick={() => setActiveSubSection('residente')}
-                className={`flex items-center gap-2 px-3 py-2.5 rounded-2xl text-xs font-extrabold transition cursor-pointer text-left border ${
-                  activeSubSection === 'residente'
-                    ? 'bg-blue-600/30 text-white border-blue-500 shadow-lg shadow-blue-600/20 ring-2 ring-blue-500/50 scale-[1.02]'
-                    : 'bg-[#1E1E22] hover:bg-[#28282D] text-slate-300 border-[#2D2D32] hover:border-blue-500/40'
-                }`}
-              >
-                <Smartphone className="w-4 h-4 shrink-0 text-blue-400" />
-                <span className="truncate">4. Residente (PWA)</span>
-              </button>
-
-              {/* 5. Guardia / Conserje */}
-              <button
-                onClick={() => setActiveSubSection('guardia')}
-                className={`flex items-center gap-2 px-3 py-2.5 rounded-2xl text-xs font-extrabold transition cursor-pointer text-left border ${
-                  activeSubSection === 'guardia'
-                    ? 'bg-emerald-600/30 text-white border-emerald-500 shadow-lg shadow-emerald-600/20 ring-2 ring-emerald-500/50 scale-[1.02]'
-                    : 'bg-[#1E1E22] hover:bg-[#28282D] text-slate-300 border-[#2D2D32] hover:border-emerald-500/40'
-                }`}
-              >
-                <BadgeCheck className="w-4 h-4 shrink-0 text-emerald-400" />
-                <span className="truncate">5. Guardia / Conserje</span>
-              </button>
-            </div>
-          </div>
-
-          {/* SECTION INICIO: ROLES DE ACCESO */}
+          {/* SECTION INICIO: 5 LARGE MINIMALIST ROLE CARDS */}
           {activeSubSection === 'inicio' && (
-            <div className="space-y-6 animate-fade-in">
-              <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-3xl p-6 sm:p-8 text-center space-y-4 shadow-xl">
-                <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-purple-500/10 border border-purple-500/25 rounded-full text-purple-400 text-xs font-mono font-bold uppercase tracking-widest">
-                  <Building className="w-4 h-4 text-purple-400 shrink-0" />
-                  <span>ROLES Y MODULOS DE ACCESO — CONDOMINIOS Y RESIDENCIALES</span>
-                </div>
-                <h3 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-                  Bienvenido al Sistema de Administración de Condominios
-                </h3>
-                <p className="text-xs sm:text-sm text-slate-400 max-w-2xl mx-auto leading-relaxed">
-                  Selecciona el perfil de acceso o módulo operativo correspondiente para administrar tus fraccionamientos, finanzas, seguridad y comunicación comunal.
-                </p>
+            <div className="space-y-6 animate-fade-in font-sans">
+              <div className="text-center pb-2">
+                <h2 className="text-2xl font-black text-white tracking-tight flex items-center justify-center gap-2">
+                  <ShieldCheck className="w-7 h-7 text-purple-400" />
+                  Roles de Acceso
+                </h2>
               </div>
 
-              {/* GRID OF 5 ROLES */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {/* 5 LARGE ICON CARDS WITHOUT DESCRIPTIONS */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6">
 
                 {/* 1. Super Administrador */}
                 <div
                   onClick={() => setActiveSubSection('superadmin')}
-                  className="group bg-[#1E1E22] hover:bg-[#25252A] border border-[#2d2d32] hover:border-red-500/50 rounded-2xl p-6 transition-all duration-300 cursor-pointer shadow-lg hover:scale-[1.02] flex flex-col justify-between text-left"
+                  className="group bg-[#141417] hover:bg-[#1A1A1F] border border-[#232326] hover:border-red-500/60 rounded-3xl p-6 transition-all duration-300 cursor-pointer shadow-xl hover:scale-[1.03] flex flex-col items-center justify-center text-center py-10"
                 >
-                  <div>
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="w-12 h-12 bg-red-500/15 text-red-400 border border-red-500/25 rounded-2xl flex items-center justify-center group-hover:scale-110 transition shrink-0">
-                        <Crown className="w-6 h-6 text-red-400" />
-                      </div>
-                      <span className="text-[10px] font-mono font-extrabold px-2.5 py-1 bg-red-500/10 border border-red-500/20 text-red-400 rounded-full uppercase">
-                        SaaS / Global
-                      </span>
-                    </div>
-                    <h4 className="text-base font-black text-white group-hover:text-red-400 transition">
-                      1. Rol: Super Administrador
-                    </h4>
-                    <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                      Gestión global de desarrollos, alta de inmobiliarias, asignación de licencias y monitoreo de ingresos MRR.
-                    </p>
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 bg-red-500/15 text-red-400 border border-red-500/30 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition shrink-0 shadow-lg shadow-red-500/10">
+                    <Crown className="w-9 h-9 sm:w-10 sm:h-10 text-red-400" />
                   </div>
-                  <div className="mt-6 pt-4 border-t border-[#2d2d32] flex items-center justify-between">
-                    <span className="text-xs font-bold text-red-400 group-hover:translate-x-1 transition">Acceder a Rol Super Admin →</span>
-                    <span className="text-[10px] text-slate-500 font-mono">Control Total</span>
-                  </div>
+                  <h3 className="text-sm sm:text-base font-black text-white group-hover:text-red-400 transition">
+                    1. Super Admin
+                  </h3>
                 </div>
 
-                {/* 2. Administrador del Condominio / Inmobiliaria */}
+                {/* 2. Admin Condominio */}
                 <div
                   onClick={() => setActiveSubSection('admininmobiliaria')}
-                  className="group bg-[#1E1E22] hover:bg-[#25252A] border border-[#2d2d32] hover:border-purple-500/50 rounded-2xl p-6 transition-all duration-300 cursor-pointer shadow-lg hover:scale-[1.02] flex flex-col justify-between text-left"
+                  className="group bg-[#141417] hover:bg-[#1A1A1F] border border-[#232326] hover:border-purple-500/60 rounded-3xl p-6 transition-all duration-300 cursor-pointer shadow-xl hover:scale-[1.03] flex flex-col items-center justify-center text-center py-10"
                 >
-                  <div>
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="w-12 h-12 bg-purple-500/15 text-purple-400 border border-purple-500/25 rounded-2xl flex items-center justify-center group-hover:scale-110 transition shrink-0">
-                        <Building2 className="w-6 h-6 text-purple-400" />
-                      </div>
-                      <span className="text-[10px] font-mono font-extrabold px-2.5 py-1 bg-purple-500/10 border border-purple-500/20 text-purple-400 rounded-full uppercase">
-                        Administración
-                      </span>
-                    </div>
-                    <h4 className="text-base font-black text-white group-hover:text-purple-400 transition">
-                      2. Rol: Administrador del Condominio / Inmobiliaria
-                    </h4>
-                    <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                      Cobro de cuotas de mantenimiento, control de morosidad, dispersión de gastos, egresos y Facturación CFDI 4.0.
-                    </p>
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 bg-purple-500/15 text-purple-400 border border-purple-500/30 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition shrink-0 shadow-lg shadow-purple-500/10">
+                    <Building2 className="w-9 h-9 sm:w-10 sm:h-10 text-purple-400" />
                   </div>
-                  <div className="mt-6 pt-4 border-t border-[#2d2d32] flex items-center justify-between">
-                    <span className="text-xs font-bold text-purple-400 group-hover:translate-x-1 transition">Acceder a Rol Administrador →</span>
-                    <span className="text-[10px] text-slate-500 font-mono">Gestión Contable</span>
-                  </div>
+                  <h3 className="text-sm sm:text-base font-black text-white group-hover:text-purple-400 transition">
+                    2. Admin Condominio
+                  </h3>
                 </div>
 
-                {/* 3. Comité de Vigilancia (Mesa Directiva) */}
+                {/* 3. Comité Vigilancia */}
                 <div
                   onClick={() => setActiveSubSection('comite')}
-                  className="group bg-[#1E1E22] hover:bg-[#25252A] border border-[#2d2d32] hover:border-amber-500/50 rounded-2xl p-6 transition-all duration-300 cursor-pointer shadow-lg hover:scale-[1.02] flex flex-col justify-between text-left"
+                  className="group bg-[#141417] hover:bg-[#1A1A1F] border border-[#232326] hover:border-amber-500/60 rounded-3xl p-6 transition-all duration-300 cursor-pointer shadow-xl hover:scale-[1.03] flex flex-col items-center justify-center text-center py-10"
                 >
-                  <div>
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="w-12 h-12 bg-amber-500/15 text-amber-400 border border-amber-500/25 rounded-2xl flex items-center justify-center group-hover:scale-110 transition shrink-0">
-                        <UserCheck className="w-6 h-6 text-amber-400" />
-                      </div>
-                      <span className="text-[10px] font-mono font-extrabold px-2.5 py-1 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-full uppercase">
-                        Supervisión
-                      </span>
-                    </div>
-                    <h4 className="text-base font-black text-white group-hover:text-amber-400 transition">
-                      3. Rol: Comité de Vigilancia (Mesa Directiva)
-                    </h4>
-                    <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                      Auditoría de presupuestos, validación de comprobantes, consulta de minutas y checklist de activación operativa.
-                    </p>
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 bg-amber-500/15 text-amber-400 border border-amber-500/30 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition shrink-0 shadow-lg shadow-amber-500/10">
+                    <UserCheck className="w-9 h-9 sm:w-10 sm:h-10 text-amber-400" />
                   </div>
-                  <div className="mt-6 pt-4 border-t border-[#2d2d32] flex items-center justify-between">
-                    <span className="text-xs font-bold text-amber-400 group-hover:translate-x-1 transition">Acceder a Rol Comité →</span>
-                    <span className="text-[10px] text-slate-500 font-mono">Mesa Directiva</span>
-                  </div>
+                  <h3 className="text-sm sm:text-base font-black text-white group-hover:text-amber-400 transition">
+                    3. Comité Vigilancia
+                  </h3>
                 </div>
 
-                {/* 4. Residente / Propietario / Inquilino (App / PWA) */}
+                {/* 4. Residente (App/PWA) */}
                 <div
                   onClick={() => setActiveSubSection('residente')}
-                  className="group bg-[#1E1E22] hover:bg-[#25252A] border border-[#2d2d32] hover:border-blue-500/50 rounded-2xl p-6 transition-all duration-300 cursor-pointer shadow-lg hover:scale-[1.02] flex flex-col justify-between text-left"
+                  className="group bg-[#141417] hover:bg-[#1A1A1F] border border-[#232326] hover:border-blue-500/60 rounded-3xl p-6 transition-all duration-300 cursor-pointer shadow-xl hover:scale-[1.03] flex flex-col items-center justify-center text-center py-10"
                 >
-                  <div>
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="w-12 h-12 bg-blue-500/15 text-blue-400 border border-blue-500/25 rounded-2xl flex items-center justify-center group-hover:scale-110 transition shrink-0">
-                        <Smartphone className="w-6 h-6 text-blue-400" />
-                      </div>
-                      <span className="text-[10px] font-mono font-extrabold px-2.5 py-1 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-full uppercase">
-                        Condóminos
-                      </span>
-                    </div>
-                    <h4 className="text-base font-black text-white group-hover:text-blue-400 transition">
-                      4. Rol: Residente / Propietario / Inquilino (App / PWA)
-                    </h4>
-                    <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                      Portal autogestión para generación de pases QR, reserva de amenidades, avisos comunitarios y reportes.
-                    </p>
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 bg-blue-500/15 text-blue-400 border border-blue-500/30 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition shrink-0 shadow-lg shadow-blue-500/10">
+                    <Smartphone className="w-9 h-9 sm:w-10 sm:h-10 text-blue-400" />
                   </div>
-                  <div className="mt-6 pt-4 border-t border-[#2d2d32] flex items-center justify-between">
-                    <span className="text-xs font-bold text-blue-400 group-hover:translate-x-1 transition">Acceder a Rol Residente →</span>
-                    <span className="text-[10px] text-slate-500 font-mono">App Móvil / PWA</span>
-                  </div>
+                  <h3 className="text-sm sm:text-base font-black text-white group-hover:text-blue-400 transition">
+                    4. Residente (PWA)
+                  </h3>
                 </div>
 
-                {/* 5. Guardia de Seguridad / Conserje */}
+                {/* 5. Guardia / Conserje */}
                 <div
                   onClick={() => setActiveSubSection('guardia')}
-                  className="group bg-[#1E1E22] hover:bg-[#25252A] border border-[#2d2d32] hover:border-emerald-500/50 rounded-2xl p-6 transition-all duration-300 cursor-pointer shadow-lg hover:scale-[1.02] flex flex-col justify-between text-left"
+                  className="group bg-[#141417] hover:bg-[#1A1A1F] border border-[#232326] hover:border-emerald-500/60 rounded-3xl p-6 transition-all duration-300 cursor-pointer shadow-xl hover:scale-[1.03] flex flex-col items-center justify-center text-center py-10 col-span-2 sm:col-span-1"
                 >
-                  <div>
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="w-12 h-12 bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 rounded-2xl flex items-center justify-center group-hover:scale-110 transition shrink-0">
-                        <BadgeCheck className="w-6 h-6 text-emerald-400" />
-                      </div>
-                      <span className="text-[10px] font-mono font-extrabold px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-full uppercase">
-                        Seguridad
-                      </span>
-                    </div>
-                    <h4 className="text-base font-black text-white group-hover:text-emerald-400 transition">
-                      5. Rol: Guardia de Seguridad / Conserje
-                    </h4>
-                    <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                      Control de recepción de paquetes, escaneo QR de visitas, bitácora de novedades y directorio de emergencias.
-                    </p>
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition shrink-0 shadow-lg shadow-emerald-500/10">
+                    <BadgeCheck className="w-9 h-9 sm:w-10 sm:h-10 text-emerald-400" />
                   </div>
-                  <div className="mt-6 pt-4 border-t border-[#2d2d32] flex items-center justify-between">
-                    <span className="text-xs font-bold text-emerald-400 group-hover:translate-x-1 transition">Acceder a Rol Guardia →</span>
-                    <span className="text-[10px] text-slate-500 font-mono">Caseta y Recepción</span>
-                  </div>
+                  <h3 className="text-sm sm:text-base font-black text-white group-hover:text-emerald-400 transition">
+                    5. Guardia / Conserje
+                  </h3>
                 </div>
 
               </div>

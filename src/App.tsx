@@ -2276,128 +2276,27 @@ export default function App() {
                   {/* CARD 4: ADMINISTRACIÓN DE CONDOMINIOS */}
                   <div 
                     id="role-gateway-card-condominios"
-                    className="group relative bg-[#2A2A2E] hover:bg-[#343438] border border-[#3e3e42] hover:border-purple-500 rounded-3xl p-6 shadow-xl transition-all duration-300 flex flex-col justify-between overflow-hidden"
+                    onClick={() => {
+                      setSelectedCondoSubSection('inicio');
+                      setSelectedLoginTarget({ role: SystemUserRole.CONDOMINIOS, label: 'Administración de Condominios', defaultTab: 'condominios' });
+                      setIsRegistering(false);
+                    }}
+                    className="group relative bg-[#2A2A2E] hover:bg-[#343438] border border-[#3e3e42] hover:border-purple-500 rounded-3xl p-6 shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden"
                   >
                     <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 blur-3xl rounded-full group-hover:bg-purple-500/10 transition"></div>
                     
-                    <div>
-                      <div 
-                        onClick={() => {
-                          setSelectedCondoSubSection('inicio');
-                          setSelectedLoginTarget({ role: SystemUserRole.CONDOMINIOS, label: 'Administración de Condominios', defaultTab: 'condominios' });
-                          setIsRegistering(false);
-                        }}
-                        className="flex flex-col items-center justify-center text-center py-4 cursor-pointer"
-                      >
-                        <div className="w-14 h-14 bg-purple-500/15 text-purple-400 border border-purple-500/25 rounded-2xl flex items-center justify-center mb-3 group-hover:scale-110 transition shrink-0">
-                          <Building className="w-7 h-7 text-purple-400 animate-pulse" />
-                        </div>
-                        <h3 className="text-xl font-extrabold text-white group-hover:text-purple-400 transition" id="lbl-condominios-general-role">
-                          Administración de condominios
-                        </h3>
-                        <p className="text-[11px] text-slate-400 mt-1 font-sans">Gestión integral de condominios, finanzas y accesos</p>
+                    <div className="flex flex-col items-center justify-center text-center py-6">
+                      <div className="w-14 h-14 bg-purple-500/15 text-purple-400 border border-purple-500/25 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition shrink-0">
+                        <Building className="w-7 h-7 text-purple-400 animate-pulse" />
                       </div>
-
-                      {/* DIRECT ACCESS ROLE BUTTONS WITH ICON & NAME */}
-                      <div className="mt-4 pt-3 border-t border-[#3e3e42] space-y-2">
-                        <span className="text-[9px] font-mono font-extrabold text-purple-400 uppercase tracking-widest block text-center">
-                          ⚡ ACCESOS DIRECTOS ROLES INDEPENDIENTES:
-                        </span>
-                        
-                        <div className="grid grid-cols-2 gap-1.5 font-sans">
-                          {/* Rol 1: Super Admin */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedCondoSubSection('superadmin');
-                              setSelectedLoginTarget({ role: SystemUserRole.CONDOMINIOS, label: 'Administración de Condominios', defaultTab: 'condominios' });
-                              setIsRegistering(false);
-                            }}
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#1F1F23] hover:bg-red-950/40 border border-red-500/20 hover:border-red-500/50 rounded-xl text-[10px] font-bold text-red-300 transition cursor-pointer text-left"
-                            title="Rol Super Administrador (SaaS / Global)"
-                          >
-                            <Crown className="w-3.5 h-3.5 text-red-400 shrink-0" />
-                            <span className="truncate">1. Super Admin</span>
-                          </button>
-
-                          {/* Rol 2: Admin Condominio */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedCondoSubSection('admininmobiliaria');
-                              setSelectedLoginTarget({ role: SystemUserRole.CONDOMINIOS, label: 'Administración de Condominios', defaultTab: 'condominios' });
-                              setIsRegistering(false);
-                            }}
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#1F1F23] hover:bg-purple-950/40 border border-purple-500/20 hover:border-purple-500/50 rounded-xl text-[10px] font-bold text-purple-300 transition cursor-pointer text-left"
-                            title="Rol Admin Condominio / Inmobiliaria"
-                          >
-                            <Building2 className="w-3.5 h-3.5 text-purple-400 shrink-0" />
-                            <span className="truncate">2. Admin Condominio</span>
-                          </button>
-
-                          {/* Rol 3: Comité Vigilancia */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedCondoSubSection('comite');
-                              setSelectedLoginTarget({ role: SystemUserRole.CONDOMINIOS, label: 'Administración de Condominios', defaultTab: 'condominios' });
-                              setIsRegistering(false);
-                            }}
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#1F1F23] hover:bg-amber-950/40 border border-amber-500/20 hover:border-amber-500/50 rounded-xl text-[10px] font-bold text-amber-300 transition cursor-pointer text-left"
-                            title="Rol Comité de Vigilancia / Mesa Directiva"
-                          >
-                            <UserCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                            <span className="truncate">3. Comité Vigilancia</span>
-                          </button>
-
-                          {/* Rol 4: Residente (App/PWA) */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedCondoSubSection('residente');
-                              setSelectedLoginTarget({ role: SystemUserRole.CONDOMINIOS, label: 'Administración de Condominios', defaultTab: 'condominios' });
-                              setIsRegistering(false);
-                            }}
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#1F1F23] hover:bg-blue-950/40 border border-blue-500/20 hover:border-blue-500/50 rounded-xl text-[10px] font-bold text-blue-300 transition cursor-pointer text-left"
-                            title="Rol Residente / Condómino (App / PWA)"
-                          >
-                            <Smartphone className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                            <span className="truncate">4. Residente (PWA)</span>
-                          </button>
-
-                          {/* Rol 5: Guardia / Conserje */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedCondoSubSection('guardia');
-                              setSelectedLoginTarget({ role: SystemUserRole.CONDOMINIOS, label: 'Administración de Condominios', defaultTab: 'condominios' });
-                              setIsRegistering(false);
-                            }}
-                            className="col-span-2 flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-[#1F1F23] hover:bg-emerald-950/40 border border-emerald-500/20 hover:border-emerald-500/50 rounded-xl text-[10px] font-bold text-emerald-300 transition cursor-pointer text-center"
-                            title="Rol Guardia de Seguridad / Conserje"
-                          >
-                            <BadgeCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                            <span>5. Guardia / Conserje</span>
-                          </button>
-                        </div>
-                      </div>
+                      <h3 className="text-xl font-extrabold text-white group-hover:text-purple-400 transition" id="lbl-condominios-general-role">
+                        Administración de condominios
+                      </h3>
                     </div>
 
-                    <div 
-                      onClick={() => {
-                        setSelectedCondoSubSection('inicio');
-                        setSelectedLoginTarget({ role: SystemUserRole.CONDOMINIOS, label: 'Administración de Condominios', defaultTab: 'condominios' });
-                        setIsRegistering(false);
-                      }}
-                      className="mt-4 pt-3 border-t border-[#3e3e42] flex items-center justify-between font-sans cursor-pointer"
-                    >
-                      <span className="text-[10px] font-bold text-purple-400 tracking-wider uppercase group-hover:translate-x-1 transition-all">Administrar Sistema →</span>
-                      <span className="text-[10px] bg-emerald-600/20 text-emerald-400 font-mono px-2.5 py-0.5 rounded-full uppercase font-bold">Activo ✓</span>
+                    <div className="mt-4 pt-4 border-t border-[#3e3e42] flex items-center justify-between font-sans">
+                      <span className="text-[10px] font-bold text-purple-400 tracking-wider uppercase group-hover:translate-x-1 transition-all">Acceder a Condominios →</span>
+                      <span className="text-[10px] bg-purple-600/20 text-purple-400 font-mono px-2.5 py-0.5 rounded-full uppercase font-bold">Gestión</span>
                     </div>
                   </div>
 
@@ -2422,87 +2321,88 @@ export default function App() {
         {/* Primary Operational workspace */}
         {(IS_FIREBASE_DUMMY || user) && hasSelectedRole && (
           <div id="dashboard-workspace-cabinet" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-fade-in">
-            {/* Header section */}
-            <div id="premises-dashboard-header" className="flex flex-col md:flex-row md:items-center md:justify-between bg-[#2A2A2E] p-5 rounded-2xl border border-[#3e3e42] gap-4">
-              <div>
-                <div className="flex items-center gap-2 text-[11px] font-bold text-red-500 uppercase tracking-widest font-sans">
-                  <ShieldCheck className="w-4 h-4 shrink-0 text-red-500" />
-                  <span>CNLS — ACCESO RESIDENCIAL {userRole?.role === SystemUserRole.ADMIN 
-                    ? 'ADMINISTRACIÓN' 
-                    : userRole?.role === SystemUserRole.SUPERVISOR 
-                    ? 'CASETA' 
-                    : userRole?.role === SystemUserRole.CONDOMINIOS
-                    ? 'CONDOMINIOS'
-                    : 'RESIDENTE'}</span>
-                </div>
-                <h1 className="text-2xl font-extrabold text-white tracking-tight mt-1">
-                  {activeTab === 'condominios' ? 'Administración de Condominios 🏢' :
-                   activeTab === 'metricas' ? 'Métricas del Condominio' :
-                   activeTab === 'scan' ? 'Acceso de Residente' :
-                   activeTab === 'crud' ? 'Control Autorizados' :
-                   activeTab === 'reports' ? 'Bitácora & Reportes' :
-                   activeTab === 'residencias' ? 'Registro de Residencia' :
-                   activeTab === 'residentes' ? 'Registro de Residente' :
-                   activeTab === 'marbetes' ? (isResidente ? 'Mis Marbetes' : 'Control de Marbetes') :
-                   activeTab === 'casetas' ? 'Registro de Casetas' :
-                   activeTab === 'roles' ? 'Registros de empleados' :
-                   activeTab === 'visitas' ? 'Autorizar Visitas' :
-                   activeTab === 'visitas_admin' ? 'Visitas de Residentes' :
-                   activeTab === 'manual' ? 'Manual del usuario' :
-                   activeTab === 'evidencias' ? 'Evidencias de Placas de Entrada' :
-                   activeTab === 'perfil' ? 'Mi Perfil de Acceso' :
-                   'Control de Acceso Residencial'}
-                </h1>
-              </div>
-
-              {/* Connected Account status card & Exit/Switch Controls */}
-              <div className="flex flex-wrap items-center gap-3">
-                <div id="authentication-status-badge" className="flex items-center gap-3 bg-[#1A1A1E] border border-[#3e3e42] p-2.5 rounded-2xl shadow-md self-start">
-                  <div className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 font-bold text-xs">
-                    {userRole?.name.slice(0, 2).toUpperCase()}
+            {/* Header section (hidden when activeTab is condominios to keep clean independent view) */}
+            {activeTab !== 'condominios' && (
+              <div id="premises-dashboard-header" className="flex flex-col md:flex-row md:items-center md:justify-between bg-[#2A2A2E] p-5 rounded-2xl border border-[#3e3e42] gap-4">
+                <div>
+                  <div className="flex items-center gap-2 text-[11px] font-bold text-red-500 uppercase tracking-widest font-sans">
+                    <ShieldCheck className="w-4 h-4 shrink-0 text-red-500" />
+                    <span>CNLS — ACCESO RESIDENCIAL {userRole?.role === SystemUserRole.ADMIN 
+                      ? 'ADMINISTRACIÓN' 
+                      : userRole?.role === SystemUserRole.SUPERVISOR 
+                      ? 'CASETA' 
+                      : userRole?.role === SystemUserRole.CONDOMINIOS
+                      ? 'CONDOMINIOS'
+                      : 'RESIDENTE'}</span>
                   </div>
-                  <div className="text-left">
-                    <p className="text-xs font-bold text-slate-200 leading-none">{userRole?.name}</p>
-                    <p className="text-[9.5px] text-amber-400 font-mono font-bold mt-1 leading-none">
-                      @{userRole?.username || (userRole?.email ? userRole.email.split('@')[0] : 'usuario')}
-                    </p>
-                    <p className="text-[9px] text-slate-400 leading-none mt-1.5 uppercase font-semibold font-sans">
-                      Rol: {userRole?.role === SystemUserRole.ADMIN 
-                        ? (userRole?.residenciaNombre ? `Admin - ${userRole.residenciaNombre} 🛡️` : 'Administración General 🛡️')
-                        : userRole?.role === SystemUserRole.SUPERVISOR 
-                        ? (userRole?.residenciaNombre ? `Caseta - ${userRole.residenciaNombre} ⚡` : 'Caseta General ⚡') 
-                        : userRole?.role === SystemUserRole.CONDOMINIOS
-                        ? 'Administración Condominios 🏢'
-                        : 'Residente'}
-                    </p>
-                  </div>
-                  
-                  {/* Signout button */}
-                  {!IS_FIREBASE_DUMMY && user && (
-                    <button
-                      id="auth-signout-trigger-btn"
-                      onClick={handleSignOut}
-                      className="ml-2 p-1.5 bg-[#2A2A2E] hover:bg-[#343438] text-slate-400 hover:text-white border border-[#3e3e42] rounded-lg transition cursor-pointer text-xs"
-                      title="Cerrar de Sesión"
-                    >
-                      <LogOut className="w-3.5 h-3.5" />
-                    </button>
-                  )}
+                  <h1 className="text-2xl font-extrabold text-white tracking-tight mt-1">
+                    {activeTab === 'metricas' ? 'Métricas del Condominio' :
+                     activeTab === 'scan' ? 'Acceso de Residente' :
+                     activeTab === 'crud' ? 'Control Autorizados' :
+                     activeTab === 'reports' ? 'Bitácora & Reportes' :
+                     activeTab === 'residencias' ? 'Registro de Residencia' :
+                     activeTab === 'residentes' ? 'Registro de Residente' :
+                     activeTab === 'marbetes' ? (isResidente ? 'Mis Marbetes' : 'Control de Marbetes') :
+                     activeTab === 'casetas' ? 'Registro de Casetas' :
+                     activeTab === 'roles' ? 'Registros de empleados' :
+                     activeTab === 'visitas' ? 'Autorizar Visitas' :
+                     activeTab === 'visitas_admin' ? 'Visitas de Residentes' :
+                     activeTab === 'manual' ? 'Manual del usuario' :
+                     activeTab === 'evidencias' ? 'Evidencias de Placas de Entrada' :
+                     activeTab === 'perfil' ? 'Mi Perfil de Acceso' :
+                     'Control de Acceso Residencial'}
+                  </h1>
                 </div>
 
-                {/* Switch / Change Role dashboard exit trigger requested by user */}
-                <button
-                  id="btn-logout-role-to-home"
-                  onClick={handleSignOut}
-                  className="flex items-center gap-1.5 bg-rose-950/45 hover:bg-rose-900/60 text-rose-300 hover:text-rose-100 border border-rose-500/25 px-4 py-2.5 rounded-2xl text-xs font-bold transition duration-200 cursor-pointer shadow-lg shadow-black/30 font-sans"
-                  title="Cerrar la sesión actual de la plataforma de seguridad"
-                >
-                  <LogOut className="w-4 h-4 text-rose-400" />
-                  <span>Cerrar Sesión</span>
-                </button>
-              </div>
+                {/* Connected Account status card & Exit/Switch Controls */}
+                <div className="flex flex-wrap items-center gap-3">
+                  <div id="authentication-status-badge" className="flex items-center gap-3 bg-[#1A1A1E] border border-[#3e3e42] p-2.5 rounded-2xl shadow-md self-start">
+                    <div className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 font-bold text-xs">
+                      {userRole?.name.slice(0, 2).toUpperCase()}
+                    </div>
+                    <div className="text-left">
+                      <p className="text-xs font-bold text-slate-200 leading-none">{userRole?.name}</p>
+                      <p className="text-[9.5px] text-amber-400 font-mono font-bold mt-1 leading-none">
+                        @{userRole?.username || (userRole?.email ? userRole.email.split('@')[0] : 'usuario')}
+                      </p>
+                      <p className="text-[9px] text-slate-400 leading-none mt-1.5 uppercase font-semibold font-sans">
+                        Rol: {userRole?.role === SystemUserRole.ADMIN 
+                          ? (userRole?.residenciaNombre ? `Admin - ${userRole.residenciaNombre} 🛡️` : 'Administración General 🛡️')
+                          : userRole?.role === SystemUserRole.SUPERVISOR 
+                          ? (userRole?.residenciaNombre ? `Caseta - ${userRole.residenciaNombre} ⚡` : 'Caseta General ⚡') 
+                          : userRole?.role === SystemUserRole.CONDOMINIOS
+                          ? 'Administración Condominios 🏢'
+                          : 'Residente'}
+                      </p>
+                    </div>
+                    
+                    {/* Signout button */}
+                    {!IS_FIREBASE_DUMMY && user && (
+                      <button
+                        id="auth-signout-trigger-btn"
+                        onClick={handleSignOut}
+                        className="ml-2 p-1.5 bg-[#2A2A2E] hover:bg-[#343438] text-slate-400 hover:text-white border border-[#3e3e42] rounded-lg transition cursor-pointer text-xs"
+                        title="Cerrar de Sesión"
+                      >
+                        <LogOut className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
 
-            </div>
+                  {/* Switch / Change Role dashboard exit trigger requested by user */}
+                  <button
+                    id="btn-logout-role-to-home"
+                    onClick={handleSignOut}
+                    className="flex items-center gap-1.5 bg-rose-950/45 hover:bg-rose-900/60 text-rose-300 hover:text-rose-100 border border-rose-500/25 px-4 py-2.5 rounded-2xl text-xs font-bold transition duration-200 cursor-pointer shadow-lg shadow-black/30 font-sans"
+                    title="Cerrar la sesión actual de la plataforma de seguridad"
+                  >
+                    <LogOut className="w-4 h-4 text-rose-400" />
+                    <span>Cerrar Sesión</span>
+                  </button>
+                </div>
+
+              </div>
+            )}
 
 
             {/* Dynamic Feedback Banner */}
