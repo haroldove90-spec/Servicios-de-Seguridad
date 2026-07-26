@@ -2298,125 +2298,6 @@ export default function App() {
 
                 </div>
 
-                {/* Sub-Roles Grid for Administración de Condominios */}
-                <div className="mt-12 pt-8 border-t border-[#3e3e42]/60 text-center max-w-6xl mx-auto font-sans animate-fade-in">
-                  <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-purple-500/10 border border-purple-500/25 rounded-full text-purple-400 text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-widest mb-3">
-                    <Building className="w-3.5 h-3.5 text-purple-400 shrink-0" />
-                    <span>ROLES DE ACCESO — ADMINISTRACIÓN DE CONDOMINIOS</span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mt-4">
-                    
-                    {/* 1. Super Administrador */}
-                    <div
-                      id="condo-role-super-admin"
-                      onClick={() => {
-                        setSelectedLoginTarget({ 
-                          role: SystemUserRole.ADMIN, 
-                          label: 'Rol: Super Administrador', 
-                          defaultTab: 'metricas' 
-                        });
-                        setIsRegistering(false);
-                      }}
-                      className="group bg-[#2A2A2E] hover:bg-[#343438] border border-[#3e3e42] hover:border-red-500 rounded-2xl p-5 transition-all duration-300 cursor-pointer flex flex-col items-center justify-center text-center shadow-lg hover:scale-105"
-                    >
-                      <div className="w-12 h-12 bg-red-500/15 text-red-400 border border-red-500/25 rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition shrink-0">
-                        <Crown className="w-6 h-6 text-red-400" />
-                      </div>
-                      <h4 className="text-xs font-bold text-white group-hover:text-red-400 transition leading-snug">
-                        Rol: Super Administrador
-                      </h4>
-                    </div>
-
-                    {/* 2. Administrador del Condominio / Inmobiliaria */}
-                    <div
-                      id="condo-role-admin-inmobiliaria"
-                      onClick={() => {
-                        setSelectedLoginTarget({ 
-                          role: SystemUserRole.CONDOMINIOS, 
-                          label: 'Rol: Administrador del Condominio / Inmobiliaria', 
-                          defaultTab: 'condominios' 
-                        });
-                        setIsRegistering(false);
-                      }}
-                      className="group bg-[#2A2A2E] hover:bg-[#343438] border border-[#3e3e42] hover:border-purple-500 rounded-2xl p-5 transition-all duration-300 cursor-pointer flex flex-col items-center justify-center text-center shadow-lg hover:scale-105"
-                    >
-                      <div className="w-12 h-12 bg-purple-500/15 text-purple-400 border border-purple-500/25 rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition shrink-0">
-                        <Building2 className="w-6 h-6 text-purple-400" />
-                      </div>
-                      <h4 className="text-xs font-bold text-white group-hover:text-purple-400 transition leading-snug">
-                        Rol: Administrador del Condominio / Inmobiliaria
-                      </h4>
-                    </div>
-
-                    {/* 3. Comité de Vigilancia (Mesa Directiva) */}
-                    <div
-                      id="condo-role-comite-vigilancia"
-                      onClick={() => {
-                        setSelectedLoginTarget({ 
-                          role: SystemUserRole.AUDITOR, 
-                          label: 'Rol: Comité de Vigilancia (Mesa Directiva)', 
-                          defaultTab: 'reports' 
-                        });
-                        setIsRegistering(false);
-                      }}
-                      className="group bg-[#2A2A2E] hover:bg-[#343438] border border-[#3e3e42] hover:border-amber-500 rounded-2xl p-5 transition-all duration-300 cursor-pointer flex flex-col items-center justify-center text-center shadow-lg hover:scale-105"
-                    >
-                      <div className="w-12 h-12 bg-amber-500/15 text-amber-400 border border-amber-500/25 rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition shrink-0">
-                        <UserCheck className="w-6 h-6 text-amber-400" />
-                      </div>
-                      <h4 className="text-xs font-bold text-white group-hover:text-amber-400 transition leading-snug">
-                        Rol: Comité de Vigilancia (Mesa Directiva)
-                      </h4>
-                    </div>
-
-                    {/* 4. Residente / Propietario / Inquilino (App / PWA) */}
-                    <div
-                      id="condo-role-residente-pwa"
-                      onClick={() => {
-                        setSelectedLoginTarget({ 
-                          role: SystemUserRole.RESIDENTE, 
-                          label: 'Rol: Residente / Propietario / Inquilino (App / PWA)', 
-                          defaultTab: 'visitas',
-                          residenciaId: 'res-demo-1',
-                          residenciaNombre: 'Lomas de Chapultepec' 
-                        });
-                        setIsRegistering(false);
-                      }}
-                      className="group bg-[#2A2A2E] hover:bg-[#343438] border border-[#3e3e42] hover:border-blue-500 rounded-2xl p-5 transition-all duration-300 cursor-pointer flex flex-col items-center justify-center text-center shadow-lg hover:scale-105"
-                    >
-                      <div className="w-12 h-12 bg-blue-500/15 text-blue-400 border border-blue-500/25 rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition shrink-0">
-                        <Smartphone className="w-6 h-6 text-blue-400" />
-                      </div>
-                      <h4 className="text-xs font-bold text-white group-hover:text-blue-400 transition leading-snug">
-                        Rol: Residente / Propietario / Inquilino (App / PWA)
-                      </h4>
-                    </div>
-
-                    {/* 5. Guardia de Seguridad / Conserje */}
-                    <div
-                      id="condo-role-guardia-conserje"
-                      onClick={() => {
-                        setSelectedLoginTarget({ 
-                          role: SystemUserRole.SUPERVISOR, 
-                          label: 'Rol: Guardia de Seguridad / Conserje', 
-                          defaultTab: 'scan' 
-                        });
-                        setIsRegistering(false);
-                      }}
-                      className="group bg-[#2A2A2E] hover:bg-[#343438] border border-[#3e3e42] hover:border-emerald-500 rounded-2xl p-5 transition-all duration-300 cursor-pointer flex flex-col items-center justify-center text-center shadow-lg hover:scale-105"
-                    >
-                      <div className="w-12 h-12 bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition shrink-0">
-                        <BadgeCheck className="w-6 h-6 text-emerald-400" />
-                      </div>
-                      <h4 className="text-xs font-bold text-white group-hover:text-emerald-400 transition leading-snug">
-                        Rol: Guardia de Seguridad / Conserje
-                      </h4>
-                    </div>
-
-                    </div>
-                  </div>
-
                 {/* Signout of platform option (for real Firebase accounts) */}
                 {!IS_FIREBASE_DUMMY && user && (
                   <button
@@ -2644,8 +2525,11 @@ export default function App() {
                     />
                   )}
 
-                  {activeTab === 'condominios' && isCondominios && (
-                    <CondominiosDashboard />
+                  {activeTab === 'condominios' && (
+                    <CondominiosDashboard 
+                      currentUser={userRole} 
+                      onSignOut={handleSignOut} 
+                    />
                   )}
                 </div>
 

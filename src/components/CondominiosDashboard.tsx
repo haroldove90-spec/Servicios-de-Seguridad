@@ -4,7 +4,7 @@ import {
   TrendingUp, CreditCard, Calendar, MessageSquare, Bell, Camera, 
   PhoneCall, Package, Check, Clipboard, QrCode, AlertTriangle, 
   Activity, ArrowUpRight, ArrowDownRight, Upload, Globe, RefreshCw, Send, Trash2,
-  LogOut, Plus, Search, Filter, Lock, Unlock
+  LogOut, Plus, Search, Filter, Lock, Unlock, Home, Crown, Building2, UserCheck, Smartphone, BadgeCheck
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -93,7 +93,7 @@ interface CondominiosDashboardProps {
 
 export default function CondominiosDashboard({ currentUser, onSignOut }: CondominiosDashboardProps) {
   // Navigation
-  const [activeSubSection, setActiveSubSection] = useState<'clientes' | 'finanzas' | 'operaciones' | 'facturacion' | 'checklist'>('clientes');
+  const [activeSubSection, setActiveSubSection] = useState<'inicio' | 'clientes' | 'finanzas' | 'operaciones' | 'facturacion' | 'checklist'>('inicio');
 
   // --- 6. GESTIÓN DE CLIENTES STATE & HANDLERS ---
   const [clientes, setClientes] = useState<ClienteCondominio[]>([
@@ -680,6 +680,18 @@ export default function CondominiosDashboard({ currentUser, onSignOut }: Condomi
           {/* Sidebar Menu Buttons */}
           <nav className="space-y-1.5">
             <button
+              onClick={() => setActiveSubSection('inicio')}
+              className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer select-none text-left ${
+                activeSubSection === 'inicio'
+                  ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/25'
+                  : 'text-slate-400 hover:bg-[#1C1C1E] hover:text-slate-200'
+              }`}
+            >
+              <Home className="w-4.5 h-4.5 shrink-0 text-purple-400" />
+              <span>Inicio — Roles de Acceso</span>
+            </button>
+
+            <button
               onClick={() => setActiveSubSection('clientes')}
               className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer select-none text-left ${
                 activeSubSection === 'clientes'
@@ -846,7 +858,165 @@ export default function CondominiosDashboard({ currentUser, onSignOut }: Condomi
           </div>
 
           {/* ACTIVE VIEWS PORT */}
-          
+
+          {/* SECTION INICIO: ROLES DE ACCESO */}
+          {activeSubSection === 'inicio' && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-3xl p-6 sm:p-8 text-center space-y-4 shadow-xl">
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-purple-500/10 border border-purple-500/25 rounded-full text-purple-400 text-xs font-mono font-bold uppercase tracking-widest">
+                  <Building className="w-4 h-4 text-purple-400 shrink-0" />
+                  <span>ROLES Y MODULOS DE ACCESO — CONDOMINIOS Y RESIDENCIALES</span>
+                </div>
+                <h3 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                  Bienvenido al Sistema de Administración de Condominios
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-400 max-w-2xl mx-auto leading-relaxed">
+                  Selecciona el perfil de acceso o módulo operativo correspondiente para administrar tus fraccionamientos, finanzas, seguridad y comunicación comunal.
+                </p>
+              </div>
+
+              {/* GRID OF 5 ROLES */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+
+                {/* 1. Super Administrador */}
+                <div
+                  onClick={() => setActiveSubSection('clientes')}
+                  className="group bg-[#1E1E22] hover:bg-[#25252A] border border-[#2d2d32] hover:border-red-500/50 rounded-2xl p-6 transition-all duration-300 cursor-pointer shadow-lg hover:scale-[1.02] flex flex-col justify-between text-left"
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="w-12 h-12 bg-red-500/15 text-red-400 border border-red-500/25 rounded-2xl flex items-center justify-center group-hover:scale-110 transition shrink-0">
+                        <Crown className="w-6 h-6 text-red-400" />
+                      </div>
+                      <span className="text-[10px] font-mono font-extrabold px-2.5 py-1 bg-red-500/10 border border-red-500/20 text-red-400 rounded-full uppercase">
+                        Global / SaaS
+                      </span>
+                    </div>
+                    <h4 className="text-base font-black text-white group-hover:text-red-400 transition">
+                      1. Rol: Super Administrador
+                    </h4>
+                    <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                      Gestión global de desarrollos, alta de inmobiliarias, asignación de licencias y monitoreo de ingresos MRR.
+                    </p>
+                  </div>
+                  <div className="mt-6 pt-4 border-t border-[#2d2d32] flex items-center justify-between">
+                    <span className="text-xs font-bold text-red-400 group-hover:translate-x-1 transition">Gestionar Clientes →</span>
+                    <span className="text-[10px] text-slate-500 font-mono">Control Total</span>
+                  </div>
+                </div>
+
+                {/* 2. Administrador del Condominio / Inmobiliaria */}
+                <div
+                  onClick={() => setActiveSubSection('finanzas')}
+                  className="group bg-[#1E1E22] hover:bg-[#25252A] border border-[#2d2d32] hover:border-purple-500/50 rounded-2xl p-6 transition-all duration-300 cursor-pointer shadow-lg hover:scale-[1.02] flex flex-col justify-between text-left"
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="w-12 h-12 bg-purple-500/15 text-purple-400 border border-purple-500/25 rounded-2xl flex items-center justify-center group-hover:scale-110 transition shrink-0">
+                        <Building2 className="w-6 h-6 text-purple-400" />
+                      </div>
+                      <span className="text-[10px] font-mono font-extrabold px-2.5 py-1 bg-purple-500/10 border border-purple-500/20 text-purple-400 rounded-full uppercase">
+                        Administrativo
+                      </span>
+                    </div>
+                    <h4 className="text-base font-black text-white group-hover:text-purple-400 transition">
+                      2. Rol: Administrador del Condominio / Inmobiliaria
+                    </h4>
+                    <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                      Cobro de cuotas de mantenimiento, control de morosidad, dispersión de gastos, egresos y Facturación CFDI 4.0.
+                    </p>
+                  </div>
+                  <div className="mt-6 pt-4 border-t border-[#2d2d32] flex items-center justify-between">
+                    <span className="text-xs font-bold text-purple-400 group-hover:translate-x-1 transition">Ver Finanzas y Cobros →</span>
+                    <span className="text-[10px] text-slate-500 font-mono">Gestión Contable</span>
+                  </div>
+                </div>
+
+                {/* 3. Comité de Vigilancia (Mesa Directiva) */}
+                <div
+                  onClick={() => setActiveSubSection('checklist')}
+                  className="group bg-[#1E1E22] hover:bg-[#25252A] border border-[#2d2d32] hover:border-amber-500/50 rounded-2xl p-6 transition-all duration-300 cursor-pointer shadow-lg hover:scale-[1.02] flex flex-col justify-between text-left"
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="w-12 h-12 bg-amber-500/15 text-amber-400 border border-amber-500/25 rounded-2xl flex items-center justify-center group-hover:scale-110 transition shrink-0">
+                        <UserCheck className="w-6 h-6 text-amber-400" />
+                      </div>
+                      <span className="text-[10px] font-mono font-extrabold px-2.5 py-1 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-full uppercase">
+                        Supervisión
+                      </span>
+                    </div>
+                    <h4 className="text-base font-black text-white group-hover:text-amber-400 transition">
+                      3. Rol: Comité de Vigilancia (Mesa Directiva)
+                    </h4>
+                    <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                      Auditoría de presupuestos, validación de comprobantes, consulta de minutas y checklist de activación operativa.
+                    </p>
+                  </div>
+                  <div className="mt-6 pt-4 border-t border-[#2d2d32] flex items-center justify-between">
+                    <span className="text-xs font-bold text-amber-400 group-hover:translate-x-1 transition">Ver Checklist y Auditoría →</span>
+                    <span className="text-[10px] text-slate-500 font-mono">Mesa Directiva</span>
+                  </div>
+                </div>
+
+                {/* 4. Residente / Propietario / Inquilino (App / PWA) */}
+                <div
+                  onClick={() => setActiveSubSection('operaciones')}
+                  className="group bg-[#1E1E22] hover:bg-[#25252A] border border-[#2d2d32] hover:border-blue-500/50 rounded-2xl p-6 transition-all duration-300 cursor-pointer shadow-lg hover:scale-[1.02] flex flex-col justify-between text-left"
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="w-12 h-12 bg-blue-500/15 text-blue-400 border border-blue-500/25 rounded-2xl flex items-center justify-center group-hover:scale-110 transition shrink-0">
+                        <Smartphone className="w-6 h-6 text-blue-400" />
+                      </div>
+                      <span className="text-[10px] font-mono font-extrabold px-2.5 py-1 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-full uppercase">
+                        Condóminos
+                      </span>
+                    </div>
+                    <h4 className="text-base font-black text-white group-hover:text-blue-400 transition">
+                      4. Rol: Residente / Propietario / Inquilino (App / PWA)
+                    </h4>
+                    <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                      Portal autogestión para generación de pases QR, reserva de amenidades, avisos comunitarios y reportes.
+                    </p>
+                  </div>
+                  <div className="mt-6 pt-4 border-t border-[#2d2d32] flex items-center justify-between">
+                    <span className="text-xs font-bold text-blue-400 group-hover:translate-x-1 transition">Ver Módulo Comunidad →</span>
+                    <span className="text-[10px] text-slate-500 font-mono">App Móvil / PWA</span>
+                  </div>
+                </div>
+
+                {/* 5. Guardia de Seguridad / Conserje */}
+                <div
+                  onClick={() => setActiveSubSection('operaciones')}
+                  className="group bg-[#1E1E22] hover:bg-[#25252A] border border-[#2d2d32] hover:border-emerald-500/50 rounded-2xl p-6 transition-all duration-300 cursor-pointer shadow-lg hover:scale-[1.02] flex flex-col justify-between text-left"
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="w-12 h-12 bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 rounded-2xl flex items-center justify-center group-hover:scale-110 transition shrink-0">
+                        <BadgeCheck className="w-6 h-6 text-emerald-400" />
+                      </div>
+                      <span className="text-[10px] font-mono font-extrabold px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-full uppercase">
+                        Seguridad
+                      </span>
+                    </div>
+                    <h4 className="text-base font-black text-white group-hover:text-emerald-400 transition">
+                      5. Rol: Guardia de Seguridad / Conserje
+                    </h4>
+                    <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                      Control de recepción de paquetes, escaneo QR de visitas, bitácora de novedades y directorio de emergencias.
+                    </p>
+                  </div>
+                  <div className="mt-6 pt-4 border-t border-[#2d2d32] flex items-center justify-between">
+                    <span className="text-xs font-bold text-emerald-400 group-hover:translate-x-1 transition">Ver Paquetes y Accesos →</span>
+                    <span className="text-[10px] text-slate-500 font-mono">Caseta y Recepción</span>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          )}
+
           {/* SECTION 0: GESTIÓN DE CLIENTES */}
           {activeSubSection === 'clientes' && (
             <div className="space-y-6 animate-fade-in">
@@ -2605,6 +2775,16 @@ export default function CondominiosDashboard({ currentUser, onSignOut }: Condomi
 
       {/* 3. BOTTOM NAVIGATION BAR (Mobile/Tablet) */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#141417] border-t border-[#232326] flex items-center justify-around z-50 px-1 select-none shadow-xl">
+        <button
+          onClick={() => setActiveSubSection('inicio')}
+          className={`flex flex-col items-center justify-center gap-1 text-[9px] font-extrabold h-full flex-1 transition cursor-pointer ${
+            activeSubSection === 'inicio' ? 'text-purple-400 font-black' : 'text-slate-500 hover:text-slate-350'
+          }`}
+        >
+          <Home className="w-4.5 h-4.5" />
+          <span>Inicio</span>
+        </button>
+
         <button
           onClick={() => setActiveSubSection('clientes')}
           className={`flex flex-col items-center justify-center gap-1 text-[9px] font-extrabold h-full flex-1 transition cursor-pointer ${
