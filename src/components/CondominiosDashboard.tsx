@@ -2669,7 +2669,7 @@ export default function CondominiosDashboard({ currentUser, onSignOut, initialSu
                 </div>
                 <div>
                   <h3 className="text-sm font-black text-white">Rol Activo: 2. Administrador del Condominio / Inmobiliaria</h3>
-                  <p className="text-xs text-purple-300 font-mono">Finanzas, Cobro de Cuotas de Mantenimiento, Control de Morosidad & Facturación CFDI 4.0</p>
+                  <p className="text-xs text-purple-300 font-mono">Finanzas, Cobro de Cuotas de Mantenimiento & Control de Morosidad (Módulo Facturación CFDI 4.0 Desactivado Temporalmente)</p>
                 </div>
               </div>
               <button 
@@ -2708,12 +2708,13 @@ export default function CondominiosDashboard({ currentUser, onSignOut, initialSu
                 onClick={() => setAdminCondoTab('facturacion')}
                 className={`px-3.5 py-2 text-xs font-bold rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
                   adminCondoTab === 'facturacion'
-                    ? 'bg-purple-600 text-white shadow-lg'
-                    : 'bg-[#1E1E22] text-slate-400 hover:text-white border border-[#2d2d32]'
+                    ? 'bg-purple-900/60 text-purple-200 border border-purple-500/50 shadow-lg'
+                    : 'bg-[#1E1E22] text-slate-500 hover:text-slate-300 border border-[#2d2d32]'
                 }`}
               >
-                <FileText className="w-3.5 h-3.5" />
+                <FileText className="w-3.5 h-3.5 text-amber-400" />
                 <span>3. Facturación CFDI 4.0</span>
+                <span className="px-1.5 py-0.5 text-[8px] bg-amber-500/20 text-amber-300 font-extrabold uppercase rounded border border-amber-500/30">Desactivado</span>
               </button>
               <button
                 onClick={() => setAdminCondoTab('operacion')}
@@ -3557,18 +3558,32 @@ export default function CondominiosDashboard({ currentUser, onSignOut, initialSu
 
           {/* TAB 2: FACTURACIÓN CFDI 4.0 INSIDE ADMIN CONDOMINIO */}
           {adminCondoTab === 'facturacion' && (
-            <div className="space-y-6 animate-fade-in text-left">
-              <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-5 space-y-3">
+            <div className="space-y-6 animate-fade-in text-left relative">
+              {/* Deactivation Banner */}
+              <div className="bg-amber-500/10 border-2 border-amber-500/40 rounded-2xl p-5 flex items-start gap-4 text-amber-300">
+                <AlertTriangle className="w-7 h-7 text-amber-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-sm font-black uppercase text-amber-200">Módulo Facturación CFDI 4.0 Desactivado Temporalmente</h4>
+                    <span className="px-2 py-0.5 text-[9px] bg-amber-500/30 text-amber-200 font-extrabold uppercase rounded-full border border-amber-400/40 font-mono">Inactivo</span>
+                  </div>
+                  <p className="text-xs text-amber-300/90 leading-relaxed font-sans">
+                    El servicio de timbrado fiscal directo ante el SAT y emisión automatizada de comprobantes CFDI 4.0 se encuentra desactivado temporalmente para todos los roles vinculados a la administración de condominios. Las cobranzas, recibos internos de pago y control de finanzas continúan operando normalmente.
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-5 space-y-3 opacity-60 pointer-events-none">
                 <div className="flex items-center gap-2 text-purple-400">
                   <FileText className="w-5 h-5" />
-                  <h3 className="text-base font-black text-white">Configuración CFDI 4.0 SAT Directo</h3>
+                  <h3 className="text-base font-black text-white">Configuración CFDI 4.0 SAT Directo (Pausado)</h3>
                 </div>
                 <p className="text-xs text-slate-400 leading-relaxed">
                   Para timbrar facturas electrónicas válidas por cuotas de mantenimiento condominal de forma directa y automatizada, requiere configurar las credenciales del Emisor, dar de alta la constancia de situación fiscal del Receptor, y conectar con las API autorizadas por el SAT.
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 opacity-60 pointer-events-none">
                 
                 {/* COMPONENT A: EMISOR (CLIENT) SETUP */}
                 <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-5 space-y-4">
