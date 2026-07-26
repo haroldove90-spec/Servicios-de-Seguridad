@@ -403,6 +403,9 @@ export default function App() {
   const [regResidenciaId, setRegResidenciaId] = useState<string>('');
   const [regSuccess, setRegSuccess] = useState<string>('');
 
+  // Independent Condominios role sub-section selector state
+  const [selectedCondoSubSection, setSelectedCondoSubSection] = useState<'inicio' | 'superadmin' | 'admininmobiliaria' | 'comite' | 'residente' | 'guardia'>('inicio');
+
   const handleCredentialLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
@@ -2273,24 +2276,126 @@ export default function App() {
                   {/* CARD 4: ADMINISTRACIÓN DE CONDOMINIOS */}
                   <div 
                     id="role-gateway-card-condominios"
-                    onClick={() => {
-                      setSelectedLoginTarget({ role: SystemUserRole.CONDOMINIOS, label: 'Administración de Condominios', defaultTab: 'condominios' });
-                      setIsRegistering(false);
-                    }}
-                    className="group relative bg-[#2A2A2E] hover:bg-[#343438] border border-[#3e3e42] hover:border-purple-500 rounded-3xl p-6 shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden"
+                    className="group relative bg-[#2A2A2E] hover:bg-[#343438] border border-[#3e3e42] hover:border-purple-500 rounded-3xl p-6 shadow-xl transition-all duration-300 flex flex-col justify-between overflow-hidden"
                   >
                     <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 blur-3xl rounded-full group-hover:bg-purple-500/10 transition"></div>
                     
-                    <div className="flex flex-col items-center justify-center text-center py-6">
-                      <div className="w-14 h-14 bg-purple-500/15 text-purple-400 border border-purple-500/25 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition shrink-0">
-                        <Building className="w-7 h-7 text-purple-400 animate-pulse" />
+                    <div>
+                      <div 
+                        onClick={() => {
+                          setSelectedCondoSubSection('inicio');
+                          setSelectedLoginTarget({ role: SystemUserRole.CONDOMINIOS, label: 'Administración de Condominios', defaultTab: 'condominios' });
+                          setIsRegistering(false);
+                        }}
+                        className="flex flex-col items-center justify-center text-center py-4 cursor-pointer"
+                      >
+                        <div className="w-14 h-14 bg-purple-500/15 text-purple-400 border border-purple-500/25 rounded-2xl flex items-center justify-center mb-3 group-hover:scale-110 transition shrink-0">
+                          <Building className="w-7 h-7 text-purple-400 animate-pulse" />
+                        </div>
+                        <h3 className="text-xl font-extrabold text-white group-hover:text-purple-400 transition" id="lbl-condominios-general-role">
+                          Administración de condominios
+                        </h3>
+                        <p className="text-[11px] text-slate-400 mt-1 font-sans">Gestión integral de condominios, finanzas y accesos</p>
                       </div>
-                      <h3 className="text-xl font-extrabold text-white group-hover:text-purple-400 transition" id="lbl-condominios-general-role">
-                        Administración de condominios
-                      </h3>
+
+                      {/* DIRECT ACCESS ROLE BUTTONS WITH ICON & NAME */}
+                      <div className="mt-4 pt-3 border-t border-[#3e3e42] space-y-2">
+                        <span className="text-[9px] font-mono font-extrabold text-purple-400 uppercase tracking-widest block text-center">
+                          ⚡ ACCESOS DIRECTOS ROLES INDEPENDIENTES:
+                        </span>
+                        
+                        <div className="grid grid-cols-2 gap-1.5 font-sans">
+                          {/* Rol 1: Super Admin */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedCondoSubSection('superadmin');
+                              setSelectedLoginTarget({ role: SystemUserRole.CONDOMINIOS, label: 'Administración de Condominios', defaultTab: 'condominios' });
+                              setIsRegistering(false);
+                            }}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#1F1F23] hover:bg-red-950/40 border border-red-500/20 hover:border-red-500/50 rounded-xl text-[10px] font-bold text-red-300 transition cursor-pointer text-left"
+                            title="Rol Super Administrador (SaaS / Global)"
+                          >
+                            <Crown className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                            <span className="truncate">1. Super Admin</span>
+                          </button>
+
+                          {/* Rol 2: Admin Condominio */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedCondoSubSection('admininmobiliaria');
+                              setSelectedLoginTarget({ role: SystemUserRole.CONDOMINIOS, label: 'Administración de Condominios', defaultTab: 'condominios' });
+                              setIsRegistering(false);
+                            }}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#1F1F23] hover:bg-purple-950/40 border border-purple-500/20 hover:border-purple-500/50 rounded-xl text-[10px] font-bold text-purple-300 transition cursor-pointer text-left"
+                            title="Rol Admin Condominio / Inmobiliaria"
+                          >
+                            <Building2 className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                            <span className="truncate">2. Admin Condominio</span>
+                          </button>
+
+                          {/* Rol 3: Comité Vigilancia */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedCondoSubSection('comite');
+                              setSelectedLoginTarget({ role: SystemUserRole.CONDOMINIOS, label: 'Administración de Condominios', defaultTab: 'condominios' });
+                              setIsRegistering(false);
+                            }}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#1F1F23] hover:bg-amber-950/40 border border-amber-500/20 hover:border-amber-500/50 rounded-xl text-[10px] font-bold text-amber-300 transition cursor-pointer text-left"
+                            title="Rol Comité de Vigilancia / Mesa Directiva"
+                          >
+                            <UserCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                            <span className="truncate">3. Comité Vigilancia</span>
+                          </button>
+
+                          {/* Rol 4: Residente (App/PWA) */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedCondoSubSection('residente');
+                              setSelectedLoginTarget({ role: SystemUserRole.CONDOMINIOS, label: 'Administración de Condominios', defaultTab: 'condominios' });
+                              setIsRegistering(false);
+                            }}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#1F1F23] hover:bg-blue-950/40 border border-blue-500/20 hover:border-blue-500/50 rounded-xl text-[10px] font-bold text-blue-300 transition cursor-pointer text-left"
+                            title="Rol Residente / Condómino (App / PWA)"
+                          >
+                            <Smartphone className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                            <span className="truncate">4. Residente (PWA)</span>
+                          </button>
+
+                          {/* Rol 5: Guardia / Conserje */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedCondoSubSection('guardia');
+                              setSelectedLoginTarget({ role: SystemUserRole.CONDOMINIOS, label: 'Administración de Condominios', defaultTab: 'condominios' });
+                              setIsRegistering(false);
+                            }}
+                            className="col-span-2 flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-[#1F1F23] hover:bg-emerald-950/40 border border-emerald-500/20 hover:border-emerald-500/50 rounded-xl text-[10px] font-bold text-emerald-300 transition cursor-pointer text-center"
+                            title="Rol Guardia de Seguridad / Conserje"
+                          >
+                            <BadgeCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                            <span>5. Guardia / Conserje</span>
+                          </button>
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="mt-4 pt-4 border-t border-[#3e3e42] flex items-center justify-between font-sans">
+                    <div 
+                      onClick={() => {
+                        setSelectedCondoSubSection('inicio');
+                        setSelectedLoginTarget({ role: SystemUserRole.CONDOMINIOS, label: 'Administración de Condominios', defaultTab: 'condominios' });
+                        setIsRegistering(false);
+                      }}
+                      className="mt-4 pt-3 border-t border-[#3e3e42] flex items-center justify-between font-sans cursor-pointer"
+                    >
                       <span className="text-[10px] font-bold text-purple-400 tracking-wider uppercase group-hover:translate-x-1 transition-all">Administrar Sistema →</span>
                       <span className="text-[10px] bg-emerald-600/20 text-emerald-400 font-mono px-2.5 py-0.5 rounded-full uppercase font-bold">Activo ✓</span>
                     </div>
@@ -2529,6 +2634,7 @@ export default function App() {
                     <CondominiosDashboard 
                       currentUser={userRole} 
                       onSignOut={handleSignOut} 
+                      initialSubSection={selectedCondoSubSection}
                     />
                   )}
                 </div>

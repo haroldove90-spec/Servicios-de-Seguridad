@@ -90,12 +90,19 @@ export interface ClienteCondominio {
 interface CondominiosDashboardProps {
   currentUser?: any;
   onSignOut?: () => void;
+  initialSubSection?: 'inicio' | 'superadmin' | 'admininmobiliaria' | 'comite' | 'residente' | 'guardia';
 }
 
-export default function CondominiosDashboard({ currentUser, onSignOut }: CondominiosDashboardProps) {
+export default function CondominiosDashboard({ currentUser, onSignOut, initialSubSection }: CondominiosDashboardProps) {
   // Navigation
-  const [activeSubSection, setActiveSubSection] = useState<'inicio' | 'superadmin' | 'admininmobiliaria' | 'comite' | 'residente' | 'guardia'>('inicio');
+  const [activeSubSection, setActiveSubSection] = useState<'inicio' | 'superadmin' | 'admininmobiliaria' | 'comite' | 'residente' | 'guardia'>(initialSubSection || 'inicio');
   const [adminCondoTab, setAdminCondoTab] = useState<'finanzas' | 'facturacion'>('finanzas');
+
+  useEffect(() => {
+    if (initialSubSection) {
+      setActiveSubSection(initialSubSection);
+    }
+  }, [initialSubSection]);
 
   // --- 6. GESTIÓN DE CLIENTES STATE & HANDLERS ---
   const [clientes, setClientes] = useState<ClienteCondominio[]>([
@@ -904,7 +911,105 @@ export default function CondominiosDashboard({ currentUser, onSignOut }: Condomi
             </div>
           </div>
 
-          {/* ACTIVE VIEWS PORT */}
+          {/* DIRECT ROLE ACCESS TOOLBAR (ACCESOS DIRECTOS ROLES INDEPENDIENTES) */}
+          <div className="bg-[#141417] border border-[#232326] p-4 rounded-3xl space-y-3 shadow-xl font-sans">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#232326] pb-3">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-purple-400 shrink-0" />
+                <span className="text-xs font-black text-white uppercase tracking-wider">
+                  ACCESOS DIRECTOS — ROLES INDEPENDIENTES DE CONDOMINIOS
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-purple-400 font-mono font-bold bg-purple-500/10 px-2.5 py-0.5 rounded-full border border-purple-500/20">
+                  5 Roles Activos
+                </span>
+                <span className="text-[10px] text-emerald-400 font-mono font-bold bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
+                  Acceso Directo ✓
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 pt-1">
+              {/* 0. Inicio Roles */}
+              <button
+                onClick={() => setActiveSubSection('inicio')}
+                className={`flex items-center gap-2 px-3 py-2.5 rounded-2xl text-xs font-extrabold transition cursor-pointer text-left border ${
+                  activeSubSection === 'inicio'
+                    ? 'bg-purple-600 text-white border-purple-400 shadow-lg shadow-purple-600/30 ring-2 ring-purple-500/50 scale-[1.02]'
+                    : 'bg-[#1E1E22] hover:bg-[#28282D] text-slate-300 border-[#2D2D32] hover:border-purple-500/40'
+                }`}
+              >
+                <Home className="w-4 h-4 shrink-0 text-purple-400" />
+                <span className="truncate">Inicio (Roles)</span>
+              </button>
+
+              {/* 1. Super Administrador */}
+              <button
+                onClick={() => setActiveSubSection('superadmin')}
+                className={`flex items-center gap-2 px-3 py-2.5 rounded-2xl text-xs font-extrabold transition cursor-pointer text-left border ${
+                  activeSubSection === 'superadmin'
+                    ? 'bg-red-600/30 text-white border-red-500 shadow-lg shadow-red-600/20 ring-2 ring-red-500/50 scale-[1.02]'
+                    : 'bg-[#1E1E22] hover:bg-[#28282D] text-slate-300 border-[#2D2D32] hover:border-red-500/40'
+                }`}
+              >
+                <Crown className="w-4 h-4 shrink-0 text-red-400" />
+                <span className="truncate">1. Super Admin</span>
+              </button>
+
+              {/* 2. Admin Condominio */}
+              <button
+                onClick={() => setActiveSubSection('admininmobiliaria')}
+                className={`flex items-center gap-2 px-3 py-2.5 rounded-2xl text-xs font-extrabold transition cursor-pointer text-left border ${
+                  activeSubSection === 'admininmobiliaria'
+                    ? 'bg-purple-600/30 text-white border-purple-500 shadow-lg shadow-purple-600/20 ring-2 ring-purple-500/50 scale-[1.02]'
+                    : 'bg-[#1E1E22] hover:bg-[#28282D] text-slate-300 border-[#2D2D32] hover:border-purple-500/40'
+                }`}
+              >
+                <Building2 className="w-4 h-4 shrink-0 text-purple-400" />
+                <span className="truncate">2. Admin Condominio</span>
+              </button>
+
+              {/* 3. Comité Vigilancia */}
+              <button
+                onClick={() => setActiveSubSection('comite')}
+                className={`flex items-center gap-2 px-3 py-2.5 rounded-2xl text-xs font-extrabold transition cursor-pointer text-left border ${
+                  activeSubSection === 'comite'
+                    ? 'bg-amber-600/30 text-white border-amber-500 shadow-lg shadow-amber-600/20 ring-2 ring-amber-500/50 scale-[1.02]'
+                    : 'bg-[#1E1E22] hover:bg-[#28282D] text-slate-300 border-[#2D2D32] hover:border-amber-500/40'
+                }`}
+              >
+                <UserCheck className="w-4 h-4 shrink-0 text-amber-400" />
+                <span className="truncate">3. Comité Vigilancia</span>
+              </button>
+
+              {/* 4. Residente (App/PWA) */}
+              <button
+                onClick={() => setActiveSubSection('residente')}
+                className={`flex items-center gap-2 px-3 py-2.5 rounded-2xl text-xs font-extrabold transition cursor-pointer text-left border ${
+                  activeSubSection === 'residente'
+                    ? 'bg-blue-600/30 text-white border-blue-500 shadow-lg shadow-blue-600/20 ring-2 ring-blue-500/50 scale-[1.02]'
+                    : 'bg-[#1E1E22] hover:bg-[#28282D] text-slate-300 border-[#2D2D32] hover:border-blue-500/40'
+                }`}
+              >
+                <Smartphone className="w-4 h-4 shrink-0 text-blue-400" />
+                <span className="truncate">4. Residente (PWA)</span>
+              </button>
+
+              {/* 5. Guardia / Conserje */}
+              <button
+                onClick={() => setActiveSubSection('guardia')}
+                className={`flex items-center gap-2 px-3 py-2.5 rounded-2xl text-xs font-extrabold transition cursor-pointer text-left border ${
+                  activeSubSection === 'guardia'
+                    ? 'bg-emerald-600/30 text-white border-emerald-500 shadow-lg shadow-emerald-600/20 ring-2 ring-emerald-500/50 scale-[1.02]'
+                    : 'bg-[#1E1E22] hover:bg-[#28282D] text-slate-300 border-[#2D2D32] hover:border-emerald-500/40'
+                }`}
+              >
+                <BadgeCheck className="w-4 h-4 shrink-0 text-emerald-400" />
+                <span className="truncate">5. Guardia / Conserje</span>
+              </button>
+            </div>
+          </div>
 
           {/* SECTION INICIO: ROLES DE ACCESO */}
           {activeSubSection === 'inicio' && (
