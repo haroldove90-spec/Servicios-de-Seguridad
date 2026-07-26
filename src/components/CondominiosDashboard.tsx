@@ -6,7 +6,7 @@ import {
   Activity, ArrowUpRight, ArrowDownRight, Upload, Globe, RefreshCw, Send, Trash2,
   LogOut, Plus, Search, Filter, Lock, Unlock, Home, Crown, Building2, UserCheck, Smartphone, BadgeCheck,
   CheckCircle2, PackageCheck, Terminal, HelpCircle, LifeBuoy, PieChart, ShieldAlert, FileSpreadsheet, RefreshCcw, Layers,
-  Server, UserX
+  Server, UserX, Menu, X, FileCheck, Wrench, Vote, CheckSquare
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -122,6 +122,124 @@ export interface SystemAuditLog {
   ip: string;
 }
 
+export interface EstructuraInmobiliaria {
+  id: string;
+  tipo: 'Torre' | 'Manzana' | 'Lote' | 'Cluster';
+  nombre: string;
+  unidadesCount: number;
+  unidadesDetalle: string;
+  status: 'activo' | 'inactivo';
+}
+
+export interface ResidentProfile {
+  id: string;
+  nombre: string;
+  unidad: string;
+  tipoResidente: 'propietario' | 'inquilino';
+  correo: string;
+  telefono: string;
+  status: 'activo' | 'moroso' | 'inactivo';
+}
+
+export interface PersonalInterno {
+  id: string;
+  nombre: string;
+  rol: 'Guardia' | 'Mantenimiento' | 'Limpieza' | 'Conserje';
+  turno: 'Matutino' | 'Vespertino' | 'Nocturno' | '24x24';
+  telefono: string;
+  status: 'activo' | 'inactivo';
+}
+
+export interface RuleCuota {
+  id: string;
+  nombre: string;
+  tipo: 'Ordinaria' | 'Extraordinaria' | 'Recargo Morosidad';
+  monto: number;
+  periodicidad: 'Mensual' | 'Anual' | 'Única';
+  recargoPorcentaje: number;
+  status: 'activa' | 'inactiva';
+}
+
+export interface ConciliacionBancaria {
+  id: string;
+  fecha: string;
+  conceptoBanco: string;
+  monto: number;
+  referencia: string;
+  estatus: 'conciliado' | 'pendiente';
+  unidadMatcheada?: string;
+}
+
+export interface EgresoCondominio {
+  id: string;
+  proveedor: string;
+  concepto: string;
+  monto: number;
+  categoria: 'Proveedor' | 'Nómina Interna' | 'Servicios Básicos' | 'Mantenimiento Mayor';
+  fecha: string;
+  facturaXmlPdf: boolean;
+  estatus: 'pagado' | 'pendiente';
+}
+
+export interface EncuestaVotacion {
+  id: string;
+  titulo: string;
+  descripcion: string;
+  opciones: { texto: string; votos: number }[];
+  fechaCierre: string;
+  estatus: 'activa' | 'cerrada';
+  totalVotos: number;
+}
+
+export interface PresupuestoExtraordinario {
+  id: string;
+  titulo: string;
+  montoTotal: number;
+  solicitadoPor: string;
+  justificacion: string;
+  estatus: 'pendiente' | 'aprobado' | 'rechazado';
+  fecha: string;
+  votosFavor: number;
+  votosContra: number;
+}
+
+export interface ActaAsamblea {
+  id: string;
+  titulo: string;
+  fechaAsamblea: string;
+  firmasDigitalesCount: number;
+  requiereFirmas: number;
+  estatus: 'firmado' | 'pendiente_firma';
+  pdfUrl: string;
+}
+
+export interface InvitadoFrecuente {
+  id: string;
+  nombre: string;
+  relacion: 'Familiar' | 'Servicio Doméstico' | 'Contratista' | 'Amigo';
+  diasPermitidos: string;
+  placas?: string;
+  estatus: 'activo' | 'inactivo';
+}
+
+export interface BitacoraGuardia {
+  id: string;
+  guardiaNombre: string;
+  tipo: 'Novedad' | 'Rondín de Seguridad' | 'Cambio de Turno' | 'Incidencia';
+  descripcion: string;
+  fechaHora: string;
+}
+
+export interface VisitaPendiente {
+  id: string;
+  visitanteNombre: string;
+  condoDestino: string;
+  tipoVisita: 'Invitado' | 'Proveedor' | 'Servicio / Delivery';
+  placas?: string;
+  estatus: 'en_espera' | 'ingresado' | 'salio';
+  tieneRestriccionMoroso: boolean;
+}
+
 interface CondominiosDashboardProps {
   currentUser?: any;
   onSignOut?: () => void;
@@ -131,8 +249,12 @@ interface CondominiosDashboardProps {
 export default function CondominiosDashboard({ currentUser, onSignOut, initialSubSection }: CondominiosDashboardProps) {
   // Navigation
   const [activeSubSection, setActiveSubSection] = useState<'inicio' | 'superadmin' | 'admininmobiliaria' | 'comite' | 'residente' | 'guardia'>(initialSubSection || 'inicio');
-  const [adminCondoTab, setAdminCondoTab] = useState<'finanzas' | 'facturacion'>('finanzas');
+  const [adminCondoTab, setAdminCondoTab] = useState<'comunidad' | 'finanzas' | 'facturacion' | 'operacion' | 'comunicacion'>('comunidad');
+  const [comiteTab, setComiteTab] = useState<'auditoria' | 'aprobaciones' | 'actas'>('auditoria');
+  const [residenteTab, setResidenteTab] = useState<'finanzas' | 'accesos' | 'amenidades' | 'comunicacion'>('finanzas');
+  const [guardiaTab, setGuardiaTab] = useState<'accesos' | 'paqueteria' | 'bitacora'>('accesos');
   const [superAdminTab, setSuperAdminTab] = useState<'clientes' | 'finanzas' | 'soporte'>('clientes');
+  const [isNavOpen, setIsNavOpen] = useState<boolean>(false);
 
   useEffect(() => {
     if (initialSubSection) {
@@ -721,6 +843,401 @@ export default function CondominiosDashboard({ currentUser, onSignOut, initialSu
   const [testingConnection, setTestingConnection] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
 
+  // --- NEW MODULE STATES FOR ALL ROLES ---
+  // 1. Estructura Inmobiliaria
+  const [estructuras, setEstructuras] = useState<EstructuraInmobiliaria[]>([
+    { id: 'est-1', tipo: 'Torre', nombre: 'Torre A - Paseo de las Palmas', unidadesCount: 24, unidadesDetalle: 'Deptos 101 a 604', status: 'activo' },
+    { id: 'est-2', tipo: 'Torre', nombre: 'Torre B - Valle Oriente', unidadesCount: 24, unidadesDetalle: 'Deptos 101 a 604', status: 'activo' },
+    { id: 'est-3', tipo: 'Cluster', nombre: 'Cluster Lomas Lote 1-50', unidadesCount: 50, unidadesDetalle: 'Residencias individuales', status: 'activo' },
+  ]);
+  const [newEstTipo, setNewEstTipo] = useState<'Torre' | 'Manzana' | 'Lote' | 'Cluster'>('Torre');
+  const [newEstNombre, setNewEstNombre] = useState('');
+  const [newEstCount, setNewEstCount] = useState('12');
+  const [newEstDetalle, setNewEstDetalle] = useState('');
+
+  // 2. Catálogo de Residentes
+  const [residentesCat, setResidentesCat] = useState<ResidentProfile[]>([
+    { id: 'res-1', nombre: 'Ing. Alejandro Ruiz', unidad: 'Torre A - Depto 102', tipoResidente: 'propietario', correo: 'aruiz@lomas.mx', telefono: '+52 5512345678', status: 'activo' },
+    { id: 'res-2', nombre: 'Haroldo Residente', unidad: 'Torre A - Depto 105', tipoResidente: 'propietario', correo: 'haroldo@residente.org', telefono: '+52 5588990011', status: 'activo' },
+    { id: 'res-3', nombre: 'Lic. Sofía Mendoza', unidad: 'Torre B - Depto 201', tipoResidente: 'inquilino', correo: 'smendoza@bosques.com', telefono: '+52 5598765432', status: 'moroso' },
+    { id: 'res-4', nombre: 'C.P. Eduardo Garza', unidad: 'Cluster Lote 12', tipoResidente: 'propietario', correo: 'egarza@torres.com', telefono: '+52 5544332211', status: 'activo' },
+  ]);
+  const [newResNombre, setNewResNombre] = useState('');
+  const [newResUnidad, setNewResUnidad] = useState('');
+  const [newResTipo, setNewResTipo] = useState<'propietario' | 'inquilino'>('propietario');
+  const [newResCorreo, setNewResCorreo] = useState('');
+  const [newResTel, setNewResTel] = useState('');
+
+  // 3. Personal Interno
+  const [personalInterno, setPersonalInterno] = useState<PersonalInterno[]>([
+    { id: 'per-1', nombre: 'Oficial Roberto Sánchez', rol: 'Guardia', turno: '24x24', telefono: '+52 5511223344', status: 'activo' },
+    { id: 'per-2', nombre: 'Oficial Miguel Ángel Torres', rol: 'Guardia', turno: 'Nocturno', telefono: '+52 5522334455', status: 'activo' },
+    { id: 'per-3', nombre: 'Técnico Gonzalo Morales', rol: 'Mantenimiento', turno: 'Matutino', telefono: '+52 5533445566', status: 'activo' },
+    { id: 'per-4', nombre: 'Sra. María Elena Cruz', rol: 'Limpieza', turno: 'Matutino', telefono: '+52 5544556677', status: 'activo' },
+  ]);
+  const [newPerNombre, setNewPerNombre] = useState('');
+  const [newPerRol, setNewPerRol] = useState<'Guardia' | 'Mantenimiento' | 'Limpieza' | 'Conserje'>('Guardia');
+  const [newPerTurno, setNewPerTurno] = useState<'Matutino' | 'Vespertino' | 'Nocturno' | '24x24'>('24x24');
+  const [newPerTel, setNewPerTel] = useState('');
+
+  // 4. Configuración de Cuotas y Alertas
+  const [reglasCuotas, setReglasCuotas] = useState<RuleCuota[]>([
+    { id: 'cuo-1', nombre: 'Cuota Ordinaria Mensual 2026', tipo: 'Ordinaria', monto: 2500, periodicidad: 'Mensual', recargoPorcentaje: 10, status: 'activa' },
+    { id: 'cuo-2', nombre: 'Fondo de Reserva Impermeabilización', tipo: 'Extraordinaria', monto: 1200, periodicidad: 'Única', recargoPorcentaje: 5, status: 'activa' },
+  ]);
+  const [newCuotaNombre, setNewCuotaNombre] = useState('');
+  const [newCuotaMonto, setNewCuotaMonto] = useState('2500');
+  const [newCuotaTipo, setNewCuotaTipo] = useState<'Ordinaria' | 'Extraordinaria' | 'Recargo Morosidad'>('Ordinaria');
+
+  // 5. Conciliación Bancaria
+  const [bancoMovimientos, setBancoMovimientos] = useState<ConciliacionBancaria[]>([
+    { id: 'bnc-1', fecha: '2026-07-25', conceptoBanco: 'SPEI RECIBIDO - ALEJANDRO RUIZ', monto: 2500, referencia: 'REFF-90214', estatus: 'conciliado', unidadMatcheada: 'Torre A - Depto 102' },
+    { id: 'bnc-2', fecha: '2026-07-24', conceptoBanco: 'DEPOSITO SUCURSAL BBVA CLABE 0121800', monto: 2500, referencia: 'DEPO-8812', estatus: 'conciliado', unidadMatcheada: 'Cluster Lote 12' },
+    { id: 'bnc-3', fecha: '2026-07-23', conceptoBanco: 'SPEI DESCONOCIDO - PAGO S/REF', monto: 1500, referencia: 'SPEI-99201', estatus: 'pendiente' },
+  ]);
+
+  // 6. Egresos & Nóminas
+  const [egresos, setEgresos] = useState<EgresoCondominio[]>([
+    { id: 'egr-1', proveedor: 'CFE Suministrador Básico', concepto: 'Consumo Eléctrico Áreas Comunes / Bombas', monto: 18450, categoria: 'Servicios Básicos', fecha: '2026-07-20', facturaXmlPdf: true, estatus: 'pagado' },
+    { id: 'egr-2', proveedor: 'Seguridad Privada Protec SA de CV', concepto: 'Nómina Quincenal Guardias de Caseta', monto: 32000, categoria: 'Nómina Interna', fecha: '2026-07-15', facturaXmlPdf: true, estatus: 'pagado' },
+    { id: 'egr-3', proveedor: 'Mantenimiento de Elevadores Otis', concepto: 'Servicio Preventivo Mensual Elevadores', monto: 12500, categoria: 'Mantenimiento Mayor', fecha: '2026-07-10', facturaXmlPdf: true, estatus: 'pagado' },
+  ]);
+  const [newEgrProveedor, setNewEgrProveedor] = useState('');
+  const [newEgrConcepto, setNewEgrConcepto] = useState('');
+  const [newEgrMonto, setNewEgrMonto] = useState('5000');
+  const [newEgrCat, setNewEgrCat] = useState<'Proveedor' | 'Nómina Interna' | 'Servicios Básicos' | 'Mantenimiento Mayor'>('Proveedor');
+
+  // 7. Alertas de Cobranza
+  const [alertaDiasPrevios, setAlertaDiasPrevios] = useState('3');
+  const [alertaDiasMoroso, setAlertaDiasMoroso] = useState('5');
+  const [canalAlertaMail, setCanalAlertaMail] = useState(true);
+  const [canalAlertaWhatsapp, setCanalAlertaWhatsapp] = useState(true);
+
+  // 8. Encuestas y Votaciones
+  const [encuestas, setEncuestas] = useState<EncuestaVotacion[]>([
+    {
+      id: 'enc-1',
+      titulo: 'Aprobación de Instalación de Celdas Solares en Casa Club',
+      descripcion: '¿Está de acuerdo en financiar la instalación de paneles solares con el fondo de reserva para ahorrar 60% en luz comunal?',
+      opciones: [
+        { texto: 'Sí, Aprobado', votos: 34 },
+        { texto: 'No, Rechazado', votos: 6 },
+        { texto: 'Abstención', votos: 2 }
+      ],
+      fechaCierre: '2026-08-01',
+      estatus: 'activa',
+      totalVotos: 42
+    }
+  ]);
+  const [newEncTitulo, setNewEncTitulo] = useState('');
+  const [newEncDesc, setNewEncDesc] = useState('');
+  const [newEncFechaCierre, setNewEncFechaCierre] = useState('2026-08-15');
+
+  // 9. Comité Presupuestos Extraordinarios y Actas
+  const [presupuestosExtra, setPresupuestosExtra] = useState<PresupuestoExtraordinario[]>([
+    {
+      id: 'pre-1',
+      titulo: 'Remodelación de Portones Vehiculares Automatizados',
+      montoTotal: 85000,
+      solicitadoPor: 'Ing. Alejandro Ruiz (Admin)',
+      justificacion: 'Reemplazo de motores hidráulicos desgastados por motores de alta velocidad con brazos de uso rudo.',
+      estatus: 'pendiente',
+      fecha: '2026-07-22',
+      votosFavor: 2,
+      votosContra: 0
+    },
+    {
+      id: 'pre-2',
+      titulo: 'Sistema de Pintura Térmica en Fachadas Exteriores Torre A',
+      montoTotal: 140000,
+      solicitadoPor: 'Ing. Alejandro Ruiz (Admin)',
+      justificacion: 'Sellado e impermeabilización de grietas estructurales exteriores.',
+      estatus: 'aprobado',
+      fecha: '2026-07-05',
+      votosFavor: 4,
+      votosContra: 0
+    }
+  ]);
+
+  const [actasAsamblea, setActasAsamblea] = useState<ActaAsamblea[]>([
+    {
+      id: 'act-1',
+      titulo: 'Acta de Asamblea Ordinaria - Junio 2026',
+      fechaAsamblea: '2026-06-28',
+      firmasDigitalesCount: 3,
+      requiereFirmas: 3,
+      estatus: 'firmado',
+      pdfUrl: '#'
+    },
+    {
+      id: 'act-2',
+      titulo: 'Acta de Asamblea Extraordinaria - Presupuestos 2026',
+      fechaAsamblea: '2026-07-15',
+      firmasDigitalesCount: 1,
+      requiereFirmas: 3,
+      estatus: 'pendiente_firma',
+      pdfUrl: '#'
+    }
+  ]);
+
+  // 10. Residente Invitados Frecuentes & Confirmación Lectura
+  const [invitadosFrecuentes, setInvitadosFrecuentes] = useState<InvitadoFrecuente[]>([
+    { id: 'inv-1', nombre: 'María Esther Ruiz (Mamá)', relacion: 'Familiar', diasPermitidos: 'Lunes a Domingo (Permanente)', placas: 'XYZ-901-A', estatus: 'activo' },
+    { id: 'inv-2', nombre: 'Carlos López (Servicio Limpieza)', relacion: 'Servicio Doméstico', diasPermitidos: 'Martes y Jueves (8am - 3pm)', estatus: 'activo' },
+  ]);
+  const [newInvNombre, setNewInvNombre] = useState('');
+  const [newInvRel, setNewInvRel] = useState<'Familiar' | 'Servicio Doméstico' | 'Contratista' | 'Amigo'>('Familiar');
+  const [newInvDias, setNewInvDias] = useState('Lunes a Viernes');
+  const [newInvPlacas, setNewInvPlacas] = useState('');
+  const [readBulletins, setReadBulletins] = useState<Record<string, boolean>>({});
+
+  // 11. Guardia Bitácora & Visitas Pendientes del Día
+  const [bitacoraGuardia, setBitacoraGuardia] = useState<BitacoraGuardia[]>([
+    { id: 'bit-1', guardiaNombre: 'Oficial Roberto Sánchez', tipo: 'Cambio de Turno', descripcion: 'Recibe turno sin novedades en caseta. Equipos de cómputo e interfón operando 100%.', fechaHora: '2026-07-26 08:00' },
+    { id: 'bit-2', guardiaNombre: 'Oficial Roberto Sánchez', tipo: 'Rondín de Seguridad', descripcion: 'Rondín en perímetro norte y alberca. Puertas cerradas, bombas operando.', fechaHora: '2026-07-26 10:30' },
+    { id: 'bit-3', guardiaNombre: 'Oficial Roberto Sánchez', tipo: 'Novedad', descripcion: 'Ingresa proveedor de internet en camioneta placas ABC-123. Se verifica INE.', fechaHora: '2026-07-26 11:45' },
+  ]);
+  const [newBitTipo, setNewBitTipo] = useState<'Novedad' | 'Rondín de Seguridad' | 'Cambio de Turno' | 'Incidencia'>('Novedad');
+  const [newBitDesc, setNewBitDesc] = useState('');
+
+  const [visitasPendientes, setVisitasPendientes] = useState<VisitaPendiente[]>([
+    { id: 'vis-1', visitanteNombre: 'Carlos Ortiz', condoDestino: 'Torre A - Depto 102', tipoVisita: 'Invitado', placas: 'GTO-901-B', estatus: 'en_espera', tieneRestriccionMoroso: false },
+    { id: 'vis-2', visitanteNombre: 'Técnico de Izzi Telecom', condoDestino: 'Torre B - Depto 201', tipoVisita: 'Proveedor', placas: 'MEX-112-C', estatus: 'en_espera', tieneRestriccionMoroso: true },
+    { id: 'vis-3', visitanteNombre: 'Lucía Fernández', condoDestino: 'Cluster Lote 12', tipoVisita: 'Invitado', placas: 'JAL-445-A', estatus: 'ingresado', tieneRestriccionMoroso: false },
+  ]);
+  const [searchVisitaQuery, setSearchVisitaQuery] = useState('');
+  const [newVisNombre, setNewVisNombre] = useState('');
+  const [newVisDestino, setNewVisDestino] = useState('');
+  const [newVisPlacas, setNewVisPlacas] = useState('');
+
+  // Handlers for new modules
+  const handleAddEstructura = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newEstNombre) return;
+    const newEst: EstructuraInmobiliaria = {
+      id: 'est-' + Date.now(),
+      tipo: newEstTipo,
+      nombre: newEstNombre,
+      unidadesCount: parseInt(newEstCount) || 1,
+      unidadesDetalle: newEstDetalle || `Estructura ${newEstNombre}`,
+      status: 'activo'
+    };
+    setEstructuras(prev => [newEst, ...prev]);
+    setNewEstNombre('');
+    setNewEstDetalle('');
+    showSuccessBanner('✓ Estructura inmobiliaria registrada.');
+  };
+
+  const handleAddResidentCat = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newResNombre || !newResUnidad) return;
+    const newR: ResidentProfile = {
+      id: 'res-' + Date.now(),
+      nombre: newResNombre,
+      unidad: newResUnidad,
+      tipoResidente: newResTipo,
+      correo: newResCorreo || 'residente@condo.mx',
+      telefono: newResTel || '+52 5500000000',
+      status: 'activo'
+    };
+    setResidentesCat(prev => [newR, ...prev]);
+    setNewResNombre('');
+    setNewResUnidad('');
+    setNewResCorreo('');
+    setNewResTel('');
+    showSuccessBanner('✓ Residente vinculado a unidad exitosamente.');
+  };
+
+  const handleAddPersonal = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPerNombre) return;
+    const newP: PersonalInterno = {
+      id: 'per-' + Date.now(),
+      nombre: newPerNombre,
+      rol: newPerRol,
+      turno: newPerTurno,
+      telefono: newPerTel || '+52 5500000000',
+      status: 'activo'
+    };
+    setPersonalInterno(prev => [newP, ...prev]);
+    setNewPerNombre('');
+    setNewPerTel('');
+    showSuccessBanner('✓ Perfil de personal interno dado de alta.');
+  };
+
+  const handleAddRuleCuota = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCuotaNombre) return;
+    const newCuo: RuleCuota = {
+      id: 'cuo-' + Date.now(),
+      nombre: newCuotaNombre,
+      tipo: newCuotaTipo,
+      monto: parseFloat(newCuotaMonto) || 0,
+      periodicidad: 'Mensual',
+      recargoPorcentaje: 10,
+      status: 'activa'
+    };
+    setReglasCuotas(prev => [newCuo, ...prev]);
+    setNewCuotaNombre('');
+    showSuccessBanner('✓ Regla de cuota y recargos configurada.');
+  };
+
+  const handleAddEgreso = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newEgrProveedor || !newEgrConcepto) return;
+    const newE: EgresoCondominio = {
+      id: 'egr-' + Date.now(),
+      proveedor: newEgrProveedor,
+      concepto: newEgrConcepto,
+      monto: parseFloat(newEgrMonto) || 0,
+      categoria: newEgrCat,
+      fecha: new Date().toISOString().split('T')[0],
+      facturaXmlPdf: true,
+      estatus: 'pagado'
+    };
+    setEgresos(prev => [newE, ...prev]);
+    setNewEgrProveedor('');
+    setNewEgrConcepto('');
+    showSuccessBanner('✓ Egreso y comprobante registrado.');
+  };
+
+  const handleAddEncuesta = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newEncTitulo || !newEncDesc) return;
+    const newEnc: EncuestaVotacion = {
+      id: 'enc-' + Date.now(),
+      titulo: newEncTitulo,
+      descripcion: newEncDesc,
+      opciones: [
+        { texto: 'Sí, Aprobado', votos: 0 },
+        { texto: 'No, Rechazado', votos: 0 },
+        { texto: 'Abstención', votos: 0 }
+      ],
+      fechaCierre: newEncFechaCierre,
+      estatus: 'activa',
+      totalVotos: 0
+    };
+    setEncuestas(prev => [newEnc, ...prev]);
+    setNewEncTitulo('');
+    setNewEncDesc('');
+    showSuccessBanner('✓ Votación publicada en Muro Digital.');
+  };
+
+  const handleVoteEncuesta = (encId: string, opIndex: number) => {
+    setEncuestas(prev => prev.map(enc => {
+      if (enc.id === encId) {
+        const newOps = [...enc.opciones];
+        newOps[opIndex] = { ...newOps[opIndex], votos: newOps[opIndex].votos + 1 };
+        return {
+          ...enc,
+          opciones: newOps,
+          totalVotos: enc.totalVotos + 1
+        };
+      }
+      return enc;
+    }));
+    showSuccessBanner('✓ Su voto ha sido registrado de forma anónima.');
+    confetti({ particleCount: 40, spread: 40 });
+  };
+
+  const handleApprovePresupuesto = (id: string, decision: 'aprobado' | 'rechazado') => {
+    setPresupuestosExtra(prev => prev.map(p => {
+      if (p.id === id) {
+        return { ...p, estatus: decision, votosFavor: decision === 'aprobado' ? p.votosFavor + 1 : p.votosFavor };
+      }
+      return p;
+    }));
+    showSuccessBanner(`✓ Presupuesto ${decision === 'aprobado' ? 'APROBADO' : 'RECHAZADO'} por el Comité.`);
+  };
+
+  const handleSignActa = (id: string) => {
+    setActasAsamblea(prev => prev.map(a => {
+      if (a.id === id) {
+        const newCount = Math.min(a.requiereFirmas, a.firmasDigitalesCount + 1);
+        return {
+          ...a,
+          firmasDigitalesCount: newCount,
+          estatus: newCount >= a.requiereFirmas ? 'firmado' : 'pendiente_firma'
+        };
+      }
+      return a;
+    }));
+    showSuccessBanner('✓ Firma digital estampada en el Acta de Asamblea.');
+  };
+
+  const handleAddInvitadoFrecuente = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newInvNombre) return;
+    const newInv: InvitadoFrecuente = {
+      id: 'inv-' + Date.now(),
+      nombre: newInvNombre,
+      relacion: newInvRel,
+      diasPermitidos: newInvDias,
+      placas: newInvPlacas,
+      estatus: 'activo'
+    };
+    setInvitadosFrecuentes(prev => [newInv, ...prev]);
+    setNewInvNombre('');
+    setNewInvPlacas('');
+    showSuccessBanner('✓ Invitado frecuente registrado para acceso automático.');
+  };
+
+  const handleAddBitacoraEntry = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newBitDesc) return;
+    const newEntry: BitacoraGuardia = {
+      id: 'bit-' + Date.now(),
+      guardiaNombre: 'Oficial en Caseta',
+      tipo: newBitTipo,
+      descripcion: newBitDesc,
+      fechaHora: new Date().toISOString().replace('T', ' ').substring(0, 16)
+    };
+    setBitacoraGuardia(prev => [newEntry, ...prev]);
+    setNewBitDesc('');
+    showSuccessBanner('✓ Novedad asentada en la bitácora de caseta.');
+  };
+
+  const handleCheckInVisita = (id: string) => {
+    setVisitasPendientes(prev => prev.map(v => {
+      if (v.id === id) {
+        return { ...v, estatus: 'ingresado' };
+      }
+      return v;
+    }));
+    showSuccessBanner('✓ Ingreso de visitante confirmado en caseta.');
+  };
+
+  const handleAddVisitaManual = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newVisNombre || !newVisDestino) return;
+    const newVis: VisitaPendiente = {
+      id: 'vis-' + Date.now(),
+      visitanteNombre: newVisNombre,
+      condoDestino: newVisDestino,
+      tipoVisita: 'Invitado',
+      placas: newVisPlacas || 'S/P',
+      estatus: 'ingresado',
+      tieneRestriccionMoroso: newVisDestino.toLowerCase().includes('201') || newVisDestino.toLowerCase().includes('110')
+    };
+    setVisitasPendientes(prev => [newVis, ...prev]);
+    setNewVisNombre('');
+    setNewVisDestino('');
+    setNewVisPlacas('');
+    showSuccessBanner('✓ Visita imprevista capturada e ingresada.');
+  };
+
+  const handleTriggerPanicButton = () => {
+    const panicLog: BitacoraGuardia = {
+      id: 'panic-' + Date.now(),
+      guardiaNombre: 'Oficial en Caseta',
+      tipo: 'Incidencia',
+      descripcion: '🚨 BOTÓN DE PÁNICO ACTIVADO EN CASETA: Alerta enviada a central de emergencias, administración y comité.',
+      fechaHora: new Date().toISOString().replace('T', ' ').substring(0, 16)
+    };
+    setBitacoraGuardia(prev => [panicLog, ...prev]);
+    showSuccessBanner('🚨 ¡ALERTA DE PÁNICO TRANSMITIDA A URGENCIAS Y COMITÉ!');
+  };
+
   // --- ACTIONS & HANDLERS ---
   
   // Create simulated new payment
@@ -956,6 +1473,7 @@ export default function CondominiosDashboard({ currentUser, onSignOut, initialSu
   // Calculate totals
   const totalInvoiced = payments.reduce((acc, p) => acc + p.amount, 0);
   const totalPaid = payments.filter(p => p.status === 'pagado').reduce((acc, p) => acc + p.amount, 0);
+  const totalEgresos = egresos.reduce((acc, e) => acc + e.monto, 0);
   const totalPending = payments.filter(p => p.status === 'pendiente').reduce((acc, p) => acc + p.amount, 0);
   const totalDelinquency = payments.filter(p => p.status === 'vencido').reduce((acc, p) => acc + p.amount, 0);
   const delinquencyRate = (totalDelinquency / totalInvoiced) * 100;
@@ -963,49 +1481,334 @@ export default function CondominiosDashboard({ currentUser, onSignOut, initialSu
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-slate-100 flex flex-col w-full font-sans pb-16 md:pb-0">
       
-      {/* UNIFIED TOP HEADER BAR (NO SIDEBAR) */}
-      <header className="flex items-center justify-between px-6 py-4 bg-[#141417] border-b border-[#232326] select-none shrink-0 sticky top-0 z-40">
+      {/* TOP HEADER BAR WITH HAMBURGER MENU BUTTON */}
+      <header className="flex items-center justify-between px-4 sm:px-6 py-3.5 bg-[#141417] border-b border-[#232326] select-none shrink-0 sticky top-0 z-40">
         <div className="flex items-center gap-3">
-          <img 
-            src="https://cossma.com.mx/cnls.png" 
-            alt="CNLS Logo" 
-            className="h-8 w-auto object-contain"
-            referrerPolicy="no-referrer"
-          />
-          <div className="text-left">
-            <h1 className="text-xs font-black text-white tracking-widest font-sans">CNLS</h1>
-            <p className="text-[8px] text-purple-400 font-extrabold uppercase tracking-widest">Condominios</p>
+          {/* HAMBURGER MENU ICON BUTTON */}
+          <button
+            onClick={() => setIsNavOpen(!isNavOpen)}
+            className="p-2 bg-[#1E1E22] hover:bg-purple-600/20 text-slate-300 hover:text-white border border-[#2d2d32] hover:border-purple-500/40 rounded-xl transition cursor-pointer flex items-center justify-center gap-2 shadow-sm"
+            title="Abrir / Cerrar Menú de Navegación"
+            aria-label="Abrir Menú de Navegación"
+          >
+            {isNavOpen ? <X className="w-5 h-5 text-purple-400" /> : <Menu className="w-5 h-5 text-purple-400" />}
+            <span className="text-xs font-bold hidden sm:inline text-slate-200">Menú</span>
+          </button>
+
+          <div className="flex items-center gap-2.5">
+            <img 
+              src="https://cossma.com.mx/cnls.png" 
+              alt="CNLS Logo" 
+              className="h-8 w-auto object-contain"
+              referrerPolicy="no-referrer"
+            />
+            <div className="text-left hidden xs:block">
+              <h1 className="text-xs font-black text-white tracking-widest font-sans">CNLS</h1>
+              <p className="text-[8px] text-purple-400 font-extrabold uppercase tracking-widest">Condominios</p>
+            </div>
           </div>
         </div>
 
-        {/* ROLE SWITCH NAVIGATION */}
+        {/* ACTIVE ROLE BADGE & ACTIONS */}
         <div className="flex items-center gap-2">
-          {activeSubSection !== 'inicio' ? (
-            <button
-              onClick={() => setActiveSubSection('inicio')}
-              className="flex items-center gap-2 px-3.5 py-1.5 bg-[#1E1E22] hover:bg-purple-600/30 text-purple-300 hover:text-white border border-purple-500/30 rounded-xl text-xs font-bold transition cursor-pointer"
-            >
-              <Home className="w-4 h-4 text-purple-400" />
-              <span>← Cambiar de Rol</span>
-            </button>
-          ) : (
-            <span className="text-[11px] font-bold text-purple-400 bg-purple-500/10 px-3 py-1 rounded-xl border border-purple-500/20">
+          {activeSubSection === 'superadmin' && (
+            <span className="text-xs font-black text-red-400 bg-red-500/10 px-3 py-1.5 rounded-xl border border-red-500/30 flex items-center gap-1.5">
+              <Crown className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">1. Super Admin</span>
+            </span>
+          )}
+          {activeSubSection === 'admininmobiliaria' && (
+            <span className="text-xs font-black text-purple-400 bg-purple-500/10 px-3 py-1.5 rounded-xl border border-purple-500/30 flex items-center gap-1.5">
+              <Building2 className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">2. Admin Condominio</span>
+            </span>
+          )}
+          {activeSubSection === 'comite' && (
+            <span className="text-xs font-black text-amber-400 bg-amber-500/10 px-3 py-1.5 rounded-xl border border-amber-500/30 flex items-center gap-1.5">
+              <UserCheck className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">3. Comité</span>
+            </span>
+          )}
+          {activeSubSection === 'residente' && (
+            <span className="text-xs font-black text-blue-400 bg-blue-500/10 px-3 py-1.5 rounded-xl border border-blue-500/30 flex items-center gap-1.5">
+              <Smartphone className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">4. Residente</span>
+            </span>
+          )}
+          {activeSubSection === 'guardia' && (
+            <span className="text-xs font-black text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-xl border border-emerald-500/30 flex items-center gap-1.5">
+              <BadgeCheck className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">5. Guardia</span>
+            </span>
+          )}
+          {activeSubSection === 'inicio' && (
+            <span className="text-[11px] font-bold text-purple-400 bg-purple-500/10 px-3 py-1.5 rounded-xl border border-purple-500/20">
               Selección de Roles
             </span>
+          )}
+
+          {activeSubSection !== 'inicio' && (
+            <button
+              onClick={() => { setActiveSubSection('inicio'); setIsNavOpen(false); }}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1E1E22] hover:bg-purple-600/30 text-purple-300 hover:text-white border border-purple-500/30 rounded-xl text-xs font-bold transition cursor-pointer"
+              title="Cambiar de Rol"
+            >
+              <Home className="w-3.5 h-3.5 text-purple-400" />
+              <span className="hidden md:inline">Cambiar Rol</span>
+            </button>
           )}
 
           {onSignOut && (
             <button
               onClick={onSignOut}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-950/30 hover:bg-rose-900/50 text-rose-300 border border-rose-500/20 rounded-xl text-xs font-bold transition cursor-pointer ml-2"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-950/30 hover:bg-rose-900/50 text-rose-300 border border-rose-500/20 rounded-xl text-xs font-bold transition cursor-pointer ml-1"
               title="Cerrar Sesión"
             >
               <LogOut className="w-3.5 h-3.5 text-rose-400" />
-              <span className="hidden sm:inline">Cerrar Sesión</span>
+              <span className="hidden md:inline">Salir</span>
             </button>
           )}
         </div>
       </header>
+
+      {/* LATERAL DRAWER NAVIGATION OVERLAY */}
+      {isNavOpen && (
+        <div className="fixed inset-0 z-[9999] flex">
+          {/* Backdrop */}
+          <div 
+            onClick={() => setIsNavOpen(false)}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity"
+          />
+
+          {/* Drawer Body */}
+          <div className="relative w-80 max-w-[85vw] bg-[#141417] border-r border-[#2d2d32] h-full flex flex-col justify-between p-5 z-10 overflow-y-auto shadow-2xl animate-fade-in">
+            <div className="space-y-6">
+              {/* Drawer Header */}
+              <div className="flex items-center justify-between border-b border-[#2d2d32] pb-4">
+                <div className="flex items-center gap-2.5">
+                  <img 
+                    src="https://cossma.com.mx/cnls.png" 
+                    alt="CNLS Logo" 
+                    className="h-7 w-auto object-contain"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div>
+                    <h3 className="text-xs font-black text-white tracking-widest font-sans">CNLS</h3>
+                    <p className="text-[8px] text-purple-400 font-extrabold uppercase tracking-widest">Navegación de Sistema</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsNavOpen(false)}
+                  className="p-1.5 text-slate-400 hover:text-white bg-[#1E1E22] border border-[#2d2d32] rounded-lg transition cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* 1. SECCIÓN DE ROLES */}
+              <div className="space-y-2">
+                <span className="text-[10px] font-black uppercase tracking-wider text-purple-400 font-mono px-1">
+                  Menú de Roles
+                </span>
+
+                <div className="space-y-1.5">
+                  <button
+                    onClick={() => { setActiveSubSection('superadmin'); setIsNavOpen(false); }}
+                    className={`w-full text-left p-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center justify-between border ${
+                      activeSubSection === 'superadmin'
+                        ? 'bg-red-500/20 text-red-300 border-red-500/40 shadow-lg'
+                        : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252B] border-[#2d2d32]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Crown className="w-4 h-4 text-red-400 shrink-0" />
+                      <span>1. Super Admin (SaaS Owner)</span>
+                    </div>
+                    {activeSubSection === 'superadmin' && <span className="w-2 h-2 rounded-full bg-red-400 animate-ping" />}
+                  </button>
+
+                  <button
+                    onClick={() => { setActiveSubSection('admininmobiliaria'); setIsNavOpen(false); }}
+                    className={`w-full text-left p-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center justify-between border ${
+                      activeSubSection === 'admininmobiliaria'
+                        ? 'bg-purple-500/20 text-purple-300 border-purple-500/40 shadow-lg'
+                        : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252B] border-[#2d2d32]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Building2 className="w-4 h-4 text-purple-400 shrink-0" />
+                      <span>2. Admin Condominio</span>
+                    </div>
+                    {activeSubSection === 'admininmobiliaria' && <span className="w-2 h-2 rounded-full bg-purple-400 animate-ping" />}
+                  </button>
+
+                  <button
+                    onClick={() => { setActiveSubSection('comite'); setIsNavOpen(false); }}
+                    className={`w-full text-left p-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center justify-between border ${
+                      activeSubSection === 'comite'
+                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-lg'
+                        : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252B] border-[#2d2d32]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <UserCheck className="w-4 h-4 text-amber-400 shrink-0" />
+                      <span>3. Comité Vigilancia</span>
+                    </div>
+                    {activeSubSection === 'comite' && <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />}
+                  </button>
+
+                  <button
+                    onClick={() => { setActiveSubSection('residente'); setIsNavOpen(false); }}
+                    className={`w-full text-left p-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center justify-between border ${
+                      activeSubSection === 'residente'
+                        ? 'bg-blue-500/20 text-blue-300 border-blue-500/40 shadow-lg'
+                        : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252B] border-[#2d2d32]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Smartphone className="w-4 h-4 text-blue-400 shrink-0" />
+                      <span>4. Residente (PWA)</span>
+                    </div>
+                    {activeSubSection === 'residente' && <span className="w-2 h-2 rounded-full bg-blue-400 animate-ping" />}
+                  </button>
+
+                  <button
+                    onClick={() => { setActiveSubSection('guardia'); setIsNavOpen(false); }}
+                    className={`w-full text-left p-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center justify-between border ${
+                      activeSubSection === 'guardia'
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-lg'
+                        : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252B] border-[#2d2d32]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <BadgeCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span>5. Guardia / Conserje</span>
+                    </div>
+                    {activeSubSection === 'guardia' && <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />}
+                  </button>
+
+                  <button
+                    onClick={() => { setActiveSubSection('inicio'); setIsNavOpen(false); }}
+                    className={`w-full text-left p-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2.5 border ${
+                      activeSubSection === 'inicio'
+                        ? 'bg-slate-700/50 text-white border-slate-600'
+                        : 'bg-[#1E1E22] text-slate-400 hover:bg-[#25252B] border-[#2d2d32]'
+                    }`}
+                  >
+                    <Home className="w-4 h-4 text-slate-400 shrink-0" />
+                    <span>Panel de Inicio (General)</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 2. SUB-MÓDULOS DEL ROL ACTIVO */}
+              {activeSubSection === 'superadmin' && (
+                <div className="space-y-2 pt-3 border-t border-[#2d2d32]">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-red-400 font-mono px-1">
+                    Módulos SuperAdmin
+                  </span>
+
+                  <div className="space-y-1.5">
+                    <button
+                      onClick={() => { setSuperAdminTab('clientes'); setIsNavOpen(false); }}
+                      className={`w-full text-left p-2.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-2.5 border ${
+                        superAdminTab === 'clientes'
+                          ? 'bg-purple-600 text-white border-purple-500 shadow-md'
+                          : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252B] border-[#2d2d32]'
+                      }`}
+                    >
+                      <Building className="w-4 h-4 text-purple-300 shrink-0" />
+                      <span>1. Gestión de Clientes</span>
+                    </button>
+
+                    <button
+                      onClick={() => { setSuperAdminTab('finanzas'); setIsNavOpen(false); }}
+                      className={`w-full text-left p-2.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-2.5 border ${
+                        superAdminTab === 'finanzas'
+                          ? 'bg-purple-600 text-white border-purple-500 shadow-md'
+                          : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252B] border-[#2d2d32]'
+                      }`}
+                    >
+                      <DollarSign className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span>2. Finanzas Globales</span>
+                    </button>
+
+                    <button
+                      onClick={() => { setSuperAdminTab('soporte'); setIsNavOpen(false); }}
+                      className={`w-full text-left p-2.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-2.5 border ${
+                        superAdminTab === 'soporte'
+                          ? 'bg-purple-600 text-white border-purple-500 shadow-md'
+                          : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252B] border-[#2d2d32]'
+                      }`}
+                    >
+                      <MessageSquare className="w-4 h-4 text-blue-400 shrink-0" />
+                      <span>3. Soporte & Auditoría</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {activeSubSection === 'admininmobiliaria' && (
+                <div className="space-y-2 pt-3 border-t border-[#2d2d32]">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-purple-400 font-mono px-1">
+                    Módulos Admin Condominio
+                  </span>
+
+                  <div className="space-y-1.5">
+                    <button
+                      onClick={() => { setAdminCondoTab('finanzas'); setIsNavOpen(false); }}
+                      className={`w-full text-left p-2.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-2.5 border ${
+                        adminCondoTab === 'finanzas'
+                          ? 'bg-purple-600 text-white border-purple-500 shadow-md'
+                          : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252B] border-[#2d2d32]'
+                      }`}
+                    >
+                      <DollarSign className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span>1. Finanzas & Cobros</span>
+                    </button>
+
+                    <button
+                      onClick={() => { setAdminCondoTab('facturacion'); setIsNavOpen(false); }}
+                      className={`w-full text-left p-2.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-2.5 border ${
+                        adminCondoTab === 'facturacion'
+                          ? 'bg-purple-600 text-white border-purple-500 shadow-md'
+                          : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252B] border-[#2d2d32]'
+                      }`}
+                    >
+                      <FileText className="w-4 h-4 text-blue-400 shrink-0" />
+                      <span>2. Facturación CFDI 4.0</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="pt-4 border-t border-[#2d2d32] space-y-3">
+              <div className="p-3 bg-[#111114] border border-[#232326] rounded-xl text-[10px] space-y-1 text-slate-400 font-mono">
+                <div className="flex justify-between">
+                  <span>Estado SaaS:</span>
+                  <span className="text-emerald-400 font-bold">100% Online</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Versión:</span>
+                  <span className="text-white font-bold">v2.4.0 SaaS</span>
+                </div>
+              </div>
+
+              {onSignOut && (
+                <button
+                  onClick={onSignOut}
+                  className="w-full py-2 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-500/30 rounded-xl text-xs font-bold transition cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <LogOut className="w-4 h-4 text-rose-400" />
+                  <span>Cerrar Sesión</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content View Container */}
       <div className="flex-1 flex flex-col min-h-screen overflow-x-hidden bg-[#0A0A0A]">
@@ -1126,96 +1929,10 @@ export default function CondominiosDashboard({ currentUser, onSignOut, initialSu
                 </button>
               </div>
 
-              {/* Main Cabinet: Left Navigation Sidebar + Right Module Content */}
-              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+              {/* Main Cabinet Workspace (Full Width) */}
+              <div className="space-y-6">
 
-                {/* BARRA DE NAVEGACIÓN LATERAL IZQUIERDA */}
-                <div id="superadmin-sidebar-nav" className="lg:col-span-1 bg-[#141417] border border-[#232326] rounded-2xl p-3 space-y-2 sticky top-20 shadow-xl">
-                  <div className="px-3 py-2 border-b border-[#2d2d32] mb-1">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 font-mono">Módulos SuperAdmin</span>
-                  </div>
-
-                  {/* 1. Gestión de Clientes */}
-                  <button
-                    onClick={() => setSuperAdminTab('clientes')}
-                    className={`w-full text-left p-3 rounded-xl font-bold text-xs transition cursor-pointer flex items-center gap-3 ${
-                      superAdminTab === 'clientes'
-                        ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/25'
-                        : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252A] hover:text-white border border-[#2d2d32]'
-                    }`}
-                  >
-                    <div className={`p-2 rounded-lg shrink-0 ${superAdminTab === 'clientes' ? 'bg-white/20' : 'bg-purple-500/10 text-purple-400'}`}>
-                      <Building className="w-4 h-4" />
-                    </div>
-                    <div className="flex flex-col min-w-0">
-                      <span className="font-extrabold text-xs truncate">1. Gestión de Clientes</span>
-                      <span className={`text-[10px] font-normal truncate ${superAdminTab === 'clientes' ? 'text-purple-100' : 'text-slate-400'}`}>
-                        Condominios, Planes & Límites
-                      </span>
-                    </div>
-                  </button>
-
-                  {/* 2. Finanzas Globales & Métricas */}
-                  <button
-                    onClick={() => setSuperAdminTab('finanzas')}
-                    className={`w-full text-left p-3 rounded-xl font-bold text-xs transition cursor-pointer flex items-center gap-3 ${
-                      superAdminTab === 'finanzas'
-                        ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/25'
-                        : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252A] hover:text-white border border-[#2d2d32]'
-                    }`}
-                  >
-                    <div className={`p-2 rounded-lg shrink-0 ${superAdminTab === 'finanzas' ? 'bg-white/20' : 'bg-emerald-500/10 text-emerald-400'}`}>
-                      <DollarSign className="w-4 h-4" />
-                    </div>
-                    <div className="flex flex-col min-w-0">
-                      <span className="font-extrabold text-xs truncate">2. Finanzas Globales</span>
-                      <span className={`text-[10px] font-normal truncate ${superAdminTab === 'finanzas' ? 'text-purple-100' : 'text-slate-400'}`}>
-                        MRR, Churn & Pasarela Cobro
-                      </span>
-                    </div>
-                  </button>
-
-                  {/* 3. Soporte y Logs de Auditoría */}
-                  <button
-                    onClick={() => setSuperAdminTab('soporte')}
-                    className={`w-full text-left p-3 rounded-xl font-bold text-xs transition cursor-pointer flex items-center gap-3 ${
-                      superAdminTab === 'soporte'
-                        ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/25'
-                        : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252A] hover:text-white border border-[#2d2d32]'
-                    }`}
-                  >
-                    <div className={`p-2 rounded-lg shrink-0 ${superAdminTab === 'soporte' ? 'bg-white/20' : 'bg-blue-500/10 text-blue-400'}`}>
-                      <MessageSquare className="w-4 h-4" />
-                    </div>
-                    <div className="flex flex-col min-w-0">
-                      <span className="font-extrabold text-xs truncate">3. Soporte & Auditoría</span>
-                      <span className={`text-[10px] font-normal truncate ${superAdminTab === 'soporte' ? 'text-purple-100' : 'text-slate-400'}`}>
-                        Tickets & Logs del Sistema
-                      </span>
-                    </div>
-                  </button>
-
-                  {/* Quick System Status Summary in Sidebar */}
-                  <div className="mt-4 p-3 bg-[#111114] border border-[#232326] rounded-xl text-[10.5px] space-y-1.5 text-slate-400 font-mono">
-                    <div className="flex items-center justify-between">
-                      <span>Plataforma SaaS:</span>
-                      <span className="text-emerald-400 font-bold">100% Online</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Base de Clientes:</span>
-                      <span className="text-white font-bold">{clientes.length} Condominios</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Cobro Recurrente:</span>
-                      <span className="text-purple-300 font-bold">Activo (Diario)</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* RIGHT CONTENT WORKSPACE */}
-                <div className="lg:col-span-3 space-y-6">
-
-                  {/* MÓDULO 1: GESTIÓN DE CLIENTES (CONDOMINIOS / INMOBILIARIAS) */}
+                {/* MÓDULO 1: GESTIÓN DE CLIENTES (CONDOMINIOS / INMOBILIARIAS) */}
                   {superAdminTab === 'clientes' && (
                     <div className="space-y-6 animate-fade-in">
                       {/* Section Header */}
@@ -1939,7 +2656,6 @@ export default function CondominiosDashboard({ currentUser, onSignOut, initialSu
                   )}
 
                 </div>
-              </div>
             </div>
           )}
 
@@ -1965,30 +2681,362 @@ export default function CondominiosDashboard({ currentUser, onSignOut, initialSu
             </div>
 
             {/* Sub-tabs inside Admin Condominio */}
-            <div className="flex gap-2 border-b border-[#2d2d32] pb-3">
+            <div className="flex flex-wrap gap-2 border-b border-[#2d2d32] pb-3">
+              <button
+                onClick={() => setAdminCondoTab('comunidad')}
+                className={`px-3.5 py-2 text-xs font-bold rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
+                  adminCondoTab === 'comunidad'
+                    ? 'bg-purple-600 text-white shadow-lg'
+                    : 'bg-[#1E1E22] text-slate-400 hover:text-white border border-[#2d2d32]'
+                }`}
+              >
+                <Building className="w-3.5 h-3.5" />
+                <span>1. Comunidad & Propiedades</span>
+              </button>
               <button
                 onClick={() => setAdminCondoTab('finanzas')}
-                className={`px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer flex items-center gap-2 ${
+                className={`px-3.5 py-2 text-xs font-bold rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
                   adminCondoTab === 'finanzas'
                     ? 'bg-purple-600 text-white shadow-lg'
                     : 'bg-[#1E1E22] text-slate-400 hover:text-white border border-[#2d2d32]'
                 }`}
               >
-                <DollarSign className="w-4 h-4" />
-                <span>1. Finanzas, Cobros y Morosidad</span>
+                <DollarSign className="w-3.5 h-3.5" />
+                <span>2. Finanzas & Cobranza</span>
               </button>
               <button
                 onClick={() => setAdminCondoTab('facturacion')}
-                className={`px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer flex items-center gap-2 ${
+                className={`px-3.5 py-2 text-xs font-bold rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
                   adminCondoTab === 'facturacion'
                     ? 'bg-purple-600 text-white shadow-lg'
                     : 'bg-[#1E1E22] text-slate-400 hover:text-white border border-[#2d2d32]'
                 }`}
               >
-                <FileText className="w-4 h-4" />
-                <span>2. Facturación CFDI 4.0</span>
+                <FileText className="w-3.5 h-3.5" />
+                <span>3. Facturación CFDI 4.0</span>
+              </button>
+              <button
+                onClick={() => setAdminCondoTab('operacion')}
+                className={`px-3.5 py-2 text-xs font-bold rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
+                  adminCondoTab === 'operacion'
+                    ? 'bg-purple-600 text-white shadow-lg'
+                    : 'bg-[#1E1E22] text-slate-400 hover:text-white border border-[#2d2d32]'
+                }`}
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                <span>4. Operación & Amenidades</span>
+              </button>
+              <button
+                onClick={() => setAdminCondoTab('comunicacion')}
+                className={`px-3.5 py-2 text-xs font-bold rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
+                  adminCondoTab === 'comunicacion'
+                    ? 'bg-purple-600 text-white shadow-lg'
+                    : 'bg-[#1E1E22] text-slate-400 hover:text-white border border-[#2d2d32]'
+                }`}
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>5. Comunicación & Votaciones</span>
               </button>
             </div>
+
+            {/* TAB 1: COMUNIDAD Y PROPIEDADES INSIDE ADMIN CONDOMINIO */}
+            {adminCondoTab === 'comunidad' && (
+              <div className="space-y-6 animate-fade-in text-left">
+                {/* 1. Estructura Inmobiliaria */}
+                <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-5 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#2d2d32] pb-3">
+                    <div>
+                      <h4 className="text-sm font-black text-white flex items-center gap-2">
+                        <Building2 className="w-4 h-4 text-purple-400" />
+                        1. Estructura Inmobiliaria (Torres, Manzanas, Lotes, Departamentos)
+                      </h4>
+                      <p className="text-xs text-slate-400 mt-0.5">Define y gestiona la distribución física del condominio o fraccionamiento.</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <form onSubmit={handleAddEstructura} className="bg-[#141417] border border-[#232326] p-4 rounded-xl space-y-3 font-sans text-xs">
+                      <h5 className="font-bold text-white text-xs border-b border-[#232326] pb-2">+ Alta de Estructura</h5>
+                      <div>
+                        <label className="block text-[8px] font-extrabold text-slate-400 uppercase tracking-widest mb-1">Tipo de Estructura</label>
+                        <select
+                          value={newEstTipo}
+                          onChange={(e) => setNewEstTipo(e.target.value as any)}
+                          className="w-full px-2.5 py-1.5 bg-[#1E1E22] border border-[#2d2d32] rounded-xl text-white"
+                        >
+                          <option value="Torre">Torre de Departamentos</option>
+                          <option value="Manzana">Manzana</option>
+                          <option value="Lote">Lote / Privada</option>
+                          <option value="Cluster">Cluster Residencial</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[8px] font-extrabold text-slate-400 uppercase tracking-widest mb-1">Nombre / Identificador</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="Ej. Torre C - Lomas"
+                          value={newEstNombre}
+                          onChange={(e) => setNewEstNombre(e.target.value)}
+                          className="w-full px-2.5 py-1.5 bg-[#1E1E22] border border-[#2d2d32] rounded-xl text-white placeholder:text-slate-600"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[8px] font-extrabold text-slate-400 uppercase tracking-widest mb-1">Cant. Unidades</label>
+                          <input
+                            type="number"
+                            required
+                            value={newEstCount}
+                            onChange={(e) => setNewEstCount(e.target.value)}
+                            className="w-full px-2.5 py-1.5 bg-[#1E1E22] border border-[#2d2d32] rounded-xl text-white font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[8px] font-extrabold text-slate-400 uppercase tracking-widest mb-1">Rango / Detalle</label>
+                          <input
+                            type="text"
+                            placeholder="Deptos 101-404"
+                            value={newEstDetalle}
+                            onChange={(e) => setNewEstDetalle(e.target.value)}
+                            className="w-full px-2.5 py-1.5 bg-[#1E1E22] border border-[#2d2d32] rounded-xl text-white"
+                          />
+                        </div>
+                      </div>
+
+                      <button
+                        type="submit"
+                        className="w-full py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Registrar Estructura
+                      </button>
+                    </form>
+
+                    <div className="lg:col-span-2 space-y-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {estructuras.map(e => (
+                          <div key={e.id} className="p-3.5 bg-[#141417] border border-[#232326] rounded-xl space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[9px] font-mono font-bold bg-purple-500/15 text-purple-300 px-2 py-0.5 rounded-md uppercase">{e.tipo}</span>
+                              <span className="text-[9px] text-emerald-400 font-mono font-bold">✓ Activo</span>
+                            </div>
+                            <h5 className="text-xs font-black text-white">{e.nombre}</h5>
+                            <p className="text-[10px] text-slate-400 font-mono">Capacidad: <strong>{e.unidadesCount} Unidades</strong> ({e.unidadesDetalle})</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Catálogo de Residentes */}
+                <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-5 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#2d2d32] pb-3">
+                    <div>
+                      <h4 className="text-sm font-black text-white flex items-center gap-2">
+                        <Users className="w-4 h-4 text-purple-400" />
+                        2. Catálogo de Residentes (Propietarios e Inquilinos)
+                      </h4>
+                      <p className="text-xs text-slate-400 mt-0.5">Vincule condóminos a sus unidades asignadas y controle su estado de acceso.</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <form onSubmit={handleAddResidentCat} className="bg-[#141417] border border-[#232326] p-4 rounded-xl space-y-3 font-sans text-xs">
+                      <h5 className="font-bold text-white text-xs border-b border-[#232326] pb-2">+ Vincular Residente</h5>
+                      <div>
+                        <label className="block text-[8px] font-extrabold text-slate-400 uppercase tracking-widest mb-1">Nombre Completo</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="Ej. Dra. Patricia Alarcón"
+                          value={newResNombre}
+                          onChange={(e) => setNewResNombre(e.target.value)}
+                          className="w-full px-2.5 py-1.5 bg-[#1E1E22] border border-[#2d2d32] rounded-xl text-white placeholder:text-slate-600"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[8px] font-extrabold text-slate-400 uppercase tracking-widest mb-1">Unidad / Depto</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="Torre B - 302"
+                            value={newResUnidad}
+                            onChange={(e) => setNewResUnidad(e.target.value)}
+                            className="w-full px-2.5 py-1.5 bg-[#1E1E22] border border-[#2d2d32] rounded-xl text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[8px] font-extrabold text-slate-400 uppercase tracking-widest mb-1">Tipo Residente</label>
+                          <select
+                            value={newResTipo}
+                            onChange={(e) => setNewResTipo(e.target.value as any)}
+                            className="w-full px-2.5 py-1.5 bg-[#1E1E22] border border-[#2d2d32] rounded-xl text-white"
+                          >
+                            <option value="propietario">Propietario</option>
+                            <option value="inquilino">Inquilino</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[8px] font-extrabold text-slate-400 uppercase tracking-widest mb-1">Correo Electrónico</label>
+                        <input
+                          type="email"
+                          placeholder="residente@mail.com"
+                          value={newResCorreo}
+                          onChange={(e) => setNewResCorreo(e.target.value)}
+                          className="w-full px-2.5 py-1.5 bg-[#1E1E22] border border-[#2d2d32] rounded-xl text-white"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[8px] font-extrabold text-slate-400 uppercase tracking-widest mb-1">Teléfono Móvil</label>
+                        <input
+                          type="text"
+                          placeholder="+52 5500000000"
+                          value={newResTel}
+                          onChange={(e) => setNewResTel(e.target.value)}
+                          className="w-full px-2.5 py-1.5 bg-[#1E1E22] border border-[#2d2d32] rounded-xl text-white font-mono"
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        className="w-full py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <UserCheck className="w-3.5 h-3.5" /> Vincular Residente
+                      </button>
+                    </form>
+
+                    <div className="lg:col-span-2 overflow-x-auto">
+                      <table className="w-full text-left text-xs font-sans">
+                        <thead className="bg-[#141417] text-slate-400 uppercase text-[9px] tracking-wider border-b border-[#2d2d32]">
+                          <tr>
+                            <th className="p-3">Residente</th>
+                            <th className="p-3">Unidad Asignada</th>
+                            <th className="p-3">Tipo</th>
+                            <th className="p-3">Contacto</th>
+                            <th className="p-3">Estatus Mantenimiento</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#2d2d32]/50 text-slate-300">
+                          {residentesCat.map(r => (
+                            <tr key={r.id} className="hover:bg-[#141417]/50">
+                              <td className="p-3 font-bold text-white">{r.nombre}</td>
+                              <td className="p-3 font-mono text-purple-300">{r.unidad}</td>
+                              <td className="p-3 uppercase text-[10px] font-semibold text-slate-400">{r.tipoResidente}</td>
+                              <td className="p-3 font-mono text-[10px] text-slate-400">{r.telefono}</td>
+                              <td className="p-3">
+                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold font-mono uppercase ${
+                                  r.status === 'activo' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                                }`}>
+                                  {r.status === 'activo' ? '✓ Al día' : '⚠ Moroso'}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Gestión de Personal Interno */}
+                <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-5 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#2d2d32] pb-3">
+                    <div>
+                      <h4 className="text-sm font-black text-white flex items-center gap-2">
+                        <ShieldCheck className="w-4 h-4 text-purple-400" />
+                        3. Personal Interno (Guardias, Mantenimiento, Limpieza, Conserje)
+                      </h4>
+                      <p className="text-xs text-slate-400 mt-0.5">Control de perfiles operativos, turnos de caseta y servicios comunitarios.</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <form onSubmit={handleAddPersonal} className="bg-[#141417] border border-[#232326] p-4 rounded-xl space-y-3 font-sans text-xs">
+                      <h5 className="font-bold text-white text-xs border-b border-[#232326] pb-2">+ Alta de Perfil Operativo</h5>
+                      <div>
+                        <label className="block text-[8px] font-extrabold text-slate-400 uppercase tracking-widest mb-1">Nombre Completo</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="Ej. Carlos Martínez"
+                          value={newPerNombre}
+                          onChange={(e) => setNewPerNombre(e.target.value)}
+                          className="w-full px-2.5 py-1.5 bg-[#1E1E22] border border-[#2d2d32] rounded-xl text-white"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[8px] font-extrabold text-slate-400 uppercase tracking-widest mb-1">Rol Operativo</label>
+                          <select
+                            value={newPerRol}
+                            onChange={(e) => setNewPerRol(e.target.value as any)}
+                            className="w-full px-2.5 py-1.5 bg-[#1E1E22] border border-[#2d2d32] rounded-xl text-white"
+                          >
+                            <option value="Guardia">Guardia de Caseta</option>
+                            <option value="Mantenimiento">Técnico Mantenimiento</option>
+                            <option value="Limpieza">Personal de Limpieza</option>
+                            <option value="Conserje">Conserje / Jardinero</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[8px] font-extrabold text-slate-400 uppercase tracking-widest mb-1">Turno Asignado</label>
+                          <select
+                            value={newPerTurno}
+                            onChange={(e) => setNewPerTurno(e.target.value as any)}
+                            className="w-full px-2.5 py-1.5 bg-[#1E1E22] border border-[#2d2d32] rounded-xl text-white"
+                          >
+                            <option value="Matutino">Matutino (7am - 3pm)</option>
+                            <option value="Vespertino">Vespertino (3pm - 11pm)</option>
+                            <option value="Nocturno">Nocturno (11pm - 7am)</option>
+                            <option value="24x24">24x24 Horas</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[8px] font-extrabold text-slate-400 uppercase tracking-widest mb-1">Teléfono Móvil</label>
+                        <input
+                          type="text"
+                          placeholder="+52 5500000000"
+                          value={newPerTel}
+                          onChange={(e) => setNewPerTel(e.target.value)}
+                          className="w-full px-2.5 py-1.5 bg-[#1E1E22] border border-[#2d2d32] rounded-xl text-white font-mono"
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        className="w-full py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Registrar Personal
+                      </button>
+                    </form>
+
+                    <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {personalInterno.map(p => (
+                        <div key={p.id} className="p-3.5 bg-[#141417] border border-[#232326] rounded-xl space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[9px] font-mono font-bold bg-blue-500/15 text-blue-300 px-2 py-0.5 rounded-md uppercase">{p.rol}</span>
+                            <span className="text-[9px] text-emerald-400 font-mono font-bold">✓ Activo</span>
+                          </div>
+                          <h5 className="text-xs font-black text-white">{p.nombre}</h5>
+                          <p className="text-[10px] text-slate-400 font-mono">Turno: <strong>{p.turno}</strong> | Tel: {p.telefono}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {adminCondoTab === 'finanzas' && (
               <div className="space-y-6">
@@ -2752,6 +3800,192 @@ export default function CondominiosDashboard({ currentUser, onSignOut, initialSu
               </div>
             </div>
           )}
+
+          {/* TAB 4: OPERACIÓN Y AMENIDADES INSIDE ADMIN CONDOMINIO */}
+          {adminCondoTab === 'operacion' && (
+            <div className="space-y-6 animate-fade-in text-left">
+              <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-5 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#2d2d32] pb-3">
+                  <div>
+                    <h4 className="text-sm font-black text-white flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-purple-400" />
+                      Gestión de Amenidades, Salones y Áreas Comunes
+                    </h4>
+                    <p className="text-xs text-slate-400 mt-0.5">Control de reglamentos, cuotas de apartado y disponibilidad de espacios.</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="p-4 bg-[#141417] border border-[#232326] rounded-xl space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-white">Salón de Eventos</span>
+                      <span className="text-[9px] font-mono bg-emerald-500/15 text-emerald-400 px-2 py-0.5 rounded-full font-bold">Cuota: $1,500</span>
+                    </div>
+                    <p className="text-[10px] text-slate-400">Capacidad max: 80 personas. Horario: 09:00 - 23:00</p>
+                    <div className="text-[9.5px] text-purple-300 font-mono">2 reservas agendadas este mes</div>
+                  </div>
+
+                  <div className="p-4 bg-[#141417] border border-[#232326] rounded-xl space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-white">Alberca & Terraza</span>
+                      <span className="text-[9px] font-mono bg-emerald-500/15 text-emerald-400 px-2 py-0.5 rounded-full font-bold">Cuota: $500</span>
+                    </div>
+                    <p className="text-[10px] text-slate-400">Capacidad max: 30 personas. Mantto: Lunes matutino</p>
+                    <div className="text-[9.5px] text-purple-300 font-mono">Disponible para condóminos al día</div>
+                  </div>
+
+                  <div className="p-4 bg-[#141417] border border-[#232326] rounded-xl space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-white">Cancha de Tenis</span>
+                      <span className="text-[9px] font-mono bg-blue-500/15 text-blue-400 px-2 py-0.5 rounded-full font-bold">Gratuito</span>
+                    </div>
+                    <p className="text-[10px] text-slate-400">Reserva en bloques de 2 hrs. Iluminación nocturna.</p>
+                    <div className="text-[9.5px] text-purple-300 font-mono">Sin cuota de limpieza</div>
+                  </div>
+
+                  <div className="p-4 bg-[#141417] border border-[#232326] rounded-xl space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-white">Asadores Jardín</span>
+                      <span className="text-[9px] font-mono bg-blue-500/15 text-blue-400 px-2 py-0.5 rounded-full font-bold">Gratuito</span>
+                    </div>
+                    <p className="text-[10px] text-slate-400">Parrillas de carbón y pérgolas con sombra.</p>
+                    <div className="text-[9.5px] text-purple-300 font-mono">4 módulos independientes</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Solicitudes de Mantenimiento / Órdenes de Trabajo */}
+              <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-5 space-y-4">
+                <div className="flex items-center justify-between border-b border-[#2d2d32] pb-3">
+                  <div>
+                    <h4 className="text-sm font-black text-white flex items-center gap-2">
+                      <Wrench className="w-4 h-4 text-purple-400" />
+                      Órdenes de Trabajo & Mantenimiento Correctivo
+                    </h4>
+                    <p className="text-xs text-slate-400 mt-0.5">Atención e historial de tickets reportados por los residentes.</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="p-3.5 bg-[#141417] border border-[#232326] rounded-xl space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-mono font-bold bg-amber-500/15 text-amber-400 px-2 py-0.5 rounded-md">#OT-402</span>
+                      <span className="text-[9px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-md font-bold">En Proceso</span>
+                    </div>
+                    <h5 className="text-xs font-bold text-white">Falla en luminaria de estacionamiento subterráneo B2</h5>
+                    <p className="text-[10px] text-slate-400">Reportado por: Residente Casa 102 | Asignado a: Mantenimiento Interno</p>
+                  </div>
+
+                  <div className="p-3.5 bg-[#141417] border border-[#232326] rounded-xl space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-mono font-bold bg-emerald-500/15 text-emerald-400 px-2 py-0.5 rounded-md">#OT-401</span>
+                      <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-md font-bold">Completado ✓</span>
+                    </div>
+                    <h5 className="text-xs font-bold text-white">Ajuste de sensor en portón vehicular de acceso principal</h5>
+                    <p className="text-[10px] text-slate-400">Reportado por: Caseta Guardia | Atendido por: Proveedor Automatismos</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 5: COMUNICACIÓN Y VOTACIONES INSIDE ADMIN CONDOMINIO */}
+          {adminCondoTab === 'comunicacion' && (
+            <div className="space-y-6 animate-fade-in text-left">
+              {/* Comunicados Oficiales */}
+              <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-5 space-y-4">
+                <div className="border-b border-[#2d2d32] pb-3">
+                  <h4 className="text-sm font-black text-white flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4 text-purple-400" />
+                    Publicación de Avisos & Comunicados Comunitarios
+                  </h4>
+                  <p className="text-xs text-slate-400 mt-0.5">Difunde notificaciones directas al pizarrón digital de los residentes.</p>
+                </div>
+
+                <form onSubmit={handleAddBulletin} className="space-y-3 font-sans text-xs">
+                  <div>
+                    <label className="block text-[8px] font-extrabold text-slate-400 uppercase tracking-widest mb-1">Título del Aviso</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ej. Cierre Temporal de Alberca por Mantenimiento Muestral"
+                      value={newBulletinTitle}
+                      onChange={(e) => setNewBulletinTitle(e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-[#141417] border border-[#232326] rounded-xl text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[8px] font-extrabold text-slate-400 uppercase tracking-widest mb-1">Contenido del Comunicado</label>
+                    <textarea
+                      required
+                      placeholder="Escriba los detalles formales del aviso para la comunidad..."
+                      value={newBulletinContent}
+                      onChange={(e) => setNewBulletinContent(e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-[#141417] border border-[#232326] rounded-xl text-white min-h-[60px]"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="py-2 px-4 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-xl transition cursor-pointer flex items-center gap-1.5"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Publicar Comunicado
+                  </button>
+                </form>
+
+                <div className="space-y-2 pt-2">
+                  {bulletins.map(b => (
+                    <div key={b.id} className="p-3 bg-[#141417] border border-[#232326] rounded-xl space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-white text-xs">{b.title}</span>
+                        <span className="text-[9px] font-mono text-purple-400">{b.date}</span>
+                      </div>
+                      <p className="text-[10px] text-slate-400 leading-relaxed">{b.content}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Encuestas y Votaciones de la Asamblea */}
+              <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-5 space-y-4">
+                <div className="border-b border-[#2d2d32] pb-3">
+                  <h4 className="text-sm font-black text-white flex items-center gap-2">
+                    <Vote className="w-4 h-4 text-purple-400" />
+                    Encuestas & Votaciones de Asamblea Virtual
+                  </h4>
+                  <p className="text-xs text-slate-400 mt-0.5">Somete a votación formal proyectos y acuerdos de mantenimiento con los propietarios.</p>
+                </div>
+
+                <div className="space-y-3">
+                  {encuestas.map(enc => (
+                    <div key={enc.id} className="p-4 bg-[#141417] border border-[#232326] rounded-xl space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h5 className="font-bold text-white text-xs">{enc.titulo}</h5>
+                        <span className="text-[9px] font-mono bg-emerald-500/15 text-emerald-400 px-2 py-0.5 rounded-md font-bold">Activa hasta {enc.fechaCierre}</span>
+                      </div>
+                      <p className="text-[10px] text-slate-400">{enc.descripcion}</p>
+
+                      <div className="grid grid-cols-2 gap-3 pt-1">
+                        <button
+                          onClick={() => handleVoteEncuesta(enc.id, 0)}
+                          className="py-2 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/30 font-bold text-xs rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5"
+                        >
+                          {enc.opciones[0]?.texto || 'A Favor'} ({enc.opciones[0]?.votos || 0})
+                        </button>
+                        <button
+                          onClick={() => handleVoteEncuesta(enc.id, 1)}
+                          className="py-2 bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/30 font-bold text-xs rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5"
+                        >
+                          {enc.opciones[1]?.texto || 'En Contra'} ({enc.opciones[1]?.votos || 0})
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -3250,7 +4484,7 @@ export default function CondominiosDashboard({ currentUser, onSignOut, initialSu
               </div>
               <div>
                 <h3 className="text-sm font-black text-white">Rol Activo: 3. Comité de Vigilancia (Mesa Directiva)</h3>
-                <p className="text-xs text-amber-300 font-mono">Auditoría Financiera, Minutas, Supervisión de Balances & Checklist de Activación</p>
+                <p className="text-xs text-amber-300 font-mono">Supervisión, Auditoría Financiera de Solo Lectura, Aprobaciones & Actas de Asamblea</p>
               </div>
             </div>
             <button 
@@ -3260,164 +4494,215 @@ export default function CondominiosDashboard({ currentUser, onSignOut, initialSu
               Cambiar Rol ←
             </button>
           </div>
-            <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-5 space-y-3">
-              <div className="flex items-center gap-2 text-purple-400">
-                <Settings className="w-5 h-5" />
-                <h3 className="text-base font-black text-white">Consola de Activación de Rol & Módulos</h3>
-              </div>
-              <p className="text-xs text-slate-450 leading-relaxed">
-                Este panel resume de forma interactiva todas las funciones y componentes que se han integrado de forma exitosa en el rol de <strong>Administración de Condominios</strong> de su fraccionamiento, garantizando el cumplimiento completo de su solicitud técnica.
-              </p>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              
-              {/* CHECKLISTS GRAPHIC BOX 1 */}
-              <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-5 space-y-4">
-                <h4 className="text-xs font-black text-white uppercase border-b border-slate-850 pb-2 flex items-center justify-between">
-                  <span>Módulos de Negocio & Seguridad</span>
-                  <span className="text-[9px] bg-emerald-500/15 text-emerald-400 font-mono font-bold px-2 py-0.5 rounded-full">100% ACTIVO</span>
-                </h4>
-
-                <div className="space-y-3 text-xs font-sans">
-                  
-                  {/* ITEM 1 */}
-                  <div className="flex items-start gap-3 bg-slate-950/40 p-2.5 rounded-xl border border-slate-900">
-                    <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0 mt-0.5 font-bold">✓</div>
-                    <div>
-                      <strong className="text-slate-100">Control de Pagos</strong>
-                      <p className="text-[10px] text-slate-400 mt-0.5">Seguimiento, registro, visualización y conciliación automática de cuotas condominales.</p>
-                    </div>
-                  </div>
-
-                  {/* ITEM 2 */}
-                  <div className="flex items-start gap-3 bg-slate-950/40 p-2.5 rounded-xl border border-slate-900">
-                    <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0 mt-0.5 font-bold">✓</div>
-                    <div>
-                      <strong className="text-slate-100">Pasarela de Pagos Integrada</strong>
-                      <p className="text-[10px] text-slate-400 mt-0.5">Recibo de pagos con tarjeta de crédito/débito, transferencia SPEI y billeteras inteligentes (Apple/Google Pay).</p>
-                    </div>
-                  </div>
-
-                  {/* ITEM 3 */}
-                  <div className="flex items-start gap-3 bg-slate-950/40 p-2.5 rounded-xl border border-slate-900">
-                    <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0 mt-0.5 font-bold">✓</div>
-                    <div>
-                      <strong className="text-slate-100">Estados de Cuenta Comunales</strong>
-                      <p className="text-[10px] text-slate-400 mt-0.5">Panel personalizado de consulta histórica de pagos, cargos pendientes y descarga de comprobantes.</p>
-                    </div>
-                  </div>
-
-                  {/* ITEM 4 */}
-                  <div className="flex items-start gap-3 bg-slate-950/40 p-2.5 rounded-xl border border-slate-900">
-                    <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0 mt-0.5 font-bold">✓</div>
-                    <div>
-                      <strong className="text-slate-100">Reportes Financieros Interactivos</strong>
-                      <p className="text-[10px] text-slate-400 mt-0.5">Indicador en tiempo real de ingresos totales, saldos vencidos y tasa de morosidad general.</p>
-                    </div>
-                  </div>
-
-                  {/* ITEM 5 */}
-                  <div className="flex items-start gap-3 bg-slate-950/40 p-2.5 rounded-xl border border-slate-900">
-                    <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0 mt-0.5 font-bold">✓</div>
-                    <div>
-                      <strong className="text-slate-100">Alta y Baja de Condominios (Clientes)</strong>
-                      <p className="text-[10px] text-slate-400 mt-0.5">Módulo para registrar y dar de baja o suspender administraciones o condominios contratantes de forma ágil.</p>
-                    </div>
-                  </div>
-
-                  {/* ITEM 6 */}
-                  <div className="flex items-start gap-3 bg-slate-950/40 p-2.5 rounded-xl border border-slate-900">
-                    <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0 mt-0.5 font-bold">✓</div>
-                    <div>
-                      <strong className="text-slate-100">Asignación de Planes de Suscripción</strong>
-                      <p className="text-[10px] text-slate-400 mt-0.5">Control de nivel de servicio (Básico, Premium o Enterprise) calculando automáticamente cuotas y accesos.</p>
-                    </div>
-                  </div>
-
-                  {/* ITEM 7 */}
-                  <div className="flex items-start gap-3 bg-slate-950/40 p-2.5 rounded-xl border border-slate-900">
-                    <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0 mt-0.5 font-bold">✓</div>
-                    <div>
-                      <strong className="text-slate-100">Configuración de Límites por Cliente</strong>
-                      <p className="text-[10px] text-slate-450 mt-0.5">Establecimiento de topes máximos de departamentos, cuentas de usuario y almacenamiento de archivos (GB) por cliente.</p>
-                    </div>
-                  </div>
-
-                  {/* ITEM 8 */}
-                  <div className="flex items-start gap-3 bg-slate-950/40 p-2.5 rounded-xl border border-slate-900">
-                    <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0 mt-0.5 font-bold">✓</div>
-                    <div>
-                      <strong className="text-slate-100">Monitoreo de Consumos en Tiempo Real</strong>
-                      <p className="text-[10px] text-slate-450 mt-0.5">Dashboard interactivo con barras de progreso para supervisar el uso de recursos contratados por cada cliente.</p>
-                    </div>
-                  </div>
-
-                </div>
-              </div>
-
-              {/* CHECKLISTS GRAPHIC BOX 2 */}
-              <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-5 space-y-4">
-                <h4 className="text-xs font-black text-white uppercase border-b border-slate-850 pb-2 flex items-center justify-between">
-                  <span>Comunidad & Facturación CFDI 4.0</span>
-                  <span className="text-[9px] bg-sky-500/15 text-sky-400 font-mono font-bold px-2 py-0.5 rounded-full">CONECTADO</span>
-                </h4>
-
-                <div className="space-y-3 text-xs font-sans">
-                  
-                  {/* ITEM 9 */}
-                  <div className="flex items-start gap-3 bg-slate-950/40 p-2.5 rounded-xl border border-slate-900">
-                    <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0 mt-0.5 font-bold">✓</div>
-                    <div>
-                      <strong className="text-slate-100">Reserva de Amenidades</strong>
-                      <p className="text-[10px] text-slate-450 mt-0.5">Calendarios para apartar áreas comunes (salones, canchas) administrando aforos y depósitos.</p>
-                    </div>
-                  </div>
-
-                  {/* ITEM 10 */}
-                  <div className="flex items-start gap-3 bg-slate-950/40 p-2.5 rounded-xl border border-slate-900">
-                    <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0 mt-0.5 font-bold">✓</div>
-                    <div>
-                      <strong className="text-slate-100">Mesa de Ayuda (Tickets de Soporte)</strong>
-                      <p className="text-[10px] text-slate-450 mt-0.5">Flujo de reporte de incidencias públicas y desperfectos con control de prioridades y estatus.</p>
-                    </div>
-                  </div>
-
-                  {/* ITEM 11 */}
-                  <div className="flex items-start gap-3 bg-slate-950/40 p-2.5 rounded-xl border border-slate-900">
-                    <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0 mt-0.5 font-bold">✓</div>
-                    <div>
-                      <strong className="text-slate-100">Comunicados y Avisos Oficiales</strong>
-                      <p className="text-[10px] text-slate-450 mt-0.5">Pizarrón oficial de boletines de la junta directiva para enterar oportunamente a los residentes.</p>
-                    </div>
-                  </div>
-
-                  {/* FACTURACIÓN REQS */}
-                  <div className="pt-3 border-t border-[#2d2d32] space-y-2">
-                    <span className="text-[9px] font-extrabold text-purple-400 uppercase tracking-widest font-mono">Infraestructura de Facturación SAT CFDI 4.0</span>
-                    
-                    <div className="flex items-center gap-2 text-slate-300 pl-1">
-                      <div className="w-4 h-4 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded flex items-center justify-center text-[10px] font-bold shrink-0">✓</div>
-                      <span><strong>Emisor:</strong> Cargas de CSD (.cer, .key), validación en la LCO y Régimen Fiscal</span>
-                    </div>
-
-                    <div className="flex items-center gap-2 text-slate-300 pl-1">
-                      <div className="w-4 h-4 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded flex items-center justify-center text-[10px] font-bold shrink-0">✓</div>
-                      <span><strong>Receptor:</strong> Validación RFC, C.P. Fiscal y Razón Social exacta (Constancia)</span>
-                    </div>
-
-                    <div className="flex items-center gap-2 text-slate-300 pl-1">
-                      <div className="w-4 h-4 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded flex items-center justify-center text-[10px] font-bold shrink-0">✓</div>
-                      <span><strong>PAC Timbrado:</strong> API de conexión con facturadores autorizados (Sandbox & Live)</span>
-                    </div>
-                  </div>
-
-                </div>
-              </div>
-
-            </div>
+          {/* Sub-tabs inside Comité */}
+          <div className="flex flex-wrap gap-2 border-b border-[#2d2d32] pb-3">
+            <button
+              onClick={() => setComiteTab('auditoria')}
+              className={`px-3.5 py-2 text-xs font-bold rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
+                comiteTab === 'auditoria'
+                  ? 'bg-amber-600 text-white shadow-lg'
+                  : 'bg-[#1E1E22] text-slate-400 hover:text-white border border-[#2d2d32]'
+              }`}
+            >
+              <FileCheck className="w-3.5 h-3.5" />
+              <span>1. Auditoría Financiera (Solo Lectura)</span>
+            </button>
+            <button
+              onClick={() => setComiteTab('aprobaciones')}
+              className={`px-3.5 py-2 text-xs font-bold rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
+                comiteTab === 'aprobaciones'
+                  ? 'bg-amber-600 text-white shadow-lg'
+                  : 'bg-[#1E1E22] text-slate-400 hover:text-white border border-[#2d2d32]'
+              }`}
+            >
+              <CheckSquare className="w-3.5 h-3.5" />
+              <span>2. Aprobación de Presupuestos Extraordinarios</span>
+            </button>
+            <button
+              onClick={() => setComiteTab('actas')}
+              className={`px-3.5 py-2 text-xs font-bold rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
+                comiteTab === 'actas'
+                  ? 'bg-amber-600 text-white shadow-lg'
+                  : 'bg-[#1E1E22] text-slate-400 hover:text-white border border-[#2d2d32]'
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>3. Actas de Asamblea & Minutas</span>
+            </button>
           </div>
-        )}
+
+          {/* TAB 1: AUDITORÍA FINANCIERA */}
+          {comiteTab === 'auditoria' && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="p-4 bg-[#1E1E22] border border-[#2d2d32] rounded-2xl flex items-center justify-between">
+                  <div>
+                    <p className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest font-mono">Ingresos Recaudados</p>
+                    <p className="text-xl font-black text-emerald-400 mt-1">${totalPaid.toLocaleString('es-MX')}.00</p>
+                    <span className="text-[9px] text-slate-400">Verificado vs Banco</span>
+                  </div>
+                  <div className="w-10 h-10 bg-emerald-500/10 text-emerald-400 rounded-xl flex items-center justify-center font-bold">
+                    $
+                  </div>
+                </div>
+
+                <div className="p-4 bg-[#1E1E22] border border-[#2d2d32] rounded-2xl flex items-center justify-between">
+                  <div>
+                    <p className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest font-mono">Egresos / Gastos Ejercidos</p>
+                    <p className="text-xl font-black text-amber-400 mt-1">${totalEgresos.toLocaleString('es-MX')}.00</p>
+                    <span className="text-[9px] text-slate-400">Con Comprobantes CFDI</span>
+                  </div>
+                  <div className="w-10 h-10 bg-amber-500/10 text-amber-400 rounded-xl flex items-center justify-center font-bold">
+                    <TrendingUp className="w-5 h-5" />
+                  </div>
+                </div>
+
+                <div className="p-4 bg-[#1E1E22] border border-[#2d2d32] rounded-2xl flex items-center justify-between">
+                  <div>
+                    <p className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest font-mono">Balance en Caja Chica / Banco</p>
+                    <p className="text-xl font-black text-purple-400 mt-1">${(totalPaid - totalEgresos).toLocaleString('es-MX')}.00</p>
+                    <span className="text-[9px] text-slate-400">Superávit Comunal</span>
+                  </div>
+                  <div className="w-10 h-10 bg-purple-500/10 text-purple-400 rounded-xl flex items-center justify-center font-bold">
+                    <Building2 className="w-5 h-5" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Registro de Egresos para Auditar */}
+              <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-5 space-y-4">
+                <div className="flex items-center justify-between border-b border-[#2d2d32] pb-3">
+                  <div>
+                    <h4 className="text-sm font-black text-white">Egresos & Comprobantes Fiscales Subidos por Administración</h4>
+                    <p className="text-xs text-slate-400 mt-0.5">Vista de solo lectura exclusiva para fiscalización del comité.</p>
+                  </div>
+                  <span className="text-[9px] bg-amber-500/15 text-amber-300 font-mono font-bold px-2.5 py-1 rounded-full">SOLO LECTURA</span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs font-sans">
+                    <thead className="bg-[#141417] text-slate-400 uppercase text-[9px] tracking-wider border-b border-[#2d2d32]">
+                      <tr>
+                        <th className="p-3">Concepto Gasto</th>
+                        <th className="p-3">Categoría</th>
+                        <th className="p-3">Monto</th>
+                        <th className="p-3">Proveedor</th>
+                        <th className="p-3">Fecha</th>
+                        <th className="p-3">Comprobante XML/PDF</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#2d2d32]/50 text-slate-300">
+                      {egresos.map(eg => (
+                        <tr key={eg.id} className="hover:bg-[#141417]/50">
+                          <td className="p-3 font-bold text-white">{eg.concepto}</td>
+                          <td className="p-3 uppercase text-[10px] text-slate-400 font-mono">{eg.categoria}</td>
+                          <td className="p-3 font-mono font-bold text-amber-400">${eg.monto.toLocaleString('es-MX')}.00</td>
+                          <td className="p-3">{eg.proveedor}</td>
+                          <td className="p-3 font-mono text-[10px] text-slate-400">{eg.fecha}</td>
+                          <td className="p-3">
+                            <span className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-md font-mono font-bold">✓ Verificado</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: APROBACIÓN DE PRESUPUESTOS */}
+          {comiteTab === 'aprobaciones' && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-5 space-y-4">
+                <div className="border-b border-[#2d2d32] pb-3">
+                  <h4 className="text-sm font-black text-white">Solicitudes de Presupuestos Extraordinarios</h4>
+                  <p className="text-xs text-slate-400 mt-0.5">El comité de vigilancia debe aprobar o rechazar los proyectos propuestos antes de su ejecución.</p>
+                </div>
+
+                <div className="space-y-3">
+                  {presupuestosExtra.map(p => (
+                    <div key={p.id} className="p-4 bg-[#141417] border border-[#232326] rounded-xl space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h5 className="font-bold text-white text-xs">{p.titulo}</h5>
+                          <p className="text-[10px] text-slate-400 mt-0.5">{p.justificacion}</p>
+                          <span className="text-[9px] text-slate-400 font-mono">Solicitado por: {p.solicitadoPor} | Fecha: {p.fecha}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-sm font-black text-amber-400 font-mono">${p.montoTotal.toLocaleString('es-MX')}.00</span>
+                          <span className={`block text-[9px] font-mono font-bold uppercase mt-0.5 ${
+                            p.estatus === 'aprobado' ? 'text-emerald-400' : p.estatus === 'rechazado' ? 'text-rose-400' : 'text-amber-300'
+                          }`}>
+                            {p.estatus}
+                          </span>
+                        </div>
+                      </div>
+
+                      {p.estatus === 'pendiente' && (
+                        <div className="flex gap-2 pt-2 border-t border-[#232326]">
+                          <button
+                            onClick={() => handleApprovePresupuesto(p.id, 'aprobado')}
+                            className="flex-1 py-2 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/30 font-bold text-xs rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5"
+                          >
+                            <Check className="w-3.5 h-3.5" /> Aprobar Presupuesto
+                          </button>
+                          <button
+                            onClick={() => handleApprovePresupuesto(p.id, 'rechazado')}
+                            className="flex-1 py-2 bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/30 font-bold text-xs rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5"
+                          >
+                            <X className="w-3.5 h-3.5" /> Rechazar
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: ACTAS Y MINUTAS */}
+          {comiteTab === 'actas' && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-5 space-y-4">
+                <div className="border-b border-[#2d2d32] pb-3">
+                  <h4 className="text-sm font-black text-white">Repositorio de Actas de Asamblea & Firma Digital</h4>
+                  <p className="text-xs text-slate-400 mt-0.5">Consulte las minutas formales y firme electrónicamente como miembro del comité.</p>
+                </div>
+
+                <div className="space-y-3">
+                  {actasAsamblea.map(a => (
+                    <div key={a.id} className="p-4 bg-[#141417] border border-[#232326] rounded-xl flex items-center justify-between">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-black text-white">{a.titulo}</span>
+                          <span className="text-[9px] font-mono bg-purple-500/15 text-purple-300 px-2 py-0.5 rounded-md uppercase font-bold">{a.estatus}</span>
+                        </div>
+                        <p className="text-[10px] text-slate-400 font-mono">Fecha: {a.fechaAsamblea} | Firmas: {a.firmasDigitalesCount}/{a.requiereFirmas}</p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {a.firmasDigitalesCount >= a.requiereFirmas ? (
+                          <span className="px-3 py-1.5 bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 rounded-xl text-xs font-bold font-mono">✓ Firmado Digitalmente</span>
+                        ) : (
+                          <button
+                            onClick={() => handleSignActa(a.id)}
+                            className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs rounded-xl transition cursor-pointer flex items-center gap-1.5"
+                          >
+                            <CheckSquare className="w-3.5 h-3.5" /> Firmar Acta ({a.firmasDigitalesCount}/{a.requiereFirmas})
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       </div>
 
