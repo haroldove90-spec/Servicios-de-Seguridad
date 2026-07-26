@@ -1949,52 +1949,54 @@ export default function App() {
         </div>
 
         {/* Global top application header with Menu and Logo */}
-        <header id="cnls-main-top-navbar" className="bg-[#1A1A1E] border-b border-[#3e3e42] sticky top-0 z-40 px-4 py-3 shadow-md">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div className="flex items-center gap-3.5">
-              <button 
-                id="cnls-sidebar-hamburger"
-                onClick={() => setIsDrawerOpen(true)}
-                className="p-2 hover:bg-[#2A2A2E] text-slate-300 hover:text-white rounded-xl border border-[#3e3e42] hover:border-slate-500 transition cursor-pointer"
-                aria-label="Toggle navigation lateral drawer"
-              >
-                <Menu className="w-5 h-5" />
-              </button>
+        {activeTab !== 'condominios' && (
+          <header id="cnls-main-top-navbar" className="bg-[#1A1A1E] border-b border-[#3e3e42] sticky top-0 z-40 px-4 py-3 shadow-md">
+            <div className="max-w-7xl mx-auto flex items-center justify-between">
+              <div className="flex items-center gap-3.5">
+                <button 
+                  id="cnls-sidebar-hamburger"
+                  onClick={() => setIsDrawerOpen(true)}
+                  className="p-2 hover:bg-[#2A2A2E] text-slate-300 hover:text-white rounded-xl border border-[#3e3e42] hover:border-slate-500 transition cursor-pointer"
+                  aria-label="Toggle navigation lateral drawer"
+                >
+                  <Menu className="w-5 h-5" />
+                </button>
 
-              <div className="flex items-center gap-3 cursor-pointer" onClick={() => setHasSelectedRole(false)}>
-                <img 
-                  src="https://cossma.com.mx/cnls.png" 
-                  alt="CNLS Header Logo" 
-                  className="h-8 max-h-8 w-auto object-contain"
-                  referrerPolicy="no-referrer"
-                />
-                <span className="text-sm font-black text-white tracking-[0.2em] font-sans uppercase">CNLS</span>
+                <div className="flex items-center gap-3 cursor-pointer" onClick={() => setHasSelectedRole(false)}>
+                  <img 
+                    src="https://cossma.com.mx/cnls.png" 
+                    alt="CNLS Header Logo" 
+                    className="h-8 max-h-8 w-auto object-contain"
+                    referrerPolicy="no-referrer"
+                  />
+                  <span className="text-sm font-black text-white tracking-[0.2em] font-sans uppercase">CNLS</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 font-sans">
+                {/* Red-colored button for installing the app */}
+                <button
+                  id="pwa-header-install-btn"
+                  onClick={handleInstallClick}
+                  className="hidden sm:inline-flex items-center gap-2 px-3.5 py-2 bg-red-600 hover:bg-red-500 border border-transparent hover:border-white/10 text-white rounded-xl text-xs font-extrabold transition shadow-lg cursor-pointer font-sans"
+                  title="Instalar CNLS"
+                >
+                  <Download className="w-4 h-4 shrink-0" />
+                  <span>Instalar Aplicación</span>
+                </button>
+
+                <button
+                  id="pwa-header-install-btn-mobile"
+                  onClick={handleInstallClick}
+                  className="sm:hidden flex items-center justify-center p-2.5 bg-red-600 hover:bg-red-550 text-white rounded-xl transition cursor-pointer"
+                  title="Instalar CNLS"
+                >
+                  <Download className="w-4 h-4 shrink-0" />
+                </button>
               </div>
             </div>
-
-            <div className="flex items-center gap-3 font-sans">
-              {/* Red-colored button for installing the app */}
-              <button
-                id="pwa-header-install-btn"
-                onClick={handleInstallClick}
-                className="hidden sm:inline-flex items-center gap-2 px-3.5 py-2 bg-red-600 hover:bg-red-500 border border-transparent hover:border-white/10 text-white rounded-xl text-xs font-extrabold transition shadow-lg cursor-pointer font-sans"
-                title="Instalar CNLS"
-              >
-                <Download className="w-4 h-4 shrink-0" />
-                <span>Instalar Aplicación</span>
-              </button>
-
-              <button
-                id="pwa-header-install-btn-mobile"
-                onClick={handleInstallClick}
-                className="sm:hidden flex items-center justify-center p-2.5 bg-red-600 hover:bg-red-550 text-white rounded-xl transition cursor-pointer"
-                title="Instalar CNLS"
-              >
-                <Download className="w-4 h-4 shrink-0" />
-              </button>
-            </div>
-          </div>
-        </header>
+          </header>
+        )}
 
         {/* Visited Residence Control Banner */}
         {hasSelectedRole && visitingResidencia && (
@@ -2320,7 +2322,10 @@ export default function App() {
 
         {/* Primary Operational workspace */}
         {(IS_FIREBASE_DUMMY || user) && hasSelectedRole && (
-          <div id="dashboard-workspace-cabinet" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-fade-in">
+          <div 
+            id="dashboard-workspace-cabinet" 
+            className={activeTab === 'condominios' ? 'w-full animate-fade-in' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-fade-in'}
+          >
             {/* Header section (hidden when activeTab is condominios to keep clean independent view) */}
             {activeTab !== 'condominios' && (
               <div id="premises-dashboard-header" className="flex flex-col md:flex-row md:items-center md:justify-between bg-[#2A2A2E] p-5 rounded-2xl border border-[#3e3e42] gap-4">
@@ -2547,16 +2552,18 @@ export default function App() {
         )}
       </div>
 
-      {/* Styled Footer */}
-      <footer id="app-footer-bar" className="bg-[#0f172a]/40 border-t border-slate-900 py-6 mt-16 text-center text-xs text-slate-500">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="font-semibold text-slate-400 tracking-tight">Sistemas Inteligentes de Control QR © 2026</p>
-          <div className="flex items-center gap-4 text-slate-500 font-mono text-[10.5px]">
-            <span>Cloud Sync: OK</span>
-            <span>ID: FCE82F95</span>
+      {/* Styled Footer (Disabled in Condominios) */}
+      {activeTab !== 'condominios' && (
+        <footer id="app-footer-bar" className="bg-[#0f172a]/40 border-t border-slate-900 py-6 mt-16 text-center text-xs text-slate-500">
+          <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p className="font-semibold text-slate-400 tracking-tight">Sistemas Inteligentes de Control QR © 2026</p>
+            <div className="flex items-center gap-4 text-slate-500 font-mono text-[10.5px]">
+              <span>Cloud Sync: OK</span>
+              <span>ID: FCE82F95</span>
+            </div>
           </div>
-        </div>
-      </footer>
+        </footer>
+      )}
 
       {/* Circular Floating Panic Button (Accessible on home and all roles) */}
       <button

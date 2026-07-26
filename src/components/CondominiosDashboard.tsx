@@ -5,7 +5,8 @@ import {
   PhoneCall, Package, Check, Clipboard, QrCode, AlertTriangle, 
   Activity, ArrowUpRight, ArrowDownRight, Upload, Globe, RefreshCw, Send, Trash2,
   LogOut, Plus, Search, Filter, Lock, Unlock, Home, Crown, Building2, UserCheck, Smartphone, BadgeCheck,
-  CheckCircle2, PackageCheck
+  CheckCircle2, PackageCheck, Terminal, HelpCircle, LifeBuoy, PieChart, ShieldAlert, FileSpreadsheet, RefreshCcw, Layers,
+  Server, UserX
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -87,6 +88,40 @@ export interface ClienteCondominio {
   fechaRegistro: string;
 }
 
+export interface CobroLicenciaSaaS {
+  id: string;
+  condoNombre: string;
+  adminNombre: string;
+  plan: 'Básico' | 'Premium' | 'Enterprise';
+  monto: number;
+  fechaCobro: string;
+  metodoPago: string;
+  status: 'cobrado' | 'pendiente' | 'fallido';
+  intentos: number;
+}
+
+export interface InternalSupportTicket {
+  id: string;
+  condoNombre: string;
+  adminNombre: string;
+  asunto: string;
+  categoria: string;
+  prioridad: 'alta' | 'media' | 'baja';
+  status: 'abierto' | 'en_progreso' | 'resuelto';
+  fecha: string;
+  mensajes: { autor: string; texto: string; hora: string }[];
+}
+
+export interface SystemAuditLog {
+  id: string;
+  timestamp: string;
+  nivel: 'info' | 'warning' | 'error' | 'critico';
+  usuario: string;
+  condominio: string;
+  accion: string;
+  ip: string;
+}
+
 interface CondominiosDashboardProps {
   currentUser?: any;
   onSignOut?: () => void;
@@ -97,12 +132,121 @@ export default function CondominiosDashboard({ currentUser, onSignOut, initialSu
   // Navigation
   const [activeSubSection, setActiveSubSection] = useState<'inicio' | 'superadmin' | 'admininmobiliaria' | 'comite' | 'residente' | 'guardia'>(initialSubSection || 'inicio');
   const [adminCondoTab, setAdminCondoTab] = useState<'finanzas' | 'facturacion'>('finanzas');
+  const [superAdminTab, setSuperAdminTab] = useState<'clientes' | 'finanzas' | 'soporte'>('clientes');
 
   useEffect(() => {
     if (initialSubSection) {
       setActiveSubSection(initialSubSection);
     }
   }, [initialSubSection]);
+
+  // --- SUPER ADMIN EXTRA STATES ---
+  // Pasarela de Cobro Automático de Licencias SaaS
+  const [cobrosSaaS, setCobrosSaaS] = useState<CobroLicenciaSaaS[]>([
+    {
+      id: 'cobro-1',
+      condoNombre: 'Lomas de Chapultepec AC',
+      adminNombre: 'Ing. Alejandro Ruiz',
+      plan: 'Premium',
+      monto: 3500,
+      fechaCobro: '2026-07-01',
+      metodoPago: 'Tarjeta VISA ****4821 (Cobro Automático)',
+      status: 'cobrado',
+      intentos: 1
+    },
+    {
+      id: 'cobro-2',
+      condoNombre: 'Residencial Bosques del Portal',
+      adminNombre: 'Lic. Sofía Mendoza',
+      plan: 'Básico',
+      monto: 1500,
+      fechaCobro: '2026-07-01',
+      metodoPago: 'SPEI Domiciliado (Automático)',
+      status: 'cobrado',
+      intentos: 1
+    },
+    {
+      id: 'cobro-3',
+      condoNombre: 'Torres Alameda Ejecutivo',
+      adminNombre: 'C.P. Eduardo Garza',
+      plan: 'Enterprise',
+      monto: 8000,
+      fechaCobro: '2026-07-01',
+      metodoPago: 'Domiciliación Bancaria CABA',
+      status: 'cobrado',
+      intentos: 1
+    },
+    {
+      id: 'cobro-4',
+      condoNombre: 'Condominio Puerta del Sol',
+      adminNombre: 'Patricia Beltrán',
+      plan: 'Premium',
+      monto: 3500,
+      fechaCobro: '2026-07-01',
+      metodoPago: 'Tarjeta MasterCard ****9012 (Rechazada)',
+      status: 'fallido',
+      intentos: 3
+    }
+  ]);
+
+  // Tickets de Soporte Interno
+  const [internalTickets, setInternalTickets] = useState<InternalSupportTicket[]>([
+    {
+      id: 'stkt-1',
+      condoNombre: 'Condominio Puerta del Sol',
+      adminNombre: 'Patricia Beltrán',
+      asunto: 'Fallo en cobro de tarjeta y reactivación de servicio',
+      categoria: 'Facturación Licencia',
+      prioridad: 'alta',
+      status: 'en_progreso',
+      fecha: '2026-07-25',
+      mensajes: [
+        { autor: 'Patricia Beltrán', texto: 'Hola, intentamos actualizar la tarjeta de crédito para la licencia de Julio. ¿Nos pueden apoyar para reactivar el servicio?', hora: '10:30' },
+        { autor: 'SaaS Support SuperAdmin', texto: 'Iniciando proceso de verificación con pasarela bancaria Stripe/MercadoPago.', hora: '10:45' }
+      ]
+    },
+    {
+      id: 'stkt-2',
+      condoNombre: 'Lomas de Chapultepec AC',
+      adminNombre: 'Ing. Alejandro Ruiz',
+      asunto: 'Solicitud de ampliación de límite de departamentos a 250',
+      categoria: 'Aumento de Límites',
+      prioridad: 'media',
+      status: 'abierto',
+      fecha: '2026-07-26',
+      mensajes: [
+        { autor: 'Ing. Alejandro Ruiz', texto: 'Buen día, estamos integrando la Fase 2 del desarrollo con 50 departamentos adicionales. Requerimos ajustar el límite a 250.', hora: '09:15' }
+      ]
+    },
+    {
+      id: 'stkt-3',
+      condoNombre: 'Torres Alameda Ejecutivo',
+      adminNombre: 'C.P. Eduardo Garza',
+      asunto: 'Configuración de videoportero SIP en caseta',
+      categoria: 'Configuración Caseta',
+      prioridad: 'baja',
+      status: 'resuelto',
+      fecha: '2026-07-24',
+      mensajes: [
+        { autor: 'C.P. Eduardo Garza', texto: '¿Cómo configuramos las cámaras IP Hikvision para la bitácora de guardia?', hora: '14:20' },
+        { autor: 'SaaS Support SuperAdmin', texto: 'Se envió la guía en PDF y se habilitó el webhook RTSP en caseta.', hora: '15:10' }
+      ]
+    }
+  ]);
+
+  const [selectedTicketForReply, setSelectedTicketForReply] = useState<InternalSupportTicket | null>(null);
+  const [ticketReplyText, setTicketReplyText] = useState('');
+
+  // Logs de Auditoría del Sistema
+  const [auditLogs, setAuditLogs] = useState<SystemAuditLog[]>([
+    { id: 'log-1', timestamp: '2026-07-26 13:30:12', nivel: 'info', usuario: 'harold.anguiano', condominio: 'SaaS Global', accion: 'Acceso exitoso al panel de Super Administrador (SaaS Owner)', ip: '187.190.22.10' },
+    { id: 'log-2', timestamp: '2026-07-26 12:45:00', nivel: 'warning', usuario: 'aruiz@lomaschapultepec.mx', condominio: 'Lomas de Chapultepec AC', accion: 'Uso de departamentos alcanzó el 71% del límite (142/200)', ip: '189.210.44.12' },
+    { id: 'log-3', timestamp: '2026-07-26 11:15:33', nivel: 'critico', usuario: 'Sistema Automático SaaS', condominio: 'Condominio Puerta del Sol', accion: 'Suscripción suspendida automáticamente por fallo en cobro de tarjeta', ip: '10.0.4.12' },
+    { id: 'log-4', timestamp: '2026-07-26 10:02:18', nivel: 'error', usuario: 'smendoza@bosquesportal.com', condominio: 'Residencial Bosques del Portal', accion: 'Error en timbrado CFDI 4.0: CSD no coincide con RFC emisor CNO160715AAA', ip: '201.110.15.88' },
+    { id: 'log-5', timestamp: '2026-07-25 18:22:45', nivel: 'info', usuario: 'egarza@torresalameda.com', condominio: 'Torres Alameda Ejecutivo', accion: 'Actualización de límite de almacenamiento cloud a 500 GB', ip: '187.190.22.10' }
+  ]);
+  const [auditFilterLevel, setAuditFilterLevel] = useState<'todos' | 'info' | 'warning' | 'error' | 'critico'>('todos');
+  const [auditSearchQuery, setAuditSearchQuery] = useState('');
 
   // --- 6. GESTIÓN DE CLIENTES STATE & HANDLERS ---
   const [clientes, setClientes] = useState<ClienteCondominio[]>([
@@ -302,8 +446,122 @@ export default function CondominiosDashboard({ currentUser, onSignOut, initialSu
   const handleBajaClient = (id: string, nombre: string) => {
     if (window.confirm(`¿Está seguro que desea dar de BAJA (eliminar) permanentemente al condominio "${nombre}"? Esta acción no se puede deshacer.`)) {
       setClientes(prev => prev.filter(cli => cli.id !== id));
+      // Add audit log
+      setAuditLogs(prev => [
+        {
+          id: 'log-' + Date.now(),
+          timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
+          nivel: 'critico',
+          usuario: currentUser?.email || 'SuperAdmin Owner',
+          condominio: nombre,
+          accion: `Cliente "${nombre}" dado de baja permanentemente`,
+          ip: '187.190.22.10'
+        },
+        ...prev
+      ]);
       showSuccessBanner(`✓ El cliente "${nombre}" ha sido dado de baja permanentemente del sistema.`);
     }
+  };
+
+  // Reintentar o Procesar Cobro Automático SaaS
+  const handleRetryCobroSaaS = (cobroId: string) => {
+    setCobrosSaaS(prev => prev.map(c => {
+      if (c.id === cobroId) {
+        return {
+          ...c,
+          status: 'cobrado',
+          intentos: c.intentos + 1,
+          metodoPago: 'Reintento Exitoso con Pasarela Stripe/CABA'
+        };
+      }
+      return c;
+    }));
+
+    // Reactivar el condominio si estaba suspendido
+    const cobroObj = cobrosSaaS.find(c => c.id === cobroId);
+    if (cobroObj) {
+      setClientes(prev => prev.map(cli => {
+        if (cli.nombre.toLowerCase().includes(cobroObj.condoNombre.toLowerCase())) {
+          return { ...cli, status: 'activo' };
+        }
+        return cli;
+      }));
+    }
+
+    setAuditLogs(prev => [
+      {
+        id: 'log-' + Date.now(),
+        timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
+        nivel: 'info',
+        usuario: currentUser?.email || 'SuperAdmin Owner',
+        condominio: cobroObj?.condoNombre || 'SaaS',
+        accion: `Cobro de licencia software $${cobroObj?.monto}.00 procesado exitosamente`,
+        ip: '187.190.22.10'
+      },
+      ...prev
+    ]);
+
+    showSuccessBanner('✓ Cobro de licencia procesado con éxito. Suscripción reactivada.');
+    confetti({ particleCount: 60, spread: 50 });
+  };
+
+  // Correr barrido masivo de cobro automático de licencias
+  const handleRunAllCobrosSaaS = () => {
+    setCobrosSaaS(prev => prev.map(c => ({
+      ...c,
+      status: 'cobrado',
+      metodoPago: c.metodoPago.replace('(Rechazada)', '(Reactivada)')
+    })));
+
+    setClientes(prev => prev.map(cli => ({ ...cli, status: 'activo' })));
+
+    setAuditLogs(prev => [
+      {
+        id: 'log-' + Date.now(),
+        timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
+        nivel: 'info',
+        usuario: 'Pasarela SaaS Cron Job',
+        condominio: 'SaaS Global',
+        accion: 'Ejecutado barrido automático de cobros de licencias mensuales a administradores',
+        ip: '127.0.0.1'
+      },
+      ...prev
+    ]);
+
+    showSuccessBanner('✓ Barrido masivo de cobro automático de licencias completado al 100%.');
+    confetti({ particleCount: 100, spread: 80 });
+  };
+
+  // Responder ticket de soporte interno
+  const handleReplySupportTicket = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTicketForReply || !ticketReplyText.trim()) return;
+
+    const newMsg = {
+      autor: 'SaaS Support SuperAdmin',
+      texto: ticketReplyText.trim(),
+      hora: new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+    };
+
+    setInternalTickets(prev => prev.map(tkt => {
+      if (tkt.id === selectedTicketForReply.id) {
+        return {
+          ...tkt,
+          status: 'en_progreso',
+          mensajes: [...tkt.mensajes, newMsg]
+        };
+      }
+      return tkt;
+    }));
+
+    setSelectedTicketForReply(prev => prev ? {
+      ...prev,
+      status: 'en_progreso',
+      mensajes: [...prev.mensajes, newMsg]
+    } : null);
+
+    setTicketReplyText('');
+    showSuccessBanner('✓ Respuesta enviada al Administrador del Condominio.');
   };
 
   // --- 1. FINANZAS STATE ---
@@ -845,296 +1103,842 @@ export default function CondominiosDashboard({ currentUser, onSignOut, initialSu
             </div>
           )}
 
-          {/* 1. ROL: SUPER ADMINISTRADOR */}
+          {/* 1. ROL: SUPER ADMINISTRADOR (SaaS Owner) */}
           {activeSubSection === 'superadmin' && (
-            <div className="space-y-6 animate-fade-in">
-              <div className="p-4 bg-red-500/10 border border-red-500/25 rounded-2xl flex items-center justify-between text-left">
+            <div className="space-y-6 animate-fade-in font-sans">
+              
+              {/* Top Active Role Banner */}
+              <div className="p-4 bg-red-500/10 border border-red-500/25 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between text-left gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-red-500/20 text-red-400 border border-red-500/30 flex items-center justify-center shrink-0">
+                  <div className="w-10 h-10 rounded-xl bg-red-500/20 text-red-400 border border-red-500/30 flex items-center justify-center shrink-0 shadow-md shadow-red-500/10">
                     <Crown className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-black text-white">Rol Activo: 1. Super Administrador (Global / SaaS)</h3>
-                    <p className="text-xs text-red-300 font-mono">Alta de Inmobiliarias, Gestión de Licencias & Métricas de Ingresos MRR</p>
+                    <h3 className="text-sm font-black text-white">1. Rol: Super Administrador (SaaS Owner)</h3>
+                    <p className="text-xs text-red-300 font-mono">Gestión global del negocio: Monetización, soporte y analítica global.</p>
                   </div>
                 </div>
                 <button 
                   onClick={() => setActiveSubSection('inicio')} 
-                  className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-300 text-xs font-bold rounded-xl border border-red-500/30 transition cursor-pointer shrink-0"
+                  className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-300 text-xs font-bold rounded-xl border border-red-500/30 transition cursor-pointer shrink-0 self-start sm:self-auto"
                 >
                   Cambiar Rol ←
                 </button>
               </div>
 
-              {/* Header metrics */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-4 flex items-center justify-between">
-                  <div>
-                    <p className="text-[9px] font-extrabold text-slate-500 uppercase tracking-widest font-mono">Clientes Totales</p>
-                    <p className="text-xl font-black text-white mt-1">{clientes.length}</p>
-                    <span className="text-[10px] text-slate-450">Condominios / Inmobiliarias</span>
-                  </div>
-                  <div className="w-10 h-10 bg-purple-500/10 border border-purple-500/20 text-purple-400 rounded-xl flex items-center justify-center">
-                    <Building className="w-5 h-5" />
-                  </div>
-                </div>
+              {/* Main Cabinet: Left Navigation Sidebar + Right Module Content */}
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
 
-                <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-4 flex items-center justify-between">
-                  <div>
-                    <p className="text-[9px] font-extrabold text-emerald-400 uppercase tracking-widest font-mono">Clientes Activos</p>
-                    <p className="text-xl font-black text-emerald-400 mt-1">
-                      {clientes.filter(c => c.status === 'activo').length}
-                    </p>
-                    <span className="text-[10px] text-slate-450 font-sans">Suscripciones vigentes</span>
-                  </div>
-                  <div className="w-10 h-10 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl flex items-center justify-center">
-                    <Check className="w-5 h-5" />
-                  </div>
-                </div>
-
-                <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-4 flex items-center justify-between">
-                  <div>
-                    <p className="text-[9px] font-extrabold text-amber-500 uppercase tracking-widest font-mono">Suspendidos</p>
-                    <p className="text-xl font-black text-amber-400 mt-1">
-                      {clientes.filter(c => c.status === 'suspendido').length}
-                    </p>
-                    <span className="text-[10px] text-slate-450">Servicio pausado</span>
-                  </div>
-                  <div className="w-10 h-10 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-xl flex items-center justify-center">
-                    <AlertTriangle className="w-5 h-5" />
-                  </div>
-                </div>
-
-                <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-4 flex items-center justify-between">
-                  <div>
-                    <p className="text-[9px] font-extrabold text-purple-400 uppercase tracking-widest font-mono">Recaudación Mensual (MRR)</p>
-                    <p className="text-xl font-black text-white mt-1">
-                      ${clientes.reduce((acc, c) => {
-                        if (c.status === 'suspendido') return acc;
-                        const val = c.plan === 'Básico' ? 1500 : c.plan === 'Premium' ? 3500 : 8000;
-                        return acc + val;
-                      }, 0).toLocaleString('es-MX')}.00
-                    </p>
-                    <span className="text-[10px] text-purple-450">Pesos Mexicanos</span>
-                  </div>
-                  <div className="w-10 h-10 bg-purple-500/10 border border-purple-500/20 text-purple-400 rounded-xl flex items-center justify-center">
-                    <DollarSign className="w-5 h-5" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Actions & Filters Row */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#141417] border border-[#232326] p-4 rounded-2xl">
-                {/* Search */}
-                <div className="relative flex-1 max-w-md">
-                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                  <input
-                    type="text"
-                    placeholder="Buscar condominio o administrador..."
-                    value={searchClientQuery}
-                    onChange={(e) => setSearchClientQuery(e.target.value)}
-                    className="w-full bg-[#1E1E22] border border-[#2d2d32] rounded-xl pl-10 pr-4 py-2 text-xs font-medium text-slate-200 focus:outline-none focus:border-purple-500 transition-all placeholder:text-slate-500"
-                  />
-                </div>
-
-                {/* Filters & Add Button */}
-                <div className="flex flex-wrap items-center gap-3">
-                  <div className="flex items-center gap-2">
-                    <Filter className="w-3.5 h-3.5 text-slate-500" />
-                    <select
-                      value={filterClientPlan}
-                      onChange={(e) => setFilterClientPlan(e.target.value as any)}
-                      className="bg-[#1E1E22] border border-[#2d2d32] rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-300 focus:outline-none focus:border-purple-500"
-                    >
-                      <option value="todos">Todos los Planes</option>
-                      <option value="Básico">Plan Básico</option>
-                      <option value="Premium">Plan Premium</option>
-                      <option value="Enterprise">Plan Enterprise</option>
-                    </select>
-
-                    <select
-                      value={filterClientStatus}
-                      onChange={(e) => setFilterClientStatus(e.target.value as any)}
-                      className="bg-[#1E1E22] border border-[#2d2d32] rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-300 focus:outline-none focus:border-purple-500"
-                    >
-                      <option value="todos">Todos los Status</option>
-                      <option value="activo">Activos</option>
-                      <option value="suspendido">Suspendidos</option>
-                    </select>
+                {/* BARRA DE NAVEGACIÓN LATERAL IZQUIERDA */}
+                <div id="superadmin-sidebar-nav" className="lg:col-span-1 bg-[#141417] border border-[#232326] rounded-2xl p-3 space-y-2 sticky top-20 shadow-xl">
+                  <div className="px-3 py-2 border-b border-[#2d2d32] mb-1">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 font-mono">Módulos SuperAdmin</span>
                   </div>
 
+                  {/* 1. Gestión de Clientes */}
                   <button
-                    onClick={handleOpenCreateClient}
-                    className="bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold px-4 py-2 rounded-xl transition flex items-center gap-2 cursor-pointer shadow-lg shadow-purple-600/15"
+                    onClick={() => setSuperAdminTab('clientes')}
+                    className={`w-full text-left p-3 rounded-xl font-bold text-xs transition cursor-pointer flex items-center gap-3 ${
+                      superAdminTab === 'clientes'
+                        ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/25'
+                        : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252A] hover:text-white border border-[#2d2d32]'
+                    }`}
                   >
-                    <Plus className="w-4 h-4" />
-                    <span>Registrar Condominio</span>
+                    <div className={`p-2 rounded-lg shrink-0 ${superAdminTab === 'clientes' ? 'bg-white/20' : 'bg-purple-500/10 text-purple-400'}`}>
+                      <Building className="w-4 h-4" />
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-extrabold text-xs truncate">1. Gestión de Clientes</span>
+                      <span className={`text-[10px] font-normal truncate ${superAdminTab === 'clientes' ? 'text-purple-100' : 'text-slate-400'}`}>
+                        Condominios, Planes & Límites
+                      </span>
+                    </div>
                   </button>
+
+                  {/* 2. Finanzas Globales & Métricas */}
+                  <button
+                    onClick={() => setSuperAdminTab('finanzas')}
+                    className={`w-full text-left p-3 rounded-xl font-bold text-xs transition cursor-pointer flex items-center gap-3 ${
+                      superAdminTab === 'finanzas'
+                        ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/25'
+                        : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252A] hover:text-white border border-[#2d2d32]'
+                    }`}
+                  >
+                    <div className={`p-2 rounded-lg shrink-0 ${superAdminTab === 'finanzas' ? 'bg-white/20' : 'bg-emerald-500/10 text-emerald-400'}`}>
+                      <DollarSign className="w-4 h-4" />
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-extrabold text-xs truncate">2. Finanzas Globales</span>
+                      <span className={`text-[10px] font-normal truncate ${superAdminTab === 'finanzas' ? 'text-purple-100' : 'text-slate-400'}`}>
+                        MRR, Churn & Pasarela Cobro
+                      </span>
+                    </div>
+                  </button>
+
+                  {/* 3. Soporte y Logs de Auditoría */}
+                  <button
+                    onClick={() => setSuperAdminTab('soporte')}
+                    className={`w-full text-left p-3 rounded-xl font-bold text-xs transition cursor-pointer flex items-center gap-3 ${
+                      superAdminTab === 'soporte'
+                        ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/25'
+                        : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252A] hover:text-white border border-[#2d2d32]'
+                    }`}
+                  >
+                    <div className={`p-2 rounded-lg shrink-0 ${superAdminTab === 'soporte' ? 'bg-white/20' : 'bg-blue-500/10 text-blue-400'}`}>
+                      <MessageSquare className="w-4 h-4" />
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-extrabold text-xs truncate">3. Soporte & Auditoría</span>
+                      <span className={`text-[10px] font-normal truncate ${superAdminTab === 'soporte' ? 'text-purple-100' : 'text-slate-400'}`}>
+                        Tickets & Logs del Sistema
+                      </span>
+                    </div>
+                  </button>
+
+                  {/* Quick System Status Summary in Sidebar */}
+                  <div className="mt-4 p-3 bg-[#111114] border border-[#232326] rounded-xl text-[10.5px] space-y-1.5 text-slate-400 font-mono">
+                    <div className="flex items-center justify-between">
+                      <span>Plataforma SaaS:</span>
+                      <span className="text-emerald-400 font-bold">100% Online</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Base de Clientes:</span>
+                      <span className="text-white font-bold">{clientes.length} Condominios</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Cobro Recurrente:</span>
+                      <span className="text-purple-300 font-bold">Activo (Diario)</span>
+                    </div>
+                  </div>
                 </div>
-              </div>
 
-              {/* Clients List / Cards Grid */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {clientes
-                  .filter(c => {
-                    const matchQuery = c.nombre.toLowerCase().includes(searchClientQuery.toLowerCase()) || 
-                                       c.administrador.toLowerCase().includes(searchClientQuery.toLowerCase());
-                    const matchPlan = filterClientPlan === 'todos' || c.plan === filterClientPlan;
-                    const matchStatus = filterClientStatus === 'todos' || c.status === filterClientStatus;
-                    return matchQuery && matchPlan && matchStatus;
-                  })
-                  .map(c => {
-                    const pctDep = Math.round((c.usoDepartamentos / c.limiteDepartamentos) * 100);
-                    const pctUsr = Math.round((c.usoUsuarios / c.limiteUsuarios) * 100);
-                    const pctAlm = Math.round((c.usoAlmacenamiento / c.limiteAlmacenamiento) * 100);
+                {/* RIGHT CONTENT WORKSPACE */}
+                <div className="lg:col-span-3 space-y-6">
 
-                    return (
-                      <div 
-                        key={c.id} 
-                        className={`bg-[#1E1E22] border rounded-2xl overflow-hidden transition-all duration-300 flex flex-col justify-between ${
-                          c.status === 'suspendido' 
-                            ? 'border-amber-500/20 opacity-75 grayscale-[10%]' 
-                            : 'border-[#2d2d32] hover:border-purple-500/30'
-                        }`}
-                      >
-                        {/* Card Header Banner */}
-                        <div className="p-5 border-b border-[#2d2d32] bg-gradient-to-r from-[#1F1F23] to-[#1E1E22] flex items-start justify-between gap-3">
-                          <div className="text-left">
-                            <h3 className="text-sm font-black text-white">{c.nombre}</h3>
-                            <span className="text-[10px] text-slate-500 font-mono">ID: {c.id} • Alta: {c.fechaRegistro}</span>
+                  {/* MÓDULO 1: GESTIÓN DE CLIENTES (CONDOMINIOS / INMOBILIARIAS) */}
+                  {superAdminTab === 'clientes' && (
+                    <div className="space-y-6 animate-fade-in">
+                      {/* Section Header */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#2d2d32] pb-4">
+                        <div>
+                          <h3 className="text-base font-black text-white flex items-center gap-2">
+                            <Building className="w-5 h-5 text-purple-400" />
+                            Módulo de Gestión de Clientes (Condominios/Inmobiliarias)
+                          </h3>
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            Alta, baja y suspensión de administraciones contratantes, asignación de planes y límites de uso.
+                          </p>
+                        </div>
+                        <button
+                          onClick={handleOpenCreateClient}
+                          className="bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-purple-600/20 shrink-0"
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span>Alta de Condominio</span>
+                        </button>
+                      </div>
+
+                      {/* Header metrics */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-4 flex items-center justify-between">
+                          <div>
+                            <p className="text-[9px] font-extrabold text-slate-500 uppercase tracking-widest font-mono">Clientes Totales</p>
+                            <p className="text-xl font-black text-white mt-1">{clientes.length}</p>
+                            <span className="text-[10px] text-slate-400">Condominios registrados</span>
                           </div>
-                          <div className="flex flex-col items-end gap-1.5 shrink-0">
-                            {/* Plan Badge */}
-                            <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
-                              c.plan === 'Básico' 
-                                ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' 
-                                : c.plan === 'Premium' 
-                                  ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' 
-                                  : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                            }`}>
-                              Plan {c.plan}
-                            </span>
-
-                            {/* Status Badge */}
-                            <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wide ${
-                              c.status === 'activo' 
-                                ? 'bg-emerald-500/10 text-emerald-400' 
-                                : 'bg-amber-500/10 text-amber-400 animate-pulse'
-                            }`}>
-                              {c.status === 'activo' ? '● Activo' : '⚠ Suspendido'}
-                            </span>
+                          <div className="w-10 h-10 bg-purple-500/10 border border-purple-500/20 text-purple-400 rounded-xl flex items-center justify-center">
+                            <Building className="w-5 h-5" />
                           </div>
                         </div>
 
-                        {/* Card Info Details */}
-                        <div className="p-5 space-y-4 flex-1">
-                          <div className="grid grid-cols-2 gap-4 text-xs">
-                            <div className="text-left">
-                              <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider font-mono">Administrador</span>
-                              <p className="font-semibold text-slate-200 mt-0.5">{c.administrador}</p>
-                            </div>
-                            <div className="text-left">
-                              <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider font-mono">Contacto</span>
-                              <p className="font-semibold text-slate-300 mt-0.5 truncate" title={c.correo}>{c.correo}</p>
-                              <p className="text-[10px] text-slate-400 mt-0.5">{c.telefono}</p>
-                            </div>
+                        <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-4 flex items-center justify-between">
+                          <div>
+                            <p className="text-[9px] font-extrabold text-emerald-400 uppercase tracking-widest font-mono">Clientes Activos</p>
+                            <p className="text-xl font-black text-emerald-400 mt-1">
+                              {clientes.filter(c => c.status === 'activo').length}
+                            </p>
+                            <span className="text-[10px] text-slate-400">Suscripciones vigentes</span>
                           </div>
-
-                          {/* Resource Limits with Progress Bars */}
-                          <div className="space-y-3 pt-3 border-t border-[#2d2d32]/50 font-sans text-xs">
-                            <div className="space-y-1">
-                              <div className="flex justify-between items-center text-[11px]">
-                                <span className="text-slate-400 font-bold flex items-center gap-1">🏢 Departamentos</span>
-                                <span className="text-slate-300 font-mono font-semibold">
-                                  {c.usoDepartamentos} / <strong className="text-white">{c.limiteDepartamentos}</strong> ({pctDep}%)
-                                </span>
-                              </div>
-                              <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
-                                <div 
-                                  className={`h-full rounded-full transition-all duration-500 ${
-                                    pctDep > 90 ? 'bg-rose-500' : pctDep > 75 ? 'bg-amber-500' : 'bg-purple-500'
-                                  }`}
-                                  style={{ width: `${Math.min(pctDep, 100)}%` }}
-                                ></div>
-                              </div>
-                            </div>
-
-                            <div className="space-y-1">
-                              <div className="flex justify-between items-center text-[11px]">
-                                <span className="text-slate-400 font-bold flex items-center gap-1">👥 Usuarios del Sistema</span>
-                                <span className="text-slate-300 font-mono font-semibold">
-                                  {c.usoUsuarios} / <strong className="text-white">{c.limiteUsuarios}</strong> ({pctUsr}%)
-                                </span>
-                              </div>
-                              <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
-                                <div 
-                                  className={`h-full rounded-full transition-all duration-500 ${
-                                    pctUsr > 90 ? 'bg-rose-500' : pctUsr > 75 ? 'bg-amber-500' : 'bg-purple-500'
-                                  }`}
-                                  style={{ width: `${Math.min(pctUsr, 100)}%` }}
-                                ></div>
-                              </div>
-                            </div>
-
-                            <div className="space-y-1">
-                              <div className="flex justify-between items-center text-[11px]">
-                                <span className="text-slate-400 font-bold flex items-center gap-1">💾 Almacenamiento Cloud</span>
-                                <span className="text-slate-300 font-mono font-semibold">
-                                  {c.usoAlmacenamiento.toFixed(1)} GB / <strong className="text-white">{c.limiteAlmacenamiento} GB</strong> ({pctAlm}%)
-                                </span>
-                              </div>
-                              <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
-                                <div 
-                                  className={`h-full rounded-full transition-all duration-500 ${
-                                    pctAlm > 90 ? 'bg-rose-500' : pctAlm > 75 ? 'bg-amber-500' : 'bg-purple-500'
-                                  }`}
-                                  style={{ width: `${Math.min(pctAlm, 100)}%` }}
-                                ></div>
-                              </div>
-                            </div>
+                          <div className="w-10 h-10 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl flex items-center justify-center">
+                            <Check className="w-5 h-5" />
                           </div>
                         </div>
 
-                        {/* Card Actions Footer */}
-                        <div className="p-4 bg-[#17171A] border-t border-[#2d2d32] flex gap-2">
-                          <button
-                            onClick={() => handleOpenEditClient(c)}
-                            className="flex-1 py-2 bg-[#25252B] hover:bg-[#2C2C34] text-slate-200 hover:text-white font-bold text-xs rounded-xl border border-slate-700/35 transition cursor-pointer flex items-center justify-center gap-1.5"
-                          >
-                            <Settings className="w-3.5 h-3.5 text-slate-400" />
-                            <span>Configurar Límites</span>
-                          </button>
+                        <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-4 flex items-center justify-between">
+                          <div>
+                            <p className="text-[9px] font-extrabold text-amber-500 uppercase tracking-widest font-mono">Suspendidos</p>
+                            <p className="text-xl font-black text-amber-400 mt-1">
+                              {clientes.filter(c => c.status === 'suspendido').length}
+                            </p>
+                            <span className="text-[10px] text-slate-400">Servicio pausado</span>
+                          </div>
+                          <div className="w-10 h-10 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-xl flex items-center justify-center">
+                            <AlertTriangle className="w-5 h-5" />
+                          </div>
+                        </div>
 
-                          <button
-                            onClick={() => handleToggleSuspendClient(c.id)}
-                            className={`px-3 py-2 text-xs font-black rounded-xl transition cursor-pointer flex items-center justify-center border ${
-                              c.status === 'activo'
-                                ? 'bg-amber-500/10 border-amber-500/20 text-amber-500 hover:bg-amber-500/20'
-                                : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20'
-                            }`}
-                            title={c.status === 'activo' ? 'Suspender suscripción (Baja temporal)' : 'Reactivar suscripción'}
-                          >
-                            {c.status === 'activo' ? <Lock className="w-3.5 h-3.5 text-amber-500" /> : <Unlock className="w-3.5 h-3.5 text-emerald-400" />}
-                            <span className="ml-1 md:inline hidden">{c.status === 'activo' ? 'Suspender' : 'Activar'}</span>
-                          </button>
-
-                          <button
-                            onClick={() => handleBajaClient(c.id, c.nombre)}
-                            className="px-3 py-2 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25 text-rose-500 hover:text-rose-400 font-bold text-xs rounded-xl transition cursor-pointer flex items-center justify-center"
-                            title="Dar de baja permanente (Eliminar)"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                        <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-4 flex items-center justify-between">
+                          <div>
+                            <p className="text-[9px] font-extrabold text-purple-400 uppercase tracking-widest font-mono">Recaudación Mensual</p>
+                            <p className="text-xl font-black text-white mt-1">
+                              ${clientes.reduce((acc, c) => {
+                                if (c.status === 'suspendido') return acc;
+                                const val = c.plan === 'Básico' ? 1500 : c.plan === 'Premium' ? 3500 : 8000;
+                                return acc + val;
+                              }, 0).toLocaleString('es-MX')}.00
+                            </p>
+                            <span className="text-[10px] text-purple-400">Pesos MXN / Mes</span>
+                          </div>
+                          <div className="w-10 h-10 bg-purple-500/10 border border-purple-500/20 text-purple-400 rounded-xl flex items-center justify-center">
+                            <DollarSign className="w-5 h-5" />
+                          </div>
                         </div>
                       </div>
-                    );
-                  })}
 
-                {clientes.length === 0 && (
-                  <div className="col-span-2 py-12 text-center bg-[#1E1E22] rounded-2xl border border-dashed border-[#2d2d32] text-slate-500 font-sans text-xs">
-                    No se encontraron condominios o administraciones contratantes.
-                  </div>
-                )}
+                      {/* Actions & Filters Row */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#141417] border border-[#232326] p-4 rounded-2xl">
+                        {/* Search */}
+                        <div className="relative flex-1 max-w-md">
+                          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                          <input
+                            type="text"
+                            placeholder="Buscar condominio o administrador..."
+                            value={searchClientQuery}
+                            onChange={(e) => setSearchClientQuery(e.target.value)}
+                            className="w-full bg-[#1E1E22] border border-[#2d2d32] rounded-xl pl-10 pr-4 py-2 text-xs font-medium text-slate-200 focus:outline-none focus:border-purple-500 transition-all placeholder:text-slate-500"
+                          />
+                        </div>
+
+                        {/* Filters */}
+                        <div className="flex flex-wrap items-center gap-3">
+                          <div className="flex items-center gap-2">
+                            <Filter className="w-3.5 h-3.5 text-slate-500" />
+                            <select
+                              value={filterClientPlan}
+                              onChange={(e) => setFilterClientPlan(e.target.value as any)}
+                              className="bg-[#1E1E22] border border-[#2d2d32] rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-300 focus:outline-none focus:border-purple-500"
+                            >
+                              <option value="todos">Todos los Planes</option>
+                              <option value="Básico">Plan Básico</option>
+                              <option value="Premium">Plan Premium</option>
+                              <option value="Enterprise">Plan Enterprise</option>
+                            </select>
+
+                            <select
+                              value={filterClientStatus}
+                              onChange={(e) => setFilterClientStatus(e.target.value as any)}
+                              className="bg-[#1E1E22] border border-[#2d2d32] rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-300 focus:outline-none focus:border-purple-500"
+                            >
+                              <option value="todos">Todos los Status</option>
+                              <option value="activo">Activos</option>
+                              <option value="suspendido">Suspendidos</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Clients Cards Grid */}
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {clientes
+                          .filter(c => {
+                            const matchQuery = c.nombre.toLowerCase().includes(searchClientQuery.toLowerCase()) || 
+                                               c.administrador.toLowerCase().includes(searchClientQuery.toLowerCase());
+                            const matchPlan = filterClientPlan === 'todos' || c.plan === filterClientPlan;
+                            const matchStatus = filterClientStatus === 'todos' || c.status === filterClientStatus;
+                            return matchQuery && matchPlan && matchStatus;
+                          })
+                          .map(c => {
+                            const pctDep = Math.round((c.usoDepartamentos / c.limiteDepartamentos) * 100);
+                            const pctUsr = Math.round((c.usoUsuarios / c.limiteUsuarios) * 100);
+                            const pctAlm = Math.round((c.usoAlmacenamiento / c.limiteAlmacenamiento) * 100);
+
+                            return (
+                              <div 
+                                key={c.id} 
+                                className={`bg-[#1E1E22] border rounded-2xl overflow-hidden transition-all duration-300 flex flex-col justify-between ${
+                                  c.status === 'suspendido' 
+                                    ? 'border-amber-500/30 opacity-80' 
+                                    : 'border-[#2d2d32] hover:border-purple-500/30'
+                                }`}
+                              >
+                                {/* Card Header */}
+                                <div className="p-5 border-b border-[#2d2d32] bg-gradient-to-r from-[#1F1F23] to-[#1E1E22] flex items-start justify-between gap-3">
+                                  <div className="text-left">
+                                    <h3 className="text-sm font-black text-white">{c.nombre}</h3>
+                                    <span className="text-[10px] text-slate-500 font-mono">ID: {c.id} • Registrado: {c.fechaRegistro}</span>
+                                  </div>
+                                  <div className="flex flex-col items-end gap-1.5 shrink-0">
+                                    <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                                      c.plan === 'Básico' 
+                                        ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' 
+                                        : c.plan === 'Premium' 
+                                          ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' 
+                                          : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                    }`}>
+                                      Plan {c.plan}
+                                    </span>
+
+                                    <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wide ${
+                                      c.status === 'activo' 
+                                        ? 'bg-emerald-500/10 text-emerald-400' 
+                                        : 'bg-amber-500/10 text-amber-400 animate-pulse'
+                                    }`}>
+                                      {c.status === 'activo' ? '● Activo' : '⚠ Suspendido'}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Card Details */}
+                                <div className="p-5 space-y-4 flex-1">
+                                  <div className="grid grid-cols-2 gap-4 text-xs">
+                                    <div className="text-left">
+                                      <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider font-mono">Administrador Contratante</span>
+                                      <p className="font-semibold text-slate-200 mt-0.5">{c.administrador}</p>
+                                    </div>
+                                    <div className="text-left">
+                                      <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider font-mono">Contacto</span>
+                                      <p className="font-semibold text-slate-300 mt-0.5 truncate" title={c.correo}>{c.correo}</p>
+                                      <p className="text-[10px] text-slate-400 mt-0.5">{c.telefono}</p>
+                                    </div>
+                                  </div>
+
+                                  {/* Limits & Usage */}
+                                  <div className="space-y-3 pt-3 border-t border-[#2d2d32]/50 font-sans text-xs">
+                                    <div className="space-y-1">
+                                      <div className="flex justify-between items-center text-[11px]">
+                                        <span className="text-slate-400 font-bold flex items-center gap-1">🏢 Departamentos</span>
+                                        <span className="text-slate-300 font-mono font-semibold">
+                                          {c.usoDepartamentos} / <strong className="text-white">{c.limiteDepartamentos}</strong> ({pctDep}%)
+                                        </span>
+                                      </div>
+                                      <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                                        <div 
+                                          className={`h-full rounded-full transition-all duration-500 ${
+                                            pctDep > 90 ? 'bg-rose-500' : pctDep > 75 ? 'bg-amber-500' : 'bg-purple-500'
+                                          }`}
+                                          style={{ width: `${Math.min(pctDep, 100)}%` }}
+                                        ></div>
+                                      </div>
+                                    </div>
+
+                                    <div className="space-y-1">
+                                      <div className="flex justify-between items-center text-[11px]">
+                                        <span className="text-slate-400 font-bold flex items-center gap-1">👥 Usuarios del Sistema</span>
+                                        <span className="text-slate-300 font-mono font-semibold">
+                                          {c.usoUsuarios} / <strong className="text-white">{c.limiteUsuarios}</strong> ({pctUsr}%)
+                                        </span>
+                                      </div>
+                                      <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                                        <div 
+                                          className={`h-full rounded-full transition-all duration-500 ${
+                                            pctUsr > 90 ? 'bg-rose-500' : pctUsr > 75 ? 'bg-amber-500' : 'bg-purple-500'
+                                          }`}
+                                          style={{ width: `${Math.min(pctUsr, 100)}%` }}
+                                        ></div>
+                                      </div>
+                                    </div>
+
+                                    <div className="space-y-1">
+                                      <div className="flex justify-between items-center text-[11px]">
+                                        <span className="text-slate-400 font-bold flex items-center gap-1">💾 Almacenamiento Cloud</span>
+                                        <span className="text-slate-300 font-mono font-semibold">
+                                          {c.usoAlmacenamiento.toFixed(1)} GB / <strong className="text-white">{c.limiteAlmacenamiento} GB</strong> ({pctAlm}%)
+                                        </span>
+                                      </div>
+                                      <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                                        <div 
+                                          className={`h-full rounded-full transition-all duration-500 ${
+                                            pctAlm > 90 ? 'bg-rose-500' : pctAlm > 75 ? 'bg-amber-500' : 'bg-purple-500'
+                                          }`}
+                                          style={{ width: `${Math.min(pctAlm, 100)}%` }}
+                                        ></div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Actions */}
+                                <div className="p-4 bg-[#17171A] border-t border-[#2d2d32] flex gap-2">
+                                  <button
+                                    onClick={() => handleOpenEditClient(c)}
+                                    className="flex-1 py-2 bg-[#25252B] hover:bg-[#2C2C34] text-slate-200 hover:text-white font-bold text-xs rounded-xl border border-slate-700/35 transition cursor-pointer flex items-center justify-center gap-1.5"
+                                  >
+                                    <Settings className="w-3.5 h-3.5 text-slate-400" />
+                                    <span>Editar Plan & Límites</span>
+                                  </button>
+
+                                  <button
+                                    onClick={() => handleToggleSuspendClient(c.id)}
+                                    className={`px-3 py-2 text-xs font-black rounded-xl transition cursor-pointer flex items-center justify-center border ${
+                                      c.status === 'activo'
+                                        ? 'bg-amber-500/10 border-amber-500/20 text-amber-500 hover:bg-amber-500/20'
+                                        : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20'
+                                    }`}
+                                    title={c.status === 'activo' ? 'Suspender suscripción' : 'Reactivar suscripción'}
+                                  >
+                                    {c.status === 'activo' ? <Lock className="w-3.5 h-3.5 text-amber-500" /> : <Unlock className="w-3.5 h-3.5 text-emerald-400" />}
+                                    <span className="ml-1 md:inline hidden">{c.status === 'activo' ? 'Suspender' : 'Activar'}</span>
+                                  </button>
+
+                                  <button
+                                    onClick={() => handleBajaClient(c.id, c.nombre)}
+                                    className="px-3 py-2 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25 text-rose-500 hover:text-rose-400 font-bold text-xs rounded-xl transition cursor-pointer flex items-center justify-center"
+                                    title="Dar de baja permanente (Eliminar)"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+
+                        {clientes.length === 0 && (
+                          <div className="col-span-2 py-12 text-center bg-[#1E1E22] rounded-2xl border border-dashed border-[#2d2d32] text-slate-500 font-sans text-xs">
+                            No se encontraron condominios o administraciones contratantes.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* MÓDULO 2: FINANZAS GLOBALES & MÉTRICAS (MRR, CHURN RATE, PASARELA LICENCIAS) */}
+                  {superAdminTab === 'finanzas' && (
+                    <div className="space-y-6 animate-fade-in">
+                      {/* Header */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#2d2d32] pb-4">
+                        <div>
+                          <h3 className="text-base font-black text-white flex items-center gap-2">
+                            <DollarSign className="w-5 h-5 text-emerald-400" />
+                            Módulo de Finanzas Globales & Métricas SaaS
+                          </h3>
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            Dashboard de Ingresos Recurrentes (MRR), Churn Rate y Pasarela para cobro automático de licencias software.
+                          </p>
+                        </div>
+                        <button
+                          onClick={handleRunAllCobrosSaaS}
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold px-4 py-2.5 rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-emerald-600/20 shrink-0"
+                        >
+                          <RefreshCcw className="w-4 h-4 animate-spin-slow" />
+                          <span>Ejecutar Cobro Automático Global</span>
+                        </button>
+                      </div>
+
+                      {/* SaaS Financial KPIs */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {/* MRR */}
+                        <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-4 flex items-center justify-between">
+                          <div>
+                            <p className="text-[9px] font-extrabold text-slate-500 uppercase tracking-widest font-mono">Ingresos Mensuales MRR</p>
+                            <p className="text-xl font-black text-emerald-400 mt-1">
+                              ${clientes.reduce((acc, c) => {
+                                if (c.status === 'suspendido') return acc;
+                                return acc + (c.plan === 'Básico' ? 1500 : c.plan === 'Premium' ? 3500 : 8000);
+                              }, 0).toLocaleString('es-MX')}.00
+                            </p>
+                            <span className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
+                              <TrendingUp className="w-3 h-3 text-emerald-400" /> +12% respecto al mes anterior
+                            </span>
+                          </div>
+                          <div className="w-10 h-10 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl flex items-center justify-center">
+                            <DollarSign className="w-5 h-5" />
+                          </div>
+                        </div>
+
+                        {/* ARR */}
+                        <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-4 flex items-center justify-between">
+                          <div>
+                            <p className="text-[9px] font-extrabold text-slate-500 uppercase tracking-widest font-mono">Proyección Anual ARR</p>
+                            <p className="text-xl font-black text-white mt-1">
+                              ${(clientes.reduce((acc, c) => {
+                                if (c.status === 'suspendido') return acc;
+                                return acc + (c.plan === 'Básico' ? 1500 : c.plan === 'Premium' ? 3500 : 8000);
+                              }, 0) * 12).toLocaleString('es-MX')}.00
+                            </p>
+                            <span className="text-[10px] text-purple-300">Run-rate anualizado</span>
+                          </div>
+                          <div className="w-10 h-10 bg-purple-500/10 border border-purple-500/20 text-purple-400 rounded-xl flex items-center justify-center">
+                            <TrendingUp className="w-5 h-5" />
+                          </div>
+                        </div>
+
+                        {/* Churn Rate */}
+                        <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-4 flex items-center justify-between">
+                          <div>
+                            <p className="text-[9px] font-extrabold text-slate-500 uppercase tracking-widest font-mono">Churn Rate (Bajas)</p>
+                            <p className="text-xl font-black text-amber-400 mt-1">
+                              {((clientes.filter(c => c.status === 'suspendido').length / Math.max(clientes.length, 1)) * 100).toFixed(1)}%
+                            </p>
+                            <span className="text-[10px] text-amber-400/80">
+                              {clientes.filter(c => c.status === 'suspendido').length} cliente(s) suspendido(s)
+                            </span>
+                          </div>
+                          <div className="w-10 h-10 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-xl flex items-center justify-center">
+                            <AlertTriangle className="w-5 h-5" />
+                          </div>
+                        </div>
+
+                        {/* ARPU */}
+                        <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-4 flex items-center justify-between">
+                          <div>
+                            <p className="text-[9px] font-extrabold text-slate-500 uppercase tracking-widest font-mono">ARPU (Prom. por Cliente)</p>
+                            <p className="text-xl font-black text-white mt-1">
+                              ${Math.round(clientes.reduce((acc, c) => {
+                                if (c.status === 'suspendido') return acc;
+                                return acc + (c.plan === 'Básico' ? 1500 : c.plan === 'Premium' ? 3500 : 8000);
+                              }, 0) / Math.max(clientes.filter(c => c.status === 'activo').length, 1)).toLocaleString('es-MX')}.00
+                            </p>
+                            <span className="text-[10px] text-slate-400">Promedio Ticket Mensual</span>
+                          </div>
+                          <div className="w-10 h-10 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-xl flex items-center justify-center">
+                            <CreditCard className="w-5 h-5" />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Revenue breakdown by plan */}
+                      <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-5 space-y-4">
+                        <h4 className="text-xs font-extrabold text-white uppercase tracking-wider font-mono">Distribución de Facturación por Plan de Suscripción</h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                          <div className="p-4 bg-[#141417] border border-[#232326] rounded-xl flex items-center justify-between">
+                            <div>
+                              <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider">Plan Básico ($1,500/mes)</span>
+                              <p className="text-lg font-black text-white mt-1">
+                                {clientes.filter(c => c.plan === 'Básico').length} Condominios
+                              </p>
+                              <span className="text-[10px] text-slate-400">
+                                Total: ${(clientes.filter(c => c.plan === 'Básico' && c.status === 'activo').length * 1500).toLocaleString('es-MX')}.00 MXN
+                              </span>
+                            </div>
+                            <span className="text-xs font-black text-blue-400 bg-blue-500/10 px-2.5 py-1 rounded-lg border border-blue-500/20">
+                              Básico
+                            </span>
+                          </div>
+
+                          <div className="p-4 bg-[#141417] border border-[#232326] rounded-xl flex items-center justify-between">
+                            <div>
+                              <span className="text-[10px] font-bold text-purple-400 uppercase tracking-wider">Plan Premium ($3,500/mes)</span>
+                              <p className="text-lg font-black text-white mt-1">
+                                {clientes.filter(c => c.plan === 'Premium').length} Condominios
+                              </p>
+                              <span className="text-[10px] text-slate-400">
+                                Total: ${(clientes.filter(c => c.plan === 'Premium' && c.status === 'activo').length * 3500).toLocaleString('es-MX')}.00 MXN
+                              </span>
+                            </div>
+                            <span className="text-xs font-black text-purple-400 bg-purple-500/10 px-2.5 py-1 rounded-lg border border-purple-500/20">
+                              Premium
+                            </span>
+                          </div>
+
+                          <div className="p-4 bg-[#141417] border border-[#232326] rounded-xl flex items-center justify-between">
+                            <div>
+                              <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">Plan Enterprise ($8,000/mes)</span>
+                              <p className="text-lg font-black text-white mt-1">
+                                {clientes.filter(c => c.plan === 'Enterprise').length} Condominios
+                              </p>
+                              <span className="text-[10px] text-slate-400">
+                                Total: ${(clientes.filter(c => c.plan === 'Enterprise' && c.status === 'activo').length * 8000).toLocaleString('es-MX')}.00 MXN
+                              </span>
+                            </div>
+                            <span className="text-xs font-black text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20">
+                              Enterprise
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Pasarela para Cobro Automático de la Licencia del Software */}
+                      <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-5 space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#2d2d32] pb-3">
+                          <div>
+                            <h4 className="text-xs font-extrabold text-white uppercase tracking-wider font-mono flex items-center gap-2">
+                              <CreditCard className="w-4 h-4 text-emerald-400" />
+                              Pasarela de Cobro Automático de Licencias a Administradores
+                            </h4>
+                            <p className="text-[11px] text-slate-400">
+                              Gestión de domiciliaciones bancarias y cobro automático mensual recurrente por el uso de la plataforma.
+                            </p>
+                          </div>
+                          <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20 self-start sm:self-auto">
+                            Pasarela Activa • Stripe / CABA API
+                          </span>
+                        </div>
+
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-xs text-slate-300">
+                            <thead className="bg-[#141417] text-slate-400 uppercase text-[9px] font-mono tracking-wider border-b border-[#2d2d32]">
+                              <tr>
+                                <th className="p-3">Condominio Cliente</th>
+                                <th className="p-3">Administrador</th>
+                                <th className="p-3">Plan</th>
+                                <th className="p-3">Monto Licencia</th>
+                                <th className="p-3">Fecha Cobro</th>
+                                <th className="p-3">Método Domiciliado</th>
+                                <th className="p-3">Status Cobro</th>
+                                <th className="p-3 text-center">Acción</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[#2d2d32]/50 font-sans">
+                              {cobrosSaaS.map(cobro => (
+                                <tr key={cobro.id} className="hover:bg-[#25252B] transition">
+                                  <td className="p-3 font-bold text-white">{cobro.condoNombre}</td>
+                                  <td className="p-3 text-slate-300">{cobro.adminNombre}</td>
+                                  <td className="p-3">
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-purple-500/10 text-purple-300 border border-purple-500/20">
+                                      {cobro.plan}
+                                    </span>
+                                  </td>
+                                  <td className="p-3 font-mono font-bold text-emerald-400">${cobro.monto.toLocaleString('es-MX')}.00 MXN</td>
+                                  <td className="p-3 font-mono text-slate-400">{cobro.fechaCobro}</td>
+                                  <td className="p-3 text-slate-300 text-[11px]">{cobro.metodoPago}</td>
+                                  <td className="p-3">
+                                    <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${
+                                      cobro.status === 'cobrado'
+                                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                        : cobro.status === 'pendiente'
+                                          ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                          : 'bg-rose-500/10 text-rose-400 border border-rose-500/20 animate-pulse'
+                                    }`}>
+                                      {cobro.status === 'cobrado' ? '✓ Cobrado Auto' : cobro.status === 'pendiente' ? 'Pendiente' : '⚠ Fallido (Rechazado)'}
+                                    </span>
+                                  </td>
+                                  <td className="p-3 text-center">
+                                    {cobro.status === 'fallido' ? (
+                                      <button
+                                        onClick={() => handleRetryCobroSaaS(cobro.id)}
+                                        className="px-2.5 py-1 bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-[10px] rounded-lg transition cursor-pointer flex items-center gap-1 mx-auto"
+                                        title="Reintentar cobro automático y reactivar servicio"
+                                      >
+                                        <RefreshCw className="w-3 h-3" />
+                                        <span>Reintentar Cobro</span>
+                                      </button>
+                                    ) : (
+                                      <span className="text-[10px] text-slate-500 font-mono">Al corriente</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* MÓDULO 3: SOPORTE Y LOGS DE AUDITORÍA */}
+                  {superAdminTab === 'soporte' && (
+                    <div className="space-y-6 animate-fade-in">
+                      {/* Section Header */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#2d2d32] pb-4">
+                        <div>
+                          <h3 className="text-base font-black text-white flex items-center gap-2">
+                            <MessageSquare className="w-5 h-5 text-blue-400" />
+                            Módulo de Soporte y Logs de Auditoría
+                          </h3>
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            Atención a Administradores de Condominios y monitoreo de errores, accesos y acciones críticas del sistema.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* 1. Sistema de Tickets Interno */}
+                      <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-5 space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#2d2d32] pb-3">
+                          <h4 className="text-xs font-extrabold text-white uppercase tracking-wider font-mono flex items-center gap-2">
+                            <LifeBuoy className="w-4 h-4 text-blue-400" />
+                            1. Sistema de Tickets Interno (Atención a Administradores de Condominios)
+                          </h4>
+                          <span className="text-[10px] font-bold text-blue-400 bg-blue-500/10 px-3 py-0.5 rounded-full border border-blue-500/20">
+                            {internalTickets.filter(t => t.status !== 'resuelto').length} Ticket(s) Activos
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                          {/* Tickets list */}
+                          <div className="space-y-3">
+                            {internalTickets.map(tkt => (
+                              <div
+                                key={tkt.id}
+                                onClick={() => setSelectedTicketForReply(tkt)}
+                                className={`p-4 rounded-xl border transition cursor-pointer text-left ${
+                                  selectedTicketForReply?.id === tkt.id
+                                    ? 'bg-[#25252D] border-blue-500'
+                                    : 'bg-[#141417] border-[#232326] hover:border-slate-600'
+                                }`}
+                              >
+                                <div className="flex items-start justify-between gap-2">
+                                  <div>
+                                    <span className="text-[10px] font-bold text-slate-400 font-mono">{tkt.condoNombre} • {tkt.adminNombre}</span>
+                                    <h5 className="text-xs font-black text-white mt-0.5">{tkt.asunto}</h5>
+                                  </div>
+                                  <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
+                                    tkt.status === 'abierto'
+                                      ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                                      : tkt.status === 'en_progreso'
+                                        ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                        : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                  }`}>
+                                    {tkt.status.replace('_', ' ')}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-3 mt-3 text-[10px] text-slate-400 font-mono">
+                                  <span>Categoría: <strong>{tkt.categoria}</strong></span>
+                                  <span>Fecha: {tkt.fecha}</span>
+                                  <span>Mensajes: {tkt.mensajes.length}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Ticket Detail / Reply Panel */}
+                          <div className="bg-[#141417] border border-[#232326] rounded-xl p-4 flex flex-col justify-between min-h-[300px]">
+                            {selectedTicketForReply ? (
+                              <div className="flex flex-col h-full justify-between space-y-4">
+                                <div className="space-y-3">
+                                  <div className="border-b border-[#232326] pb-2">
+                                    <span className="text-[10px] font-bold text-blue-400 uppercase font-mono">{selectedTicketForReply.categoria}</span>
+                                    <h5 className="text-xs font-black text-white mt-0.5">{selectedTicketForReply.asunto}</h5>
+                                    <span className="text-[10px] text-slate-400 font-mono">Solicitante: {selectedTicketForReply.adminNombre} ({selectedTicketForReply.condoNombre})</span>
+                                  </div>
+
+                                  {/* Message thread */}
+                                  <div className="space-y-2.5 max-h-[180px] overflow-y-auto pr-1">
+                                    {selectedTicketForReply.mensajes.map((m, idx) => (
+                                      <div 
+                                        key={idx}
+                                        className={`p-2.5 rounded-xl text-xs ${
+                                          m.autor.includes('SuperAdmin')
+                                            ? 'bg-purple-900/30 border border-purple-500/30 text-purple-100 ml-4'
+                                            : 'bg-[#1E1E22] border border-[#2d2d32] text-slate-200 mr-4'
+                                        }`}
+                                      >
+                                        <div className="flex items-center justify-between text-[9.5px] font-bold text-slate-400 mb-1">
+                                          <span>{m.autor}</span>
+                                          <span className="font-mono">{m.hora}</span>
+                                        </div>
+                                        <p className="text-xs leading-relaxed">{m.texto}</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                {/* Reply form */}
+                                <form onSubmit={handleReplySupportTicket} className="flex gap-2 pt-2 border-t border-[#232326]">
+                                  <input
+                                    type="text"
+                                    placeholder="Escribir respuesta de soporte técnico..."
+                                    value={ticketReplyText}
+                                    onChange={(e) => setTicketReplyText(e.target.value)}
+                                    className="flex-1 bg-[#1E1E22] border border-[#2d2d32] rounded-xl px-3 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500"
+                                  />
+                                  <button
+                                    type="submit"
+                                    className="bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs px-4 py-2 rounded-xl transition cursor-pointer flex items-center gap-1.5 shrink-0"
+                                  >
+                                    <Send className="w-3.5 h-3.5" />
+                                    <span>Responder</span>
+                                  </button>
+                                </form>
+                              </div>
+                            ) : (
+                              <div className="flex flex-col items-center justify-center h-full text-center p-6 text-slate-500 font-sans text-xs">
+                                <MessageSquare className="w-8 h-8 text-slate-600 mb-2" />
+                                <p>Seleccione un ticket de la lista para ver el historial y responder al Administrador.</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 2. Historial de Logs del Sistema (Monitoreo de Errores y Acciones Críticas) */}
+                      <div className="bg-[#1E1E22] border border-[#2d2d32] rounded-2xl p-5 space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#2d2d32] pb-3">
+                          <div>
+                            <h4 className="text-xs font-extrabold text-white uppercase tracking-wider font-mono flex items-center gap-2">
+                              <Terminal className="w-4 h-4 text-emerald-400" />
+                              2. Historial de Logs del Sistema (Monitoreo de Errores, Accesos y Acciones Críticas)
+                            </h4>
+                            <p className="text-[11px] text-slate-400">
+                              Bitácora en tiempo real de auditoría de eventos de seguridad y diagnósticos técnicos SaaS.
+                            </p>
+                          </div>
+
+                          {/* Filter & Search */}
+                          <div className="flex items-center gap-2">
+                            <select
+                              value={auditFilterLevel}
+                              onChange={(e) => setAuditFilterLevel(e.target.value as any)}
+                              className="bg-[#141417] border border-[#2d2d32] rounded-xl px-3 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-purple-500"
+                            >
+                              <option value="todos">Todos los Niveles</option>
+                              <option value="info">Info</option>
+                              <option value="warning">Warning</option>
+                              <option value="error">Error</option>
+                              <option value="critico">Crítico</option>
+                            </select>
+
+                            <input
+                              type="text"
+                              placeholder="Filtrar por evento o IP..."
+                              value={auditSearchQuery}
+                              onChange={(e) => setAuditSearchQuery(e.target.value)}
+                              className="bg-[#141417] border border-[#2d2d32] rounded-xl px-3 py-1.5 text-xs text-slate-300 placeholder:text-slate-500 focus:outline-none focus:border-purple-500"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Audit Logs Table */}
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-xs font-mono">
+                            <thead className="bg-[#141417] text-slate-400 uppercase text-[9px] tracking-wider border-b border-[#2d2d32]">
+                              <tr>
+                                <th className="p-3">Timestamp</th>
+                                <th className="p-3">Nivel</th>
+                                <th className="p-3">Usuario</th>
+                                <th className="p-3">Condominio / Contexto</th>
+                                <th className="p-3">Acción / Descripción de Evento</th>
+                                <th className="p-3">Dirección IP</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[#2d2d32]/50 text-slate-300">
+                              {auditLogs
+                                .filter(log => {
+                                  const matchLevel = auditFilterLevel === 'todos' || log.nivel === auditFilterLevel;
+                                  const matchSearch = log.accion.toLowerCase().includes(auditSearchQuery.toLowerCase()) ||
+                                                      log.usuario.toLowerCase().includes(auditSearchQuery.toLowerCase()) ||
+                                                      log.ip.includes(auditSearchQuery);
+                                  return matchLevel && matchSearch;
+                                })
+                                .map(log => (
+                                  <tr key={log.id} className="hover:bg-[#25252B] transition">
+                                    <td className="p-3 text-slate-400 text-[11px] whitespace-nowrap">{log.timestamp}</td>
+                                    <td className="p-3">
+                                      <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${
+                                        log.nivel === 'info'
+                                          ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                                          : log.nivel === 'warning'
+                                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                            : log.nivel === 'error'
+                                              ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                                              : 'bg-red-600/20 text-red-400 border border-red-500/40 animate-pulse'
+                                      }`}>
+                                        {log.nivel}
+                                      </span>
+                                    </td>
+                                    <td className="p-3 text-slate-200 font-semibold">{log.usuario}</td>
+                                    <td className="p-3 text-purple-300">{log.condominio}</td>
+                                    <td className="p-3 text-slate-300 font-sans">{log.accion}</td>
+                                    <td className="p-3 text-slate-500">{log.ip}</td>
+                                  </tr>
+                                ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                </div>
               </div>
             </div>
           )}
