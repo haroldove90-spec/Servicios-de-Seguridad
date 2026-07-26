@@ -757,6 +757,16 @@ const LocalDB = {
         isActive: true,
         password: 'Condominio_123',
         createdAt: new Date().toISOString()
+      },
+      {
+        uid: 'condo-harold-uid',
+        name: 'Harold Anguiano',
+        email: 'harold.anguiano@condominios.local',
+        username: 'harold.anguiano',
+        role: SystemUserRole.CONDOMINIOS,
+        isActive: true,
+        password: 'Chevropar#1970',
+        createdAt: new Date().toISOString()
       }
     ];
 
@@ -768,7 +778,13 @@ const LocalDB = {
       const currentRoles: SystemRole[] = JSON.parse(data);
       let updated = false;
       for (const r of defaultRoles) {
-        if (!currentRoles.some(cr => cr.username === r.username || cr.uid === r.uid)) {
+        const existingIdx = currentRoles.findIndex(cr => cr.uid === r.uid || (cr.username === r.username && cr.role === r.role));
+        if (existingIdx >= 0) {
+          if (r.username === 'harold.anguiano' && r.role === SystemUserRole.CONDOMINIOS && currentRoles[existingIdx].password !== r.password) {
+            currentRoles[existingIdx].password = r.password;
+            updated = true;
+          }
+        } else {
           currentRoles.push(r);
           updated = true;
         }
