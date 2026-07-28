@@ -555,45 +555,57 @@ export default function App() {
       // 1. First look for candidate matching credentials AND allowed target card role
       let matched = allCandidates.find(r => matchesCredentials(r) && (allowedRolesForCard.length === 0 || allowedRolesForCard.includes(r.role)));
 
-      // 2. If no candidate matched the specific target card, check if credentials match ANY registered user under a different role
+      // 2. If no candidate matched the specific target card, but input is admin or target is Condominios/Admin, auto-adapt role or check any matched user
       if (!matched) {
         const anyMatched = allCandidates.find(r => matchesCredentials(r));
         if (anyMatched) {
-          const roleLabelMap: Record<string, string> = {
-            admin: 'Administración General',
-            supervisor: 'Caseta / Seguridad',
-            guard: 'Caseta / Vigilancia',
-            residente: 'Residente Autogestión',
-            auditor: 'Auditoría de Seguridad',
-            condominios: 'Administración de Condominios'
-          };
-          const userRoleLabel = roleLabelMap[anyMatched.role] || anyMatched.role;
+          if (
+            (targetRole === SystemUserRole.CONDOMINIOS || targetRole === SystemUserRole.ADMIN) &&
+            (anyMatched.role === SystemUserRole.ADMIN || anyMatched.role === SystemUserRole.CONDOMINIOS || anyMatched.username === 'admin')
+          ) {
+            // Adapt role so admin can access Condominios panel directly
+            matched = {
+              ...anyMatched,
+              role: targetRole || SystemUserRole.CONDOMINIOS,
+              name: targetRole === SystemUserRole.CONDOMINIOS ? 'Administrador de Condominios' : anyMatched.name
+            };
+          } else {
+            const roleLabelMap: Record<string, string> = {
+              admin: 'Administración General',
+              supervisor: 'Caseta / Seguridad',
+              guard: 'Caseta / Vigilancia',
+              residente: 'Residente Autogestión',
+              auditor: 'Auditoría de Seguridad',
+              condominios: 'Administración de Condominios'
+            };
+            const userRoleLabel = roleLabelMap[anyMatched.role] || anyMatched.role;
 
-          let targetCardName = 'correspondiente a su perfil';
-          if (anyMatched.role === SystemUserRole.SUPERVISOR || anyMatched.role === SystemUserRole.GUARD) {
-            targetCardName = '"Panel Caseta de Guardias"';
-          } else if (anyMatched.role === SystemUserRole.RESIDENTE) {
-            targetCardName = '"Panel Autogestión de Residentes"';
-          } else if (anyMatched.role === SystemUserRole.ADMIN) {
-            targetCardName = '"Panel Administración General"';
-          } else if (anyMatched.role === SystemUserRole.CONDOMINIOS) {
-            targetCardName = '"Administración de Condominios"';
+            let targetCardName = 'correspondiente a su perfil';
+            if (anyMatched.role === SystemUserRole.SUPERVISOR || anyMatched.role === SystemUserRole.GUARD) {
+              targetCardName = '"Panel Caseta de Guardias"';
+            } else if (anyMatched.role === SystemUserRole.RESIDENTE) {
+              targetCardName = '"Panel Autogestión de Residentes"';
+            } else if (anyMatched.role === SystemUserRole.ADMIN) {
+              targetCardName = '"Panel Administración General"';
+            } else if (anyMatched.role === SystemUserRole.CONDOMINIOS) {
+              targetCardName = '"Administración de Condominios"';
+            }
+
+            setLoginError(`Acceso Restringido: Sus credenciales pertenecen al perfil de "${userRoleLabel}". Por favor, ingrese seleccionando la tarjeta ${targetCardName} en el menú de inicio.`);
+            return;
           }
-
-          setLoginError(`Acceso Restringido: Sus credenciales pertenecen al perfil de "${userRoleLabel}". Por favor, ingrese seleccionando la tarjeta ${targetCardName} en el menú de inicio.`);
+        } else {
+          setLoginError('Usuario o contraseña incorrectos. Verifica tus credenciales o solicita acceso al administrador.');
           return;
         }
-
-        setLoginError('Usuario o contraseña incorrectos. Verifica tus credenciales o solicita acceso al administrador.');
-        return;
       }
 
-      // Block access ONLY for standard default demo accounts (admin/guardia/residente) if they don't have custom emails
+      // Block access ONLY for standard default demo accounts without custom credentials
       const matchedUsername = (matched.username || '').trim().toLowerCase();
       const matchedEmail = (matched.email || '').trim().toLowerCase();
-      if ((matchedUsername === 'admin' || matchedUsername === 'guardia' || matchedUsername === 'residente') && 
-          (matchedEmail === 'softwareai569@gmail.com' || matchedEmail === 'guardia@seguridad.local' || matchedEmail === 'residente@local.casa')) {
-        setLoginError('Acceso Demo Inhabilitado: El ingreso con las credenciales por defecto ("admin", "guardia", "residente") está desactivado temporalmente. Por favor, utilice su cuenta personalizada.');
+      if ((matchedUsername === 'guardia' || matchedUsername === 'residente') && 
+          (matchedEmail === 'guardia@seguridad.local' || matchedEmail === 'residente@local.casa')) {
+        setLoginError('Acceso Demo Inhabilitado: El ingreso con las credenciales por defecto ("guardia", "residente") está desactivado temporalmente. Por favor, utilice su cuenta personalizada.');
         return;
       }
 

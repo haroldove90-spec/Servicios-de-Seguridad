@@ -1110,7 +1110,7 @@ export const dbService = {
     // Self-healing / On-Demand Sync: 
     // Check if any default demo roles are missing from the retrieved active roles list
     const demoRoles = LocalDB.getRoles();
-    const missingDemoRoles = demoRoles.filter(demo => !roles.some(r => r.username?.toLowerCase() === demo.username?.toLowerCase() || r.uid === demo.uid));
+    const missingDemoRoles = demoRoles.filter(demo => !roles.some(r => r.uid === demo.uid || (r.username?.toLowerCase() === demo.username?.toLowerCase() && r.role === demo.role)));
 
     if (missingDemoRoles.length > 0) {
       console.log('Seeding missing demo roles to databases:', missingDemoRoles.map(m => m.username));
