@@ -749,6 +749,26 @@ const LocalDB = {
         residenciaNombre: 'Lomas de Chapultepec'
       },
       {
+        uid: 'condo-admin-uid',
+        name: 'Administrador de Condominios',
+        email: 'admin@condominios.local',
+        username: 'admin',
+        role: SystemUserRole.CONDOMINIOS,
+        isActive: true,
+        password: 'Admin_123',
+        createdAt: new Date().toISOString()
+      },
+      {
+        uid: 'admin-main-uid',
+        name: 'Admin Principal',
+        email: 'admin@sistema.local',
+        username: 'admin',
+        role: SystemUserRole.ADMIN,
+        isActive: true,
+        password: 'Admin_123',
+        createdAt: new Date().toISOString()
+      },
+      {
         uid: 'condo-demo-uid',
         name: 'Harold Anguiano (Condominios)',
         email: 'condominio@cnls.com',
