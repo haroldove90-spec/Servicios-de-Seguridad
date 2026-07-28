@@ -2350,6 +2350,8 @@ export const dbService = {
   },
 
   async getEvidencias(): Promise<Evidencia[]> {
+    let remoteUsers: Evidencia[] = [];
+
     try {
       const { data, error } = await supabase
         .from('evidencias')
@@ -2357,67 +2359,115 @@ export const dbService = {
         .order('timestamp', { ascending: false });
 
       if (!error && data) {
-        return (data as any[]).map(normalizeEvidenciaRow);
-      }
-      if (error) {
+        remoteUsers = (data as any[]).map(normalizeEvidenciaRow);
+      } else if (error) {
         console.warn('Supabase getEvidencias returned query error:', error);
       }
     } catch (err) {
       console.warn('Supabase getEvidencias exception, using fallback:', err);
     }
 
-    if (IS_FIREBASE_DUMMY) {
-      return LocalDB.getEvidencias().sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    if (!IS_FIREBASE_DUMMY && remoteUsers.length === 0) {
+      try {
+        const colRef = collection(db, 'evidencias');
+        const q = query(colRef, orderBy('timestamp', 'desc'));
+        const snap = await getDocs(q);
+        const results: Evidencia[] = [];
+        snap.forEach(d => {
+          results.push(normalizeEvidenciaRow(d.data()));
+        });
+        remoteUsers = results;
+      } catch (err) {
+        console.warn('Firestore getEvidencias exception:', err);
+      }
     }
 
-    try {
-      const colRef = collection(db, 'evidencias');
-      const q = query(colRef, orderBy('timestamp', 'desc'));
-      const snap = await getDocs(q);
-      const results: Evidencia[] = [];
-      snap.forEach(d => {
-        results.push(normalizeEvidenciaRow(d.data()));
-      });
-      return results;
-    } catch (err) {
-      handleFirestoreError(err, OperationType.LIST, 'evidencias');
-      return [];
-    }
+    // Merge remote and local evidencias seamlessly
+    const local = LocalDB.getEvidencias().map(normalizeEvidenciaRow);
+    const unifiedMap = new Map<string, Evidencia>();
+    local.forEach(e => unifiedMap.set(e.id, e));
+    remoteUsers.forEach(e => unifiedMap.set(e.id, e));
+
+    return Array.from(unifiedMap.values()).sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
   },
 
   async createEvidencia(evidencia: Omit<Evidencia, 'id'>): Promise<Evidencia> {
     const id = 'evid_' + generateId();
     const newEvidencia: Evidencia = { ...evidencia, id };
 
+    // 1. Save to LocalDB immediately to ensure zero UI delay or lost data
     try {
-      const { error } = await robustSupabaseInsert('evidencias', newEvidencia);
+      const list = LocalDB.getEvidencias();
+      list.unshift(newEvidencia);
+      LocalDB.saveEvidencias(list);
+    } catch (locErr) {
+      console.warn('LocalDB saveEvidencias cache error:', locErr);
+    }
+
+    // 2. Multi-casing expansion for Supabase insert compatibility
+    const supabasePayload = {
+      id: newEvidencia.id,
+      residenciaId: newEvidencia.residenciaId,
+      residencia_id: newEvidencia.residenciaId,
+      residenciaid: newEvidencia.residenciaId,
+      residenciaNombre: newEvidencia.residenciaNombre,
+      residencia_nombre: newEvidencia.residenciaNombre,
+      residencianombre: newEvidencia.residenciaNombre,
+      casetaId: newEvidencia.casetaId,
+      caseta_id: newEvidencia.casetaId,
+      casetaid: newEvidencia.casetaId,
+      casetaNombre: newEvidencia.casetaNombre,
+      caseta_nombre: newEvidencia.casetaNombre,
+      casetanombre: newEvidencia.casetaNombre,
+      guardId: newEvidencia.guardId,
+      guard_id: newEvidencia.guardId,
+      guardid: newEvidencia.guardId,
+      guardName: newEvidencia.guardName,
+      guard_name: newEvidencia.guardName,
+      guardname: newEvidencia.guardName,
+      photoUrl: newEvidencia.photoUrl,
+      photo_url: newEvidencia.photoUrl,
+      photourl: newEvidencia.photoUrl,
+      placas: newEvidencia.placas || '',
+      timestamp: newEvidencia.timestamp,
+      notas: newEvidencia.notas || '',
+      tipo: newEvidencia.tipo || 'placa'
+    };
+
+    try {
+      const { error } = await robustSupabaseInsert('evidencias', supabasePayload);
       if (error) {
         console.warn('Supabase createEvidencia returned query error:', error);
       } else {
         console.log('Successfully inserted evidence to Supabase!');
       }
     } catch (err) {
-      console.warn('Supabase createEvidencia exception, using fallback:', err);
+      console.warn('Supabase createEvidencia exception:', err);
     }
 
-    if (IS_FIREBASE_DUMMY) {
-      const list = LocalDB.getEvidencias();
-      list.unshift(newEvidencia);
-      LocalDB.saveEvidencias(list);
-      return newEvidencia;
+    if (!IS_FIREBASE_DUMMY) {
+      try {
+        const docRef = doc(db, 'evidencias', id);
+        await setDoc(docRef, newEvidencia);
+      } catch (err) {
+        console.warn('Firestore setDoc evidencia warning:', err);
+      }
     }
 
-    try {
-      const docRef = doc(db, 'evidencias', id);
-      await setDoc(docRef, newEvidencia);
-      return newEvidencia;
-    } catch (err) {
-      handleFirestoreError(err, OperationType.CREATE, `evidencias/${id}`);
-      throw err;
-    }
+    return newEvidencia;
   },
 
   async deleteEvidencia(id: string): Promise<void> {
+    // 1. Remove from LocalDB
+    try {
+      const list = LocalDB.getEvidencias();
+      const filtered = list.filter(e => e.id !== id);
+      LocalDB.saveEvidencias(filtered);
+    } catch (locErr) {
+      console.warn('LocalDB deleteEvidencia error:', locErr);
+    }
+
+    // 2. Remove from Supabase
     try {
       const { error } = await supabase
         .from('evidencias')
@@ -2428,22 +2478,17 @@ export const dbService = {
         console.warn('Supabase deleteEvidencia returned query error:', error);
       }
     } catch (err) {
-      console.warn('Supabase deleteEvidencia exception, using fallback:', err);
+      console.warn('Supabase deleteEvidencia exception:', err);
     }
 
-    if (IS_FIREBASE_DUMMY) {
-      const list = LocalDB.getEvidencias();
-      const filtered = list.filter(e => e.id !== id);
-      LocalDB.saveEvidencias(filtered);
-      return;
-    }
-
-    try {
-      const docRef = doc(db, 'evidencias', id);
-      await deleteDoc(docRef);
-    } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, `evidencias/${id}`);
-      throw err;
+    // 3. Remove from Firestore if configured
+    if (!IS_FIREBASE_DUMMY) {
+      try {
+        const docRef = doc(db, 'evidencias', id);
+        await deleteDoc(docRef);
+      } catch (err) {
+        console.warn('Firestore deleteDoc evidencia warning:', err);
+      }
     }
   }
 
