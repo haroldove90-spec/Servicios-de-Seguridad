@@ -206,6 +206,14 @@ export default function AdminDashboard({ onUsersUpdated, currentUser }: AdminDas
     }
   };
 
+  const handleClearCache = () => {
+    if (window.confirm('¿Está seguro de que desea borrar el caché del sistema?\n\nEsta acción eliminará la memoria temporal local y volverá a sincronizar la información directamente con la base de datos en tiempo real.')) {
+      dbService.clearSystemCache();
+      alert('✓ Caché del sistema limpiado exitosamente. La aplicación se recargará a continuación.');
+      window.location.reload();
+    }
+  };
+
   const rawVisitors = currentUser?.residenciaId
     ? visitors.filter(v => v.residenciaId === currentUser.residenciaId)
     : visitors;
@@ -236,13 +244,24 @@ export default function AdminDashboard({ onUsersUpdated, currentUser }: AdminDas
           />
         </div>
 
-        <button
-          id="btn-register-new-visitor"
-          onClick={handleOpenCreateForm}
-          className="inline-flex items-center gap-2 justify-center px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-semibold text-xs rounded-xl transition shadow-xs cursor-pointer"
-        >
-          <UserPlus className="w-4 h-4" /> Registrar Autorizado
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            id="btn-clear-system-cache-admin"
+            onClick={handleClearCache}
+            className="inline-flex items-center gap-1.5 justify-center px-3.5 py-2 bg-amber-950/60 hover:bg-amber-900/80 text-amber-300 border border-amber-500/40 font-semibold text-xs rounded-xl transition cursor-pointer shadow-xs"
+            title="Borrar memoria caché local del navegador y re-sincronizar datos"
+          >
+            <RefreshCcw className="w-4 h-4 text-amber-400" /> Borrar Caché
+          </button>
+
+          <button
+            id="btn-register-new-visitor"
+            onClick={handleOpenCreateForm}
+            className="inline-flex items-center gap-2 justify-center px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-semibold text-xs rounded-xl transition shadow-xs cursor-pointer"
+          >
+            <UserPlus className="w-4 h-4" /> Registrar Autorizado
+          </button>
+        </div>
       </div>
 
       {/* Directory database representation */}

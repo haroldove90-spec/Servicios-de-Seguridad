@@ -14,9 +14,9 @@ import {
 import { 
   ShieldAlert, ScanLine, Users, FileBarChart2, Shield, LogOut, Check, Sparkles, 
   Database, AlertCircle, Key, Lock, Laptop, CheckCircle2, UserCircle, ShieldCheck,
-  QrCode, Smartphone, ExternalLink, HelpCircle, RefreshCw, ChevronDown, ChevronUp,
+  QrCode, Smartphone, ExternalLink, HelpCircle, RefreshCw, RefreshCcw, ChevronDown, ChevronUp,
   Copy, Download, Clock as ClockIcon, AlertTriangle, Menu, X, Home, BookOpen, Calendar, Car, Eye, EyeOff, Camera, MapPin, Building,
-  Crown, Building2, UserCheck, BadgeCheck
+  Crown, Building2, UserCheck, BadgeCheck, WifiOff, Info
 } from 'lucide-react';
 import { auth, IS_FIREBASE_DUMMY } from './firebase';
 import { dbService } from './services/dbService';
@@ -212,6 +212,39 @@ export default function App() {
 
   // Construction modal state for Condominios Administration
   const [showConstruction, setShowConstruction] = useState<boolean>(false);
+
+  // Online / Offline Internet Connectivity State Enforcer
+  const [isOnline, setIsOnline] = useState<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    // Periodic connectivity check
+    const checkConn = () => {
+      if (typeof navigator !== 'undefined') {
+        setIsOnline(navigator.onLine);
+      }
+    };
+    const interval = setInterval(checkConn, 5000);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      clearInterval(interval);
+    };
+  }, []);
+
+  const handleClearSystemCache = () => {
+    if (window.confirm('¿Está seguro de que desea borrar todo el caché del sistema?\n\nEsta acción eliminará la memoria temporal local del navegador y volverá a sincronizar toda la información directamente con la base de datos en la nube.')) {
+      dbService.clearSystemCache();
+      alert('✓ Caché del sistema borrado con éxito. La aplicación se recargará ahora.');
+      window.location.reload();
+    }
+  };
 
   useEffect(() => {
     // Splash screen timer: closes splash transition automatically
@@ -1923,6 +1956,15 @@ export default function App() {
                         <BookOpen className="w-4 h-4 shrink-0" /> Manual del usuario
                       </button>
                     )}
+                    {(isAdmin || isCondominios) && (
+                      <button
+                        id="nav-clear-cache-admin"
+                        onClick={() => { handleClearSystemCache(); setIsDrawerOpen(false); }}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer text-amber-300 hover:bg-amber-950/40 border border-amber-500/30 my-1"
+                      >
+                        <RefreshCcw className="w-4 h-4 text-amber-400 shrink-0" /> Borrar Caché del Sistema
+                      </button>
+                    )}
                     <button
                       onClick={() => { setActiveTab('perfil'); setIsDrawerOpen(false); }}
                       className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer ${
@@ -2406,6 +2448,19 @@ export default function App() {
                     )}
                   </div>
 
+                  {/* Clear system cache button for Admin role */}
+                  {(isAdmin || isCondominios || userRole?.role === SystemUserRole.ADMIN || userRole?.role === SystemUserRole.CONDOMINIOS) && (
+                    <button
+                      id="btn-header-clear-cache-admin"
+                      onClick={handleClearSystemCache}
+                      className="flex items-center gap-1.5 bg-amber-950/50 hover:bg-amber-900/80 text-amber-300 hover:text-amber-100 border border-amber-500/40 px-3.5 py-2.5 rounded-2xl text-xs font-bold transition duration-200 cursor-pointer shadow-lg shadow-black/30 font-sans"
+                      title="Borrar memoria caché local del navegador y re-sincronizar datos"
+                    >
+                      <RefreshCcw className="w-4 h-4 text-amber-400" />
+                      <span>Borrar Caché</span>
+                    </button>
+                  )}
+
                   {/* Switch / Change Role dashboard exit trigger requested by user */}
                   <button
                     id="btn-logout-role-to-home"
@@ -2806,6 +2861,68 @@ export default function App() {
             >
               Entendido
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Offline Internet Connectivity Blocker Overlay */}
+      {!isOnline && (
+        <div 
+          id="offline-blocker-overlay" 
+          className="fixed inset-0 z-[999999] bg-slate-950/95 backdrop-blur-xl flex items-center justify-center p-4 text-center font-sans animate-fade-in"
+        >
+          <div className="max-w-md w-full bg-[#18181b] border-2 border-red-600/50 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-red-600/10 rounded-full blur-3xl pointer-events-none"></div>
+            
+            <div className="w-20 h-20 bg-red-950/60 border-2 border-red-500/40 rounded-3xl flex items-center justify-center mx-auto shadow-inner text-red-500 animate-pulse">
+              <WifiOff className="w-10 h-10 text-red-500" />
+            </div>
+
+            <div className="space-y-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-red-600/20 border border-red-500/30 rounded-full text-[11px] font-mono uppercase font-bold text-red-400 tracking-wider">
+                <AlertTriangle className="w-3.5 h-3.5" /> Acceso Bloqueado
+              </div>
+              <h2 className="text-2xl font-extrabold text-white tracking-tight">
+                Sin Conexión a Internet
+              </h2>
+              <p className="text-xs text-red-400 font-bold leading-relaxed pt-1">
+                El programa no podrá funcionar si no está conectado a internet.
+              </p>
+              <p className="text-[11.5px] text-slate-300 leading-relaxed">
+                El sistema de Control de Acceso y Administración de Condominios CNLS requiere una conexión activa a la red para validar códigos QR, consultar perfiles y registrar eventos en tiempo real en la nube.
+              </p>
+            </div>
+
+            <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 text-left text-xs space-y-2 text-slate-300">
+              <p className="font-bold text-slate-200 flex items-center gap-1.5">
+                <Info className="w-4 h-4 text-amber-400 shrink-0" /> Requisito Operativo Obligatorio:
+              </p>
+              <ul className="list-disc list-inside text-slate-400 space-y-1 text-[11px] font-mono">
+                <li>Validación en tiempo real de credenciales</li>
+                <li>Actualización instantánea de bitácora y pánico</li>
+                <li>Seguridad y encriptación activa de accesos</li>
+              </ul>
+            </div>
+
+            <div className="pt-2 space-y-3">
+              <button
+                id="btn-retry-internet-connection"
+                onClick={() => {
+                  if (typeof navigator !== 'undefined' && navigator.onLine) {
+                    setIsOnline(true);
+                  } else {
+                    alert('Atención: El dispositivo continúa sin conexión a internet. Por favor verifique su Wi-Fi o datos móviles.');
+                  }
+                }}
+                className="w-full py-3.5 px-6 bg-red-600 hover:bg-red-500 text-white font-extrabold text-xs rounded-2xl transition shadow-lg shadow-red-600/25 flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+              >
+                <RefreshCcw className="w-4 h-4" /> Comprobar Conexión a Internet
+              </button>
+
+              <p className="text-[10px] text-slate-500 font-mono">
+                El servicio se reanudará automáticamente al detectar señal de red.
+              </p>
+            </div>
           </div>
         </div>
       )}

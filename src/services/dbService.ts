@@ -2490,6 +2490,23 @@ export const dbService = {
         console.warn('Firestore deleteDoc evidencia warning:', err);
       }
     }
+  },
+
+  clearSystemCache(): void {
+    try {
+      localStorage.clear();
+      sessionStorage.clear();
+      if (typeof window !== 'undefined' && 'caches' in window) {
+        caches.keys().then(names => {
+          names.forEach(name => {
+            caches.delete(name);
+          });
+        });
+      }
+      console.log('Caché local del navegador borrado exitosamente.');
+    } catch (err) {
+      console.error('Error al borrar el caché del sistema:', err);
+    }
   }
 
 };
