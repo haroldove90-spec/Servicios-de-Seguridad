@@ -12,6 +12,7 @@ import {
 import { dbService } from '../services/dbService';
 import { Residente, Residencia, AuthorizedUser, UserStatus, SystemRole, SystemUserRole } from '../types';
 import { generateQRWithLogo } from '../utils/qrWithLogo';
+import QRCode from 'qrcode';
 
 interface ResidentesManagerProps {
   onRefresh?: () => void;
@@ -76,11 +77,30 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
 
   // Update QR code when resident is clicked
   useEffect(() => {
-    if (selectedResidentQR) {
+    if (selectedResidentQR && selectedResidentQR.qrcodeToken) {
       const passUrl = `${window.location.origin}${window.location.pathname}?pass=${selectedResidentQR.qrcodeToken}`;
+      
+      // Fast immediate QR generation so loading is instantaneous
+      QRCode.toDataURL(passUrl, { 
+        width: 320, 
+        margin: 2, 
+        color: { dark: '#0f172a', light: '#ffffff' } 
+      })
+        .then(url => setGeneratedQRUrl(url))
+        .catch(() => {});
+
+      // Asynchronous enhancement with logo
       generateQRWithLogo(passUrl)
         .then(url => setGeneratedQRUrl(url))
-        .catch(err => console.error('Error generating QR', err));
+        .catch(err => {
+          console.warn('QR logo enhancement fallback to fast QR:', err);
+        });
+    } else if (selectedResidentQR) {
+      const tempToken = 'resd_qr_' + Math.random().toString(36).substring(2, 11);
+      const passUrl = `${window.location.origin}${window.location.pathname}?pass=${tempToken}`;
+      QRCode.toDataURL(passUrl, { width: 320, margin: 2, color: { dark: '#0f172a', light: '#ffffff' } })
+        .then(url => setGeneratedQRUrl(url))
+        .catch(err => console.error('Error generating temp QR:', err));
     } else {
       setGeneratedQRUrl('');
     }
@@ -353,27 +373,31 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
   };
 
   const getWhatsAppShareUrl = (item: Residente) => {
+    if (!item) return '#';
     const cleanPhone = item.whatsapp ? item.whatsapp.replace(/\D/g, '') : '';
-    const passUrl = `${window.location.origin}${window.location.pathname}?pass=${item.qrcodeToken}`;
+    const passUrl = `${window.location.origin}${window.location.pathname}?pass=${item.qrcodeToken || ''}`;
     const portalUrl = `${window.location.origin}/?role=residente`;
 
+    const itemNameClean = (item.nombre || '').toLowerCase().replace(/\s*\(visita\)/g, '').trim();
+
     const linkedRole = systemRoles.find(r => 
-      r.uid === item.accessUserId || 
-      r.username?.toLowerCase() === item.username?.toLowerCase() ||
-      (r.role === SystemUserRole.RESIDENTE && r.name.toLowerCase().includes(item.nombre.toLowerCase().replace(/\s*\(visita\)/g, '')))
+      (item.accessUserId && r.uid === item.accessUserId) || 
+      (r.username && item.username && r.username.toLowerCase() === item.username.toLowerCase()) ||
+      (r.role === SystemUserRole.RESIDENTE && r.name && r.name.toLowerCase().includes(itemNameClean))
     );
 
     const usr = linkedRole?.username || item.username || 'condominio';
     const pwd = linkedRole?.password || item.password || 'Condominio_123';
 
-    const text = `¡Hola *${item.nombre}*!\n\nTe comparto tus datos de acceso al portal de *${item.residenciaNombre}* (Domicilio: *${item.direccion}*):\n\n🌐 *LINK DE ACCESO A TU ROL RESIDENTE AUTOGESTIÓN:*\n${portalUrl}\n\n🔑 *TUS CREDENCIALES DE ACCESO EN LA APP:*\n• *Nombre de Usuario:* ${usr}\n• *Contraseña Segura:* ${pwd}\n\n🪪 *ENLACE DIRECTO Y PASE QR PERMANENTE:*\n${passUrl}`;
+    const text = `¡Hola *${item.nombre || 'Residente'}*!\n\nTe comparto tus datos de acceso al portal de *${item.residenciaNombre || ''}* (Domicilio: *${item.direccion || ''}*):\n\n🌐 *LINK DE ACCESO A TU ROL RESIDENTE AUTOGESTIÓN:*\n${portalUrl}\n\n🔑 *TUS CREDENCIALES DE ACCESO EN LA APP:*\n• *Nombre de Usuario:* ${usr}\n• *Contraseña Segura:* ${pwd}\n\n🪪 *ENLACE DIRECTO Y PASE QR PERMANENTE:*\n${passUrl}`;
     return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
   };
 
   const filteredItems = residentes.filter(item => {
-    const matchesSearch = item.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.residenciaNombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.direccion.toLowerCase().includes(searchTerm.toLowerCase());
+    const term = searchTerm.toLowerCase();
+    const matchesSearch = (item.nombre || '').toLowerCase().includes(term) ||
+      (item.residenciaNombre || '').toLowerCase().includes(term) ||
+      (item.direccion || '').toLowerCase().includes(term);
     const matchesResidence = currentUser?.residenciaId ? item.residenciaId === currentUser.residenciaId : true;
     return matchesSearch && matchesResidence;
   });
@@ -801,20 +825,36 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
 
       {/* QR Passport View Modal */}
       {selectedResidentQR && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="w-full max-w-[340px] bg-slate-900 border-4 border-slate-800 rounded-[2.5rem] shadow-2xl relative overflow-hidden flex flex-col items-center p-5 pt-10 pb-6 border-b-8 animate-scale-in my-auto max-h-[92vh] overflow-y-auto">
+        <div 
+          className="fixed inset-0 bg-black/75 backdrop-blur-md z-[99999] flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-fade-in select-none"
+          onClick={() => setSelectedResidentQR(null)}
+        >
+          {/* Prominent Floating Close Button in upper right corner */}
+          <button
+            type="button"
+            onClick={() => setSelectedResidentQR(null)}
+            className="fixed top-4 right-4 z-[100000] w-11 h-11 rounded-full bg-slate-800/90 hover:bg-red-600 text-white flex items-center justify-center shadow-2xl border border-slate-700 transition-all cursor-pointer hover:scale-110 active:scale-95"
+            title="Cerrar modal"
+          >
+            <X className="w-6 h-6" />
+          </button>
+
+          <div 
+            className="w-full max-w-[340px] bg-slate-900 border-4 border-slate-800 rounded-[2.5rem] shadow-2xl relative flex flex-col items-center p-5 pt-8 pb-6 border-b-8 animate-scale-in max-h-[88vh] overflow-y-auto my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Bezel Notch */}
-            <div className="absolute top-3 left-1/2 -translate-x-1/2 w-24 h-4.5 bg-slate-950 rounded-full flex items-center justify-center">
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 w-24 h-4.5 bg-slate-950 rounded-full flex items-center justify-center pointer-events-none">
               <div className="w-1.5 h-1.5 rounded-full bg-slate-800 mr-2"></div>
-              <div className="w-12 h-1 bg-slate-850 rounded"></div>
+              <div className="w-12 h-1 bg-slate-800 rounded"></div>
             </div>
 
-            <div className="w-full text-center border-b border-slate-800/80 pb-3 mb-4">
+            <div className="w-full text-center border-b border-slate-800/80 pb-3 mb-4 mt-2">
               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest font-mono">Credencial Residente 👤</span>
               <h4 className="text-white text-xs font-bold mt-0.5">Control de Acceso Electrónico</h4>
             </div>
 
-            <div className="w-full bg-[#0b0f19] border border-slate-805/80 rounded-2xl p-4 flex flex-col items-center relative select-none">
+            <div className="w-full bg-[#0b0f19] border border-slate-800/80 rounded-2xl p-4 flex flex-col items-center relative">
               {/* Scan indicator */}
               <div className="w-full flex items-center justify-between mb-3 text-[9.5px]">
                 <span className="flex items-center gap-1 text-emerald-400 font-extrabold uppercase font-mono">
@@ -835,7 +875,7 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
                 ) : (
                   <div className="flex flex-col items-center gap-2">
                     <RefreshCw className="w-6 h-6 text-slate-400 animate-spin" />
-                    <span className="text-[9px] text-slate-400">Firmando ficha...</span>
+                    <span className="text-[9px] text-slate-400">Generando pase...</span>
                   </div>
                 )}
                 {/* Visual Scanner Hologram laser overlay */}
@@ -846,16 +886,16 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
               <div className="w-full mt-4 space-y-2 border-t border-slate-800/60 pt-3 text-left">
                 <div>
                   <label className="block text-[8px] uppercase tracking-widest font-bold text-slate-500 font-mono">Propietario / Residente</label>
-                  <span className="text-[12.5px] font-bold text-white tracking-tight">{selectedResidentQR.nombre}</span>
+                  <span className="text-[12.5px] font-bold text-white tracking-tight">{selectedResidentQR.nombre || 'Residente'}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-left">
                   <div>
                     <label className="block text-[8px] uppercase tracking-widest font-bold text-slate-500 font-mono font-sans">Fraccionamiento</label>
-                    <span className="text-[10.5px] font-bold text-slate-350">{selectedResidentQR.residenciaNombre}</span>
+                    <span className="text-[10.5px] font-bold text-slate-300">{selectedResidentQR.residenciaNombre || '—'}</span>
                   </div>
                   <div>
                     <label className="block text-[8px] uppercase tracking-widest font-bold text-slate-500 font-mono">Dirección</label>
-                    <span className="text-[10.5px] font-bold text-slate-350">{selectedResidentQR.direccion}</span>
+                    <span className="text-[10.5px] font-bold text-slate-300">{selectedResidentQR.direccion || '—'}</span>
                   </div>
                 </div>
 
@@ -868,13 +908,13 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
                     <div>
                       <span className="text-slate-500 block text-[8px]">USUARIO:</span>
                       <span className="font-bold text-amber-400">{
-                        systemRoles.find(r => r.uid === selectedResidentQR.accessUserId || r.username?.toLowerCase() === selectedResidentQR.username?.toLowerCase())?.username || selectedResidentQR.username || 'condominio'
+                        systemRoles.find(r => r.uid === selectedResidentQR.accessUserId || (r.username && selectedResidentQR.username && r.username.toLowerCase() === selectedResidentQR.username.toLowerCase()))?.username || selectedResidentQR.username || 'condominio'
                       }</span>
                     </div>
                     <div>
                       <span className="text-slate-500 block text-[8px]">CONTRASEÑA:</span>
                       <span className="font-bold text-slate-200">{
-                        systemRoles.find(r => r.uid === selectedResidentQR.accessUserId || r.username?.toLowerCase() === selectedResidentQR.username?.toLowerCase())?.password || selectedResidentQR.password || 'Condominio_123'
+                        systemRoles.find(r => r.uid === selectedResidentQR.accessUserId || (r.username && selectedResidentQR.username && r.username.toLowerCase() === selectedResidentQR.username.toLowerCase()))?.password || selectedResidentQR.password || 'Condominio_123'
                       }</span>
                     </div>
                   </div>
@@ -905,7 +945,7 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
             {/* Wallet toolbar copy/download/close controls */}
             <div className="w-full grid grid-cols-3 gap-2 mt-4 font-sans">
               <button
-                onClick={() => handleCopyQRLink(selectedResidentQR.qrcodeToken)}
+                onClick={() => handleCopyQRLink(selectedResidentQR.qrcodeToken || '')}
                 className="flex flex-col items-center gap-1 p-2 border border-slate-800 rounded-xl bg-slate-950/40 hover:bg-slate-950 hover:text-white text-slate-400 transition-all cursor-pointer text-[9px] font-extrabold uppercase tracking-wider"
               >
                 {copiedToken ? (
@@ -920,8 +960,8 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
               </button>
               
               <a
-                href={generatedQRUrl}
-                download={`Pase-Residente-${selectedResidentQR.nombre.trim().replace(/\s+/g, '-')}.png`}
+                href={generatedQRUrl || '#'}
+                download={`Pase-Residente-${(selectedResidentQR.nombre || 'residente').trim().replace(/\s+/g, '-')}.png`}
                 className="flex flex-col items-center gap-1 p-2 border border-slate-800 rounded-xl bg-slate-950/40 hover:bg-slate-950 hover:text-white text-slate-400 transition-all cursor-pointer text-[9px] font-extrabold uppercase tracking-wider text-center"
               >
                 <Download className="w-4 h-4 text-red-400" /> Descargar
@@ -929,7 +969,7 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
 
               <button
                 onClick={() => setSelectedResidentQR(null)}
-                className="flex flex-col items-center gap-1 p-2 border border-slate-800 rounded-xl bg-slate-950/40 hover:bg-slate-95 hover:text-white text-slate-400 transition-all cursor-pointer text-[9px] font-extrabold uppercase tracking-wider"
+                className="flex flex-col items-center gap-1 p-2 border border-slate-800 rounded-xl bg-slate-950/40 hover:bg-slate-950 hover:text-white text-slate-400 transition-all cursor-pointer text-[9px] font-extrabold uppercase tracking-wider"
               >
                 <X className="w-4 h-4 text-slate-500 hover:text-white" /> Cerrar
               </button>
@@ -940,8 +980,18 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
 
       {/* CUSTOM CONFIRM ACTION */}
       {deleteConfirmId && (
-        <div id="delete-resident-confirm-overlay" className="fixed inset-0 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in overflow-y-auto">
-          <div className="bg-[#18181c] rounded-2xl border border-[#2e2e38] shadow-2xl max-w-sm w-full p-6 text-center text-xs text-slate-200 my-auto max-h-[92vh] overflow-y-auto">
+        <div 
+          id="delete-resident-confirm-overlay" 
+          className="fixed inset-0 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 z-[99999] animate-fade-in overflow-y-auto"
+          onClick={() => {
+            setDeleteConfirmId(null);
+            setDeleteConfirmNombre('');
+          }}
+        >
+          <div 
+            className="bg-[#18181c] rounded-2xl border border-[#2e2e38] shadow-2xl max-w-sm w-full p-6 text-center text-xs text-slate-200 my-auto max-h-[92vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="w-12 h-12 bg-red-500/10 text-red-500 border border-red-500/20 rounded-2xl flex items-center justify-center mb-4 mx-auto transition">
               <Trash2 className="w-6 h-6" />
             </div>

@@ -269,7 +269,35 @@ export function extractMissingColumn(code: string, message: string): string | nu
   return null;
 }
 
+export function isInfiniteRecursionError(error: any): boolean {
+  if (!error) return false;
+  const code = error.code || error.status;
+  const msg = typeof error === 'string' ? error : (error.message || '');
+  return code === '42P17' || msg.toLowerCase().includes('infinite recursion');
+}
+
+let supabaseRecursionBlocked = false;
+let lastRecursionLogTime = 0;
+
+export function checkAndMarkRecursion(error: any): boolean {
+  if (!error) return false;
+  if (isInfiniteRecursionError(error)) {
+    const now = Date.now();
+    if (!supabaseRecursionBlocked || now - lastRecursionLogTime > 300000) {
+      supabaseRecursionBlocked = true;
+      lastRecursionLogTime = now;
+      console.warn('⚠️ Supabase policy infinite recursion (42P17) detected on remote database. Gracefully activating high-performance LocalDB and Firestore fallback engine.');
+    }
+    return true;
+  }
+  return false;
+}
+
 export async function robustSupabaseInsert(tableName: string, camelPayload: any) {
+  if (supabaseRecursionBlocked) {
+    return { data: null, error: { message: 'Supabase policy recursion blocked' } };
+  }
+
   let payload: any = { ...camelPayload };
 
   // Clean up undefined/empty ID properties to avoid PostgREST foreign key issues
@@ -297,6 +325,10 @@ export async function robustSupabaseInsert(tableName: string, camelPayload: any)
         return { data, error: null };
       }
       
+      if (checkAndMarkRecursion(error)) {
+        return { data: null, error };
+      }
+
       console.warn(`[Supabase Insert Attempt ${attempt}] failed on ${tableName}. Code: ${error.code}, Message: ${error.message}`);
       
       // Foreign Key Constraint Error (e.g. 23503 or foreign key constraint violation)
@@ -347,6 +379,9 @@ export async function robustSupabaseInsert(tableName: string, camelPayload: any)
       
       return { data: null, error };
     } catch (err: any) {
+      if (checkAndMarkRecursion(err)) {
+        return { data: null, error: err };
+      }
       console.error(`robustSupabaseInsert exception on ${tableName} attempt ${attempt}:`, err);
       return { data: null, error: err };
     }
@@ -355,6 +390,10 @@ export async function robustSupabaseInsert(tableName: string, camelPayload: any)
 }
 
 export async function robustSupabaseUpdate(tableName: string, camelUpdates: any, idKey: string, idVal: string) {
+  if (supabaseRecursionBlocked) {
+    return { error: { message: 'Supabase policy recursion blocked' } };
+  }
+
   let updates: any = { ...camelUpdates };
 
   // Expand updates with snake_case and lowercase variants
@@ -389,6 +428,10 @@ export async function robustSupabaseUpdate(tableName: string, camelUpdates: any,
         .eq(idKey, idVal);
         
       if (!error) return { error: null };
+
+      if (checkAndMarkRecursion(error)) {
+        return { error };
+      }
       
       console.warn(`[Supabase Update Attempt ${attempt}] failed on ${tableName}. Code: ${error.code}, Message: ${error.message}`);
       
@@ -413,6 +456,9 @@ export async function robustSupabaseUpdate(tableName: string, camelUpdates: any,
       
       return { error };
     } catch (err: any) {
+      if (checkAndMarkRecursion(err)) {
+        return { error: err };
+      }
       console.error(`robustSupabaseUpdate exception on ${tableName} attempt ${attempt}:`, err);
       return { error: err };
     }
@@ -421,6 +467,10 @@ export async function robustSupabaseUpdate(tableName: string, camelUpdates: any,
 }
 
 export async function robustSupabaseUpsert(tableName: string, camelPayload: any) {
+  if (supabaseRecursionBlocked) {
+    return { data: null, error: { message: 'Supabase policy recursion blocked' } };
+  }
+
   let payload: any = { ...camelPayload };
 
   // Expand payload with snake_case and lowercase variants
@@ -457,6 +507,10 @@ export async function robustSupabaseUpsert(tableName: string, camelPayload: any)
       if (!error) {
         return { data, error: null };
       }
+
+      if (checkAndMarkRecursion(error)) {
+        return { data: null, error };
+      }
       
       console.warn(`[Supabase Upsert Attempt ${attempt}] failed on ${tableName}. Code: ${error.code}, Message: ${error.message}`);
       
@@ -481,6 +535,9 @@ export async function robustSupabaseUpsert(tableName: string, camelPayload: any)
       
       return { data: null, error };
     } catch (err: any) {
+      if (checkAndMarkRecursion(err)) {
+        return { data: null, error: err };
+      }
       console.error(`robustSupabaseUpsert exception on ${tableName} attempt ${attempt}:`, err);
       return { data: null, error: err };
     }
@@ -489,6 +546,10 @@ export async function robustSupabaseUpsert(tableName: string, camelPayload: any)
 }
 
 export async function robustSupabaseSelectAll(tableName: string, preferredOrderField?: string): Promise<any[]> {
+  if (supabaseRecursionBlocked) {
+    return [];
+  }
+
   try {
     if (preferredOrderField) {
       // Try 1: With preferred order field as camelCase
@@ -497,6 +558,7 @@ export async function robustSupabaseSelectAll(tableName: string, preferredOrderF
         .select('*')
         .order(preferredOrderField, { ascending: false });
       if (!error && data) return data;
+      if (checkAndMarkRecursion(error)) return [];
 
       // Try 2: With preferred order field all lowercase
       const { data: data2, error: error2 } = await supabase
@@ -504,6 +566,7 @@ export async function robustSupabaseSelectAll(tableName: string, preferredOrderF
         .select('*')
         .order(preferredOrderField.toLowerCase(), { ascending: false });
       if (!error2 && data2) return data2;
+      if (checkAndMarkRecursion(error2)) return [];
 
       // Try 3: With preferred order field snake case
       const { data: data3, error: error3 } = await supabase
@@ -511,6 +574,7 @@ export async function robustSupabaseSelectAll(tableName: string, preferredOrderF
         .select('*')
         .order(toSnakeCase(preferredOrderField), { ascending: false });
       if (!error3 && data3) return data3;
+      if (checkAndMarkRecursion(error3)) return [];
     }
 
     // Try 4: Flat fetch without ordering, we will sort on client
@@ -518,18 +582,14 @@ export async function robustSupabaseSelectAll(tableName: string, preferredOrderF
       .from(tableName)
       .select('*');
     if (!error4 && data4) return data4;
+    if (checkAndMarkRecursion(error4)) return [];
 
     console.warn(`All Supabase fetch attempts failed on ${tableName}:`, error4?.message);
     throw new Error(error4?.message || 'Fetch failed');
-  } catch (err) {
+  } catch (err: any) {
+    if (checkAndMarkRecursion(err)) return [];
     console.warn(`robustSupabaseSelectAll exception on ${tableName}:`, err);
-    // Try final fallback without any bells and whistles
-    try {
-      const { data } = await supabase.from(tableName).select('*');
-      return data || [];
-    } catch (finalErr) {
-      return [];
-    }
+    return [];
   }
 }
 
@@ -1007,21 +1067,27 @@ export const dbService = {
     if (!uidOrIdentifier) return null;
     const cleanIdentifier = uidOrIdentifier.toLowerCase().trim();
 
-    try {
-      const { data, error } = await supabase
-        .from('system_roles')
-        .select('*')
-        .or(`uid.eq.${uidOrIdentifier},email.eq.${cleanIdentifier},username.eq.${cleanIdentifier}`)
-        .maybeSingle();
+    if (!supabaseRecursionBlocked) {
+      try {
+        const { data, error } = await supabase
+          .from('system_roles')
+          .select('*')
+          .or(`uid.eq.${uidOrIdentifier},email.eq.${cleanIdentifier},username.eq.${cleanIdentifier}`)
+          .maybeSingle();
 
-      if (!error && data) {
-        return normalizeRoleRow(data);
+        if (!error && data) {
+          return normalizeRoleRow(data);
+        }
+        if (error) {
+          if (!checkAndMarkRecursion(error)) {
+            console.warn('Supabase getSystemRole returned query error. Code:', error.code, 'Msg:', error.message);
+          }
+        }
+      } catch (err) {
+        if (!checkAndMarkRecursion(err)) {
+          console.warn('Supabase getSystemRole critical exception, using fallback:', err);
+        }
       }
-      if (error) {
-        console.warn('Supabase getSystemRole returned query error. Code:', error.code, 'Msg:', error.message);
-      }
-    } catch (err) {
-      console.warn('Supabase getSystemRole critical exception, using fallback:', err);
     }
 
     if (!IS_FIREBASE_DUMMY) {
@@ -1048,12 +1114,16 @@ export const dbService = {
     try {
       const { error } = await robustSupabaseUpsert('system_roles', role);
       if (error) {
-        console.warn('Supabase saveSystemRole returned query error:', error);
+        if (!checkAndMarkRecursion(error)) {
+          console.warn('Supabase saveSystemRole returned query error:', error);
+        }
       } else {
         console.log('Successfully saved system role in Supabase!');
       }
     } catch (err) {
-      console.warn('Supabase saveSystemRole critical exception, using fallback:', err);
+      if (!checkAndMarkRecursion(err)) {
+        console.warn('Supabase saveSystemRole critical exception, using fallback:', err);
+      }
     }
 
     if (!IS_FIREBASE_DUMMY) {
@@ -1075,10 +1145,14 @@ export const dbService = {
     try {
       const { error } = await robustSupabaseUpdate('system_roles', updates, 'uid', uid);
       if (error) {
-        console.warn('Supabase updateSystemRole query error:', error);
+        if (!checkAndMarkRecursion(error)) {
+          console.warn('Supabase updateSystemRole query error:', error);
+        }
       }
     } catch (err) {
-      console.warn('Supabase updateSystemRole exception:', err);
+      if (!checkAndMarkRecursion(err)) {
+        console.warn('Supabase updateSystemRole exception:', err);
+      }
     }
 
     if (!IS_FIREBASE_DUMMY) {
@@ -1099,20 +1173,26 @@ export const dbService = {
     let roles: SystemRole[] = [];
     let fetchedFromCloud = false;
 
-    try {
-      const { data, error } = await supabase
-        .from('system_roles')
-        .select('*')
-        .order('createdAt', { ascending: false });
+    if (!supabaseRecursionBlocked) {
+      try {
+        const { data, error } = await supabase
+          .from('system_roles')
+          .select('*')
+          .order('createdAt', { ascending: false });
 
-      if (!error && data) {
-        roles = (data as any[]).map(normalizeRoleRow);
-        fetchedFromCloud = true;
-      } else if (error) {
-        console.warn('Supabase getAllSystemRoles returned query error. Code:', error.code, 'Msg:', error.message);
+        if (!error && data) {
+          roles = (data as any[]).map(normalizeRoleRow);
+          fetchedFromCloud = true;
+        } else if (error) {
+          if (!checkAndMarkRecursion(error)) {
+            console.warn('Supabase getAllSystemRoles returned query error. Code:', error.code, 'Msg:', error.message);
+          }
+        }
+      } catch (err) {
+        if (!checkAndMarkRecursion(err)) {
+          console.warn('Supabase getAllSystemRoles critical exception, using fallback:', err);
+        }
       }
-    } catch (err) {
-      console.warn('Supabase getAllSystemRoles critical exception, using fallback:', err);
     }
 
     if (!fetchedFromCloud && !IS_FIREBASE_DUMMY) {
@@ -1143,47 +1223,56 @@ export const dbService = {
     if (missingDemoRoles.length > 0) {
       console.log('Seeding missing demo roles to databases:', missingDemoRoles.map(m => m.username));
       for (const demo of missingDemoRoles) {
-        // 1. Try to sync to Supabase
-        try {
-          if (demo.residenciaId) {
-            try {
-              const { data: resExists } = await supabase
-                .from('residencias')
-                .select('id')
-                .eq('id', demo.residenciaId)
-                .maybeSingle();
-              
-              if (!resExists) {
-                const defaultRes = {
-                  id: demo.residenciaId,
-                  nombre: demo.residenciaNombre || 'Fraccionamiento Residencial',
-                  administrador: 'Software AI Admin',
-                  numResidencias: 120,
-                  isActive: true,
-                  createdAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString()
-                };
-                await supabase.from('residencias').insert(defaultRes);
+        // 1. Try to sync to Supabase if not blocked
+        if (!supabaseRecursionBlocked) {
+          try {
+            if (demo.residenciaId) {
+              try {
+                const { data: resExists } = await supabase
+                  .from('residencias')
+                  .select('id')
+                  .eq('id', demo.residenciaId)
+                  .maybeSingle();
+                
+                if (!resExists) {
+                  const defaultRes = {
+                    id: demo.residenciaId,
+                    nombre: demo.residenciaNombre || 'Fraccionamiento Residencial',
+                    administrador: 'Software AI Admin',
+                    numResidencias: 120,
+                    isActive: true,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                  };
+                  await supabase.from('residencias').insert(defaultRes);
+                }
+              } catch (resErr) {
+                if (!checkAndMarkRecursion(resErr)) {
+                  console.warn('Silent warning ensuring residencia during role seed:', resErr);
+                }
               }
-            } catch (resErr) {
-              console.warn('Silent warning ensuring residencia during role seed:', resErr);
+            }
+
+            const { error: seedErr } = await supabase.from('system_roles').upsert({
+              uid: demo.uid,
+              email: demo.email,
+              name: demo.name,
+              role: demo.role,
+              username: demo.username,
+              password: demo.password,
+              isActive: demo.isActive,
+              createdAt: demo.createdAt,
+              residenciaId: demo.residenciaId,
+              residenciaNombre: demo.residenciaNombre
+            });
+            if (seedErr) {
+              checkAndMarkRecursion(seedErr);
+            }
+          } catch (ex) {
+            if (!checkAndMarkRecursion(ex)) {
+              console.warn('Sync of missing role to Supabase failed:', ex);
             }
           }
-
-          await supabase.from('system_roles').upsert({
-            uid: demo.uid,
-            email: demo.email,
-            name: demo.name,
-            role: demo.role,
-            username: demo.username,
-            password: demo.password,
-            isActive: demo.isActive,
-            createdAt: demo.createdAt,
-            residenciaId: demo.residenciaId,
-            residenciaNombre: demo.residenciaNombre
-          });
-        } catch (ex) {
-          console.warn('Sync of missing role to Supabase failed:', ex);
         }
 
         // 2. Try to sync to Firestore
@@ -1610,20 +1699,26 @@ export const dbService = {
   // Access Logs Management (Check-in / Check-out Audits)
   // --------------------------------------------------
   async getAccessLogs(): Promise<AccessLog[]> {
-    try {
-      const { data, error } = await supabase
-        .from('access_logs')
-        .select('*')
-        .order('timestamp', { ascending: false });
+    if (!supabaseRecursionBlocked) {
+      try {
+        const { data, error } = await supabase
+          .from('access_logs')
+          .select('*')
+          .order('timestamp', { ascending: false });
 
-      if (!error && data) {
-        return (data as any[]).map(normalizeLogRow);
+        if (!error && data) {
+          return (data as any[]).map(normalizeLogRow);
+        }
+        if (error) {
+          if (!checkAndMarkRecursion(error)) {
+            console.warn('Supabase getAccessLogs returned query error. Code:', error.code, 'Msg:', error.message);
+          }
+        }
+      } catch (err) {
+        if (!checkAndMarkRecursion(err)) {
+          console.warn('Supabase getAccessLogs exception, using fallback:', err);
+        }
       }
-      if (error) {
-        console.warn('Supabase getAccessLogs returned query error. Code:', error.code, 'Msg:', error.message);
-      }
-    } catch (err) {
-      console.warn('Supabase getAccessLogs exception, using fallback:', err);
     }
 
     if (IS_FIREBASE_DUMMY) {
@@ -1711,33 +1806,39 @@ export const dbService = {
   // Residencias Management CRUD
   // --------------------------------------------------
   async getResidencias(): Promise<Residencia[]> {
-    try {
-      const { data, error } = await supabase
-        .from('residencias')
-        .select('*')
-        .order('createdAt', { ascending: false });
+    if (!supabaseRecursionBlocked) {
+      try {
+        const { data, error } = await supabase
+          .from('residencias')
+          .select('*')
+          .order('createdAt', { ascending: false });
 
-      if (!error && data) {
-        if (data.length === 0) {
-          const defaultRes = {
-            id: 'res-demo-1',
-            nombre: 'Lomas de Chapultepec',
-            administrador: 'Software AI Admin',
-            numResidencias: 120,
-            isActive: true,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          };
-          await supabase.from('residencias').insert(defaultRes);
-          return [defaultRes];
+        if (!error && data) {
+          if (data.length === 0) {
+            const defaultRes = {
+              id: 'res-demo-1',
+              nombre: 'Lomas de Chapultepec',
+              administrador: 'Software AI Admin',
+              numResidencias: 120,
+              isActive: true,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            };
+            await supabase.from('residencias').insert(defaultRes);
+            return [defaultRes];
+          }
+          return (data as any[]).map(normalizeResidenciaRow);
         }
-        return (data as any[]).map(normalizeResidenciaRow);
+        if (error) {
+          if (!checkAndMarkRecursion(error)) {
+            console.warn('Supabase getResidencias returned query error. Code:', error.code, 'Msg:', error.message);
+          }
+        }
+      } catch (err) {
+        if (!checkAndMarkRecursion(err)) {
+          console.warn('Supabase getResidencias exception, using fallback:', err);
+        }
       }
-      if (error) {
-        console.warn('Supabase getResidencias returned query error. Code:', error.code, 'Msg:', error.message);
-      }
-    } catch (err) {
-      console.warn('Supabase getResidencias exception, using fallback:', err);
     }
 
     if (IS_FIREBASE_DUMMY) {
@@ -1858,36 +1959,42 @@ export const dbService = {
   // Residentes Management CRUD
   // --------------------------------------------------
   async getResidentes(): Promise<Residente[]> {
-    try {
-      const { data, error } = await supabase
-        .from('residentes')
-        .select('*')
-        .order('createdAt', { ascending: false });
+    if (!supabaseRecursionBlocked) {
+      try {
+        const { data, error } = await supabase
+          .from('residentes')
+          .select('*')
+          .order('createdAt', { ascending: false });
 
-      if (!error && data) {
-        if (data.length === 0) {
-          const defaultResidente = {
-            id: 'resd-demo-1',
-            nombre: 'Mariana Sosa',
-            residenciaId: 'res-demo-1',
-            residenciaNombre: 'Lomas de Chapultepec',
-            direccion: 'Calle Roble #14',
-            qrcodeToken: 'residente_mariana_token',
-            whatsapp: '+525512345678',
-            accessUserId: 'usr-resd-demo-1',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          };
-          await supabase.from('residentes').insert(defaultResidente);
-          return [defaultResidente];
+        if (!error && data) {
+          if (data.length === 0) {
+            const defaultResidente = {
+              id: 'resd-demo-1',
+              nombre: 'Mariana Sosa',
+              residenciaId: 'res-demo-1',
+              residenciaNombre: 'Lomas de Chapultepec',
+              direccion: 'Calle Roble #14',
+              qrcodeToken: 'residente_mariana_token',
+              whatsapp: '+525512345678',
+              accessUserId: 'usr-resd-demo-1',
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            };
+            await supabase.from('residentes').insert(defaultResidente);
+            return [defaultResidente];
+          }
+          return (data as any[]).map(normalizeResidentRow);
         }
-        return (data as any[]).map(normalizeResidentRow);
+        if (error) {
+          if (!checkAndMarkRecursion(error)) {
+            console.warn('Supabase getResidentes returned query error. Code:', error.code, 'Msg:', error.message);
+          }
+        }
+      } catch (err) {
+        if (!checkAndMarkRecursion(err)) {
+          console.warn('Supabase getResidentes exception, using fallback:', err);
+        }
       }
-      if (error) {
-        console.warn('Supabase getResidentes returned query error. Code:', error.code, 'Msg:', error.message);
-      }
-    } catch (err) {
-      console.warn('Supabase getResidentes exception, using fallback:', err);
     }
 
     if (IS_FIREBASE_DUMMY) {
@@ -2060,20 +2167,26 @@ export const dbService = {
   // Casetas Management CRUD
   // --------------------------------------------------
   async getCasetas(): Promise<Caseta[]> {
-    try {
-      const { data, error } = await supabase
-        .from('casetas')
-        .select('*')
-        .order('createdAt', { ascending: false });
+    if (!supabaseRecursionBlocked) {
+      try {
+        const { data, error } = await supabase
+          .from('casetas')
+          .select('*')
+          .order('createdAt', { ascending: false });
 
-      if (!error && data) {
-        return data as Caseta[];
+        if (!error && data) {
+          return data as Caseta[];
+        }
+        if (error) {
+          if (!checkAndMarkRecursion(error)) {
+            console.warn('Supabase getCasetas returned query error. Code:', error.code, 'Msg:', error.message);
+          }
+        }
+      } catch (err) {
+        if (!checkAndMarkRecursion(err)) {
+          console.warn('Supabase getCasetas exception, using fallback:', err);
+        }
       }
-      if (error) {
-        console.warn('Supabase getCasetas returned query error. Code:', error.code, 'Msg:', error.message);
-      }
-    } catch (err) {
-      console.warn('Supabase getCasetas exception, using fallback:', err);
     }
 
     if (IS_FIREBASE_DUMMY) {
@@ -2198,38 +2311,44 @@ export const dbService = {
   // Marbetes Management CRUD
   // --------------------------------------------------
   async getMarbetes(): Promise<Marbete[]> {
-    try {
-      const data = await robustSupabaseSelectAll('marbetes', 'createdAt');
-      if (data) {
-        if (data.length === 0) {
-          const defaultMarbete = {
-            id: 'mar-demo-1',
-            consecutivo: 1001,
-            residenteId: 'resd-demo-1',
-            residenteNombre: 'Mariana Sosa (Residente)',
-            residenciaId: 'res-demo-1',
-            residenciaNombre: 'Lomas de Chapultepec',
-            vehiculoPlacas: 'MS-888-A',
-            vehiculoInfo: 'Audi A3 Blanco',
-            status: UserStatus.ACTIVE,
-            validFrom: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-            validUntil: new Date(Date.now() + 28 * 24 * 60 * 60 * 1000).toISOString(),
-            qrcodeToken: 'mar_token_demo_1',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          };
-          // Insert into Supabase
-          try {
-            await supabase.from('marbetes').insert(defaultMarbete);
-          } catch (insErr) {
-            console.warn('Failed to insert default marbete in Supabase:', insErr);
+    if (!supabaseRecursionBlocked) {
+      try {
+        const data = await robustSupabaseSelectAll('marbetes', 'createdAt');
+        if (data) {
+          if (data.length === 0) {
+            const defaultMarbete = {
+              id: 'mar-demo-1',
+              consecutivo: 1001,
+              residenteId: 'resd-demo-1',
+              residenteNombre: 'Mariana Sosa (Residente)',
+              residenciaId: 'res-demo-1',
+              residenciaNombre: 'Lomas de Chapultepec',
+              vehiculoPlacas: 'MS-888-A',
+              vehiculoInfo: 'Audi A3 Blanco',
+              status: UserStatus.ACTIVE,
+              validFrom: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+              validUntil: new Date(Date.now() + 28 * 24 * 60 * 60 * 1000).toISOString(),
+              qrcodeToken: 'mar_token_demo_1',
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            };
+            // Insert into Supabase
+            try {
+              await supabase.from('marbetes').insert(defaultMarbete);
+            } catch (insErr) {
+              if (!checkAndMarkRecursion(insErr)) {
+                console.warn('Failed to insert default marbete in Supabase:', insErr);
+              }
+            }
+            return [defaultMarbete as Marbete];
           }
-          return [defaultMarbete as Marbete];
+          return data.map(normalizeMarbeteRow);
         }
-        return data.map(normalizeMarbeteRow);
+      } catch (err) {
+        if (!checkAndMarkRecursion(err)) {
+          console.warn('Supabase getMarbetes exception, using fallback:', err);
+        }
       }
-    } catch (err) {
-      console.warn('Supabase getMarbetes exception, using fallback:', err);
     }
 
     if (IS_FIREBASE_DUMMY) {
@@ -2380,19 +2499,25 @@ export const dbService = {
   async getEvidencias(): Promise<Evidencia[]> {
     let remoteUsers: Evidencia[] = [];
 
-    try {
-      const { data, error } = await supabase
-        .from('evidencias')
-        .select('*')
-        .order('timestamp', { ascending: false });
+    if (!supabaseRecursionBlocked) {
+      try {
+        const { data, error } = await supabase
+          .from('evidencias')
+          .select('*')
+          .order('timestamp', { ascending: false });
 
-      if (!error && data) {
-        remoteUsers = (data as any[]).map(normalizeEvidenciaRow);
-      } else if (error) {
-        console.warn('Supabase getEvidencias returned query error:', error);
+        if (!error && data) {
+          remoteUsers = (data as any[]).map(normalizeEvidenciaRow);
+        } else if (error) {
+          if (!checkAndMarkRecursion(error)) {
+            console.warn('Supabase getEvidencias returned query error:', error);
+          }
+        }
+      } catch (err) {
+        if (!checkAndMarkRecursion(err)) {
+          console.warn('Supabase getEvidencias exception, using fallback:', err);
+        }
       }
-    } catch (err) {
-      console.warn('Supabase getEvidencias exception, using fallback:', err);
     }
 
     if (!IS_FIREBASE_DUMMY && remoteUsers.length === 0) {
