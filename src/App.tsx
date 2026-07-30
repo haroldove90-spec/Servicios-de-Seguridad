@@ -39,6 +39,9 @@ import CondominiosDashboard from './components/CondominiosDashboard';
 import { generateQRWithLogo } from './utils/qrWithLogo';
 import { exportMarbeteToJPG } from './utils/marbeteExporter';
 
+// Feature Flag: Set to true when user requests to reactivate the "Administración de Condominios" module in the future
+export const ENABLE_CONDOMINIOS_MODULE = false;
+
 // Global panic audio state managers
 let activeAudio: HTMLAudioElement | null = null;
 let sirenInterval: any = null;
@@ -605,6 +608,12 @@ export default function App() {
       if ((matchedUsername === 'guardia' || matchedUsername === 'residente') && 
           (matchedEmail === 'guardia@seguridad.local' || matchedEmail === 'residente@local.casa')) {
         setLoginError('Acceso Demo Inhabilitado: El ingreso con las credenciales por defecto ("guardia", "residente") está desactivado temporalmente. Por favor, utilice su cuenta personalizada.');
+        return;
+      }
+
+      // Check if CONDOMINIOS module is disabled
+      if (!ENABLE_CONDOMINIOS_MODULE && matched.role === SystemUserRole.CONDOMINIOS) {
+        setLoginError('Acceso Denegado: El módulo y rol de Administración de Condominios se encuentra temporalmente desactivado por el Administrador del Sistema.');
         return;
       }
 
@@ -1797,7 +1806,7 @@ export default function App() {
 
                   <div className="space-y-1.5 pt-1">
                     <p className="text-[10px] uppercase font-bold text-slate-500 px-3 tracking-wider font-mono mb-2">Vistas y Herramientas</p>
-                    {isCondominios && (
+                    {ENABLE_CONDOMINIOS_MODULE && isCondominios && (
                       <button
                         onClick={() => { setActiveTab('condominios'); setIsDrawerOpen(false); }}
                         className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer ${
@@ -2225,7 +2234,7 @@ export default function App() {
                 </p>
 
                 {/* Roles Grid Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-left max-w-6xl mx-auto">
+                <div className={`grid grid-cols-1 sm:grid-cols-2 ${ENABLE_CONDOMINIOS_MODULE ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-6 text-left max-w-6xl mx-auto`}>
                   
                   {/* CARD 1: ADMIN */}
                   <div 
@@ -2312,31 +2321,33 @@ export default function App() {
                   </div>
 
                   {/* CARD 4: ADMINISTRACIÓN DE CONDOMINIOS */}
-                  <div 
-                    id="role-gateway-card-condominios"
-                    onClick={() => {
-                      setSelectedCondoSubSection('inicio');
-                      setSelectedLoginTarget({ role: SystemUserRole.CONDOMINIOS, label: 'Administración de Condominios', defaultTab: 'condominios' });
-                      setIsRegistering(false);
-                    }}
-                    className="group relative bg-[#2A2A2E] hover:bg-[#343438] border border-[#3e3e42] hover:border-purple-500 rounded-3xl p-6 shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden"
-                  >
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 blur-3xl rounded-full group-hover:bg-purple-500/10 transition"></div>
-                    
-                    <div className="flex flex-col items-center justify-center text-center py-6">
-                      <div className="w-14 h-14 bg-purple-500/15 text-purple-400 border border-purple-500/25 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition shrink-0">
-                        <Building className="w-7 h-7 text-purple-400 animate-pulse" />
+                  {ENABLE_CONDOMINIOS_MODULE && (
+                    <div 
+                      id="role-gateway-card-condominios"
+                      onClick={() => {
+                        setSelectedCondoSubSection('inicio');
+                        setSelectedLoginTarget({ role: SystemUserRole.CONDOMINIOS, label: 'Administración de Condominios', defaultTab: 'condominios' });
+                        setIsRegistering(false);
+                      }}
+                      className="group relative bg-[#2A2A2E] hover:bg-[#343438] border border-[#3e3e42] hover:border-purple-500 rounded-3xl p-6 shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden"
+                    >
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 blur-3xl rounded-full group-hover:bg-purple-500/10 transition"></div>
+                      
+                      <div className="flex flex-col items-center justify-center text-center py-6">
+                        <div className="w-14 h-14 bg-purple-500/15 text-purple-400 border border-purple-500/25 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition shrink-0">
+                          <Building className="w-7 h-7 text-purple-400 animate-pulse" />
+                        </div>
+                        <h3 className="text-xl font-extrabold text-white group-hover:text-purple-400 transition" id="lbl-condominios-general-role">
+                          Administración de condominios
+                        </h3>
                       </div>
-                      <h3 className="text-xl font-extrabold text-white group-hover:text-purple-400 transition" id="lbl-condominios-general-role">
-                        Administración de condominios
-                      </h3>
-                    </div>
 
-                    <div className="mt-4 pt-4 border-t border-[#3e3e42] flex items-center justify-between font-sans">
-                      <span className="text-[10px] font-bold text-purple-400 tracking-wider uppercase group-hover:translate-x-1 transition-all">Acceder a Condominios →</span>
-                      <span className="text-[10px] bg-purple-600/20 text-purple-400 font-mono px-2.5 py-0.5 rounded-full uppercase font-bold">Gestión</span>
+                      <div className="mt-4 pt-4 border-t border-[#3e3e42] flex items-center justify-between font-sans">
+                        <span className="text-[10px] font-bold text-purple-400 tracking-wider uppercase group-hover:translate-x-1 transition-all">Acceder a Condominios →</span>
+                        <span className="text-[10px] bg-purple-600/20 text-purple-400 font-mono px-2.5 py-0.5 rounded-full uppercase font-bold">Gestión</span>
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                 </div>
 
@@ -2585,7 +2596,23 @@ export default function App() {
                   )}
 
                   {activeTab === 'condominios' && (
-                    isCondominios ? (
+                    !ENABLE_CONDOMINIOS_MODULE ? (
+                      <div className="max-w-2xl mx-auto my-12 p-8 bg-[#18181b] border border-amber-500/40 rounded-3xl text-center space-y-4 shadow-2xl animate-fade-in font-sans">
+                        <Lock className="w-12 h-12 text-amber-500 mx-auto animate-pulse" />
+                        <h3 className="text-xl font-extrabold text-white">Módulo Desactivado Temporalmente</h3>
+                        <p className="text-xs text-slate-300 leading-relaxed max-w-md mx-auto">
+                          El módulo y rol de Administración de Condominios ha sido desactivado por el Administrador del Sistema hasta nuevo aviso.
+                        </p>
+                        <button
+                          onClick={() => {
+                            handleSignOut();
+                          }}
+                          className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs rounded-xl transition cursor-pointer"
+                        >
+                          Volver al Menú Principal
+                        </button>
+                      </div>
+                    ) : isCondominios ? (
                       <CondominiosDashboard 
                         currentUser={userRole} 
                         onSignOut={handleSignOut} 

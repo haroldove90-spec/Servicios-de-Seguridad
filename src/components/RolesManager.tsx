@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { dbService } from '../services/dbService';
 import { SystemRole, SystemUserRole } from '../types';
+import { ENABLE_CONDOMINIOS_MODULE } from '../App';
 
 interface RolesManagerProps {
   onRolesUpdated: () => void;
@@ -850,7 +851,9 @@ export default function RolesManager({
                    <option value={SystemUserRole.SUPERVISOR} className="bg-[#1A1A1E]" >👮 Seguridad / Control de Accesos (Lector QR, Bitácora)</option>
                    <option value={SystemUserRole.RESIDENTE} className="bg-[#1A1A1E]" >🏠 Residente (Panel para dar de alta Visitas con QR)</option>
                    <option value={SystemUserRole.ADMIN} className="bg-[#1A1A1E]" >🛡️ Director Administrador (Control Total Maestro)</option>
-                   <option value={SystemUserRole.CONDOMINIOS} className="bg-[#1A1A1E]" >🏢 Administración de Condominios (Módulo Independiente)</option>
+                   {ENABLE_CONDOMINIOS_MODULE && (
+                     <option value={SystemUserRole.CONDOMINIOS} className="bg-[#1A1A1E]" >🏢 Administración de Condominios (Módulo Independiente)</option>
+                   )}
                 </select>
               </div>
 
