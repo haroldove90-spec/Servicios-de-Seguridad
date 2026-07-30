@@ -588,38 +588,11 @@ export default function App() {
       // 1. First look for candidate matching credentials AND allowed target card role
       let matched = allCandidates.find(r => matchesCredentials(r) && (allowedRolesForCard.length === 0 || allowedRolesForCard.includes(r.role)));
 
-      // 2. If no candidate matched the specific target card, enforce strict system isolation
+      // 2. If no candidate matched under specific card filter, auto-route to user's explicitly registered role
       if (!matched) {
         const anyMatched = allCandidates.find(r => matchesCredentials(r));
         if (anyMatched) {
-          if (targetRole === SystemUserRole.CONDOMINIOS && anyMatched.role !== SystemUserRole.CONDOMINIOS) {
-            setLoginError('Acceso Denegado: Los usuarios registrados en Acceso Residencial CNLS (Administración, Caseta de Seguridad y Residentes) no pueden ingresar al módulo de Administración de Condominios hasta que sean registrados expresamente por el Administrador en dicho rol. Son sistemas separados e independientes.');
-            return;
-          }
-
-          const roleLabelMap: Record<string, string> = {
-            admin: 'Administración General',
-            supervisor: 'Caseta / Seguridad',
-            guard: 'Caseta / Vigilancia',
-            residente: 'Residente Autogestión',
-            auditor: 'Auditoría de Seguridad',
-            condominios: 'Administración de Condominios'
-          };
-          const userRoleLabel = roleLabelMap[anyMatched.role] || anyMatched.role;
-
-          let targetCardName = 'correspondiente a su perfil';
-          if (anyMatched.role === SystemUserRole.SUPERVISOR || anyMatched.role === SystemUserRole.GUARD) {
-            targetCardName = '"Panel Caseta de Guardias"';
-          } else if (anyMatched.role === SystemUserRole.RESIDENTE) {
-            targetCardName = '"Panel Autogestión de Residentes"';
-          } else if (anyMatched.role === SystemUserRole.ADMIN) {
-            targetCardName = '"Panel Administración General"';
-          } else if (anyMatched.role === SystemUserRole.CONDOMINIOS) {
-            targetCardName = '"Administración de Condominios"';
-          }
-
-          setLoginError(`Acceso Restringido: Sus credenciales pertenecen al perfil de "${userRoleLabel}". Por favor, ingrese seleccionando la tarjeta ${targetCardName} en el menú de inicio.`);
-          return;
+          matched = anyMatched;
         } else {
           setLoginError('Usuario o contraseña incorrectos. Verifica tus credenciales o solicita acceso al administrador.');
           return;
@@ -792,7 +765,7 @@ export default function App() {
       const matchedRes = residenciasList.find(r => r.id === regResidenciaId);
 
       // Register with default role based on current selected login card
-      const defaultRole = selectedLoginTarget?.role || SystemUserRole.SUPERVISOR;
+      const defaultRole = selectedLoginTarget?.role || SystemUserRole.RESIDENTE;
       const isCondominioReg = defaultRole === SystemUserRole.CONDOMINIOS;
       const isResidenteReg = defaultRole === SystemUserRole.RESIDENTE;
 
@@ -802,7 +775,7 @@ export default function App() {
         email: regEmail.trim().toLowerCase(),
         username: cleanedUsername,
         role: defaultRole,
-        isActive: (isCondominioReg || isResidenteReg) ? true : false,
+        isActive: true,
         password: regPassword.trim(),
         phone: regPhone.trim(),
         createdAt: new Date().toISOString(),
@@ -1057,22 +1030,29 @@ export default function App() {
         
         // Fetch current system authorization level (RBAC)
         let roleSnap = await dbService.getSystemRole(firebaseUser.uid);
+        if (!roleSnap && firebaseUser.email) {
+          roleSnap = await dbService.getSystemRole(firebaseUser.email);
+        }
         
-        // BOOTSTRAP MASTER INVARIANT: If this database has no users configured yet,
-        // we automatically register the first logger as an Active Admin to prevent developer lockout!
         if (!roleSnap) {
           const allRoles = await dbService.getAllSystemRoles();
-          const targetRole = allRoles.length === 0 ? SystemUserRole.ADMIN : SystemUserRole.GUARD;
-          
-          const newRole: SystemRole = {
-            uid: firebaseUser.uid,
-            email: firebaseUser.email || '',
-            name: firebaseUser.displayName || 'Personal de Turno',
-            role: targetRole,
-            createdAt: new Date().toISOString()
-          };
-          await dbService.saveSystemRole(newRole);
-          roleSnap = newRole;
+          const matchedByEmail = allRoles.find(r => r.email?.toLowerCase() === firebaseUser.email?.toLowerCase());
+          if (matchedByEmail) {
+            roleSnap = matchedByEmail;
+          } else {
+            const targetRole = selectedLoginTarget?.role || SystemUserRole.RESIDENTE;
+            
+            const newRole: SystemRole = {
+              uid: firebaseUser.uid,
+              email: firebaseUser.email || '',
+              name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Usuario Registrado',
+              role: targetRole,
+              isActive: true,
+              createdAt: new Date().toISOString()
+            };
+            await dbService.saveSystemRole(newRole);
+            roleSnap = newRole;
+          }
         }
 
         setUserRole(roleSnap);

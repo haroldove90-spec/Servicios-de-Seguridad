@@ -158,18 +158,39 @@ export function normalizeEvidenciaRow(raw: any): Evidencia {
 
 export function normalizeRoleRow(raw: any): SystemRole {
   if (!raw) return raw;
+  let rawRole = raw.role ?? raw.rol ?? raw.user_role ?? raw.role_name ?? raw.tipo ?? SystemUserRole.RESIDENTE;
+  if (typeof rawRole === 'string') {
+    const cleanRole = rawRole.toLowerCase().trim();
+    if (cleanRole === 'guardia' || cleanRole === 'vigilante' || cleanRole === 'caseta' || cleanRole === 'guard') {
+      rawRole = SystemUserRole.SUPERVISOR;
+    } else if (cleanRole === 'administrador' || cleanRole === 'director' || cleanRole === 'admin') {
+      rawRole = SystemUserRole.ADMIN;
+    } else if (cleanRole === 'condominio' || cleanRole === 'condominios') {
+      rawRole = SystemUserRole.CONDOMINIOS;
+    } else if (cleanRole === 'residente' || cleanRole === 'resident') {
+      rawRole = SystemUserRole.RESIDENTE;
+    } else if (cleanRole === 'auditor') {
+      rawRole = SystemUserRole.AUDITOR;
+    } else if (cleanRole === 'supervisor') {
+      rawRole = SystemUserRole.SUPERVISOR;
+    } else {
+      rawRole = cleanRole;
+    }
+  }
   return {
-    uid: raw.uid,
-    email: raw.email,
-    name: raw.name,
-    role: raw.role,
-    createdAt: raw.createdAt ?? raw.created_at ?? raw.createdat,
-    phone: raw.phone,
+    uid: raw.uid || raw.id,
+    email: raw.email || '',
+    name: raw.name || raw.nombre || '',
+    role: rawRole as SystemUserRole,
+    createdAt: raw.createdAt ?? raw.created_at ?? raw.createdat ?? new Date().toISOString(),
+    phone: raw.phone ?? raw.telefono,
     password: raw.password,
     isActive: raw.isActive ?? raw.is_active ?? raw.isactive ?? true,
     residenciaId: raw.residenciaId ?? raw.residencia_id ?? raw.residenciaid,
     residenciaNombre: raw.residenciaNombre ?? raw.residencia_nombre ?? raw.residencianombre,
-    username: raw.username,
+    casetaId: raw.casetaId ?? raw.caseta_id ?? raw.casetaid,
+    casetaNombre: raw.casetaNombre ?? raw.caseta_nombre ?? raw.casetanombre,
+    username: raw.username ?? raw.usuario,
     avatar: raw.avatar
   };
 }
@@ -982,12 +1003,15 @@ export const dbService = {
   // --------------------------------------------------
   // System Roles Management (RBAC)
   // --------------------------------------------------
-  async getSystemRole(uid: string): Promise<SystemRole | null> {
+  async getSystemRole(uidOrIdentifier: string): Promise<SystemRole | null> {
+    if (!uidOrIdentifier) return null;
+    const cleanIdentifier = uidOrIdentifier.toLowerCase().trim();
+
     try {
       const { data, error } = await supabase
         .from('system_roles')
         .select('*')
-        .eq('uid', uid)
+        .or(`uid.eq.${uidOrIdentifier},email.eq.${cleanIdentifier},username.eq.${cleanIdentifier}`)
         .maybeSingle();
 
       if (!error && data) {
@@ -1002,18 +1026,22 @@ export const dbService = {
 
     if (!IS_FIREBASE_DUMMY) {
       try {
-        const docRef = doc(db, 'system_roles', uid);
+        const docRef = doc(db, 'system_roles', uidOrIdentifier);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           return normalizeRoleRow(docSnap.data());
         }
       } catch (err) {
-        handleFirestoreError(err, OperationType.GET, `system_roles/${uid}`);
+        handleFirestoreError(err, OperationType.GET, `system_roles/${uidOrIdentifier}`);
       }
     }
 
     const roles = LocalDB.getRoles();
-    return roles.find(r => r.uid === uid) || null;
+    return roles.find(r => 
+      r.uid === uidOrIdentifier || 
+      r.email?.toLowerCase() === cleanIdentifier || 
+      r.username?.toLowerCase() === cleanIdentifier
+    ) || null;
   },
 
   async saveSystemRole(role: SystemRole): Promise<void> {
