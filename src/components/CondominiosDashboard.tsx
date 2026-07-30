@@ -256,6 +256,16 @@ export default function CondominiosDashboard({ currentUser, onSignOut, initialSu
   const [superAdminTab, setSuperAdminTab] = useState<'clientes' | 'finanzas' | 'soporte'>('clientes');
   const [isNavOpen, setIsNavOpen] = useState<boolean>(false);
 
+  // Administrator check for Condominios module
+  const isUserAdmin = !currentUser || 
+    currentUser.role === 'admin' || 
+    currentUser.role === 'condominios' || 
+    currentUser.role === 'superadmin' || 
+    currentUser.username === 'admin' || 
+    currentUser.username === 'admin_condo' || 
+    currentUser.username === 'harold.anguiano' ||
+    (typeof currentUser.role === 'string' && currentUser.role.toLowerCase().includes('admin'));
+
   useEffect(() => {
     if (initialSubSection) {
       setActiveSubSection(initialSubSection);
@@ -1547,7 +1557,7 @@ export default function CondominiosDashboard({ currentUser, onSignOut, initialSu
             </span>
           )}
 
-          {activeSubSection !== 'inicio' && (
+          {activeSubSection !== 'inicio' && isUserAdmin && (
             <button
               onClick={() => { setActiveSubSection('inicio'); setIsNavOpen(false); }}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1E1E22] hover:bg-purple-600/30 text-purple-300 hover:text-white border border-purple-500/30 rounded-xl text-xs font-bold transition cursor-pointer"
@@ -1605,178 +1615,385 @@ export default function CondominiosDashboard({ currentUser, onSignOut, initialSu
                 </button>
               </div>
 
-              {/* 1. SECCIÓN DE ROLES */}
-              <div className="space-y-2">
-                <span className="text-[10px] font-black uppercase tracking-wider text-purple-400 font-mono px-1">
-                  Menú de Roles
-                </span>
+              {/* 1. PRIMER LUGAR: MÓDULOS DE ACCESO DEL ROL ACTIVO */}
+              <div className="space-y-4">
+                {activeSubSection === 'superadmin' && (
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-red-400 font-mono px-1 flex items-center justify-between">
+                      <span>Módulos SuperAdmin</span>
+                      <span className="text-[8px] font-bold text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/20">SaaS Owner</span>
+                    </span>
 
-                <div className="space-y-1.5">
-                  <button
-                    onClick={() => { setActiveSubSection('superadmin'); setIsNavOpen(false); }}
-                    className={`w-full text-left p-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center justify-between border ${
-                      activeSubSection === 'superadmin'
-                        ? 'bg-red-500/20 text-red-300 border-red-500/40 shadow-lg'
-                        : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252B] border-[#2d2d32]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <Crown className="w-4 h-4 text-red-400 shrink-0" />
-                      <span>1. Super Admin (SaaS Owner)</span>
+                    <div className="space-y-1.5">
+                      <button
+                        onClick={() => { setSuperAdminTab('clientes'); setIsNavOpen(false); }}
+                        className={`w-full text-left p-2.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-2.5 border ${
+                          superAdminTab === 'clientes'
+                            ? 'bg-purple-600 text-white border-purple-500 shadow-md'
+                            : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252B] border-[#2d2d32]'
+                        }`}
+                      >
+                        <Building className="w-4 h-4 text-purple-300 shrink-0" />
+                        <span>1. Gestión de Clientes</span>
+                      </button>
+
+                      <button
+                        onClick={() => { setSuperAdminTab('finanzas'); setIsNavOpen(false); }}
+                        className={`w-full text-left p-2.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-2.5 border ${
+                          superAdminTab === 'finanzas'
+                            ? 'bg-purple-600 text-white border-purple-500 shadow-md'
+                            : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252B] border-[#2d2d32]'
+                        }`}
+                      >
+                        <DollarSign className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <span>2. Finanzas Globales</span>
+                      </button>
+
+                      <button
+                        onClick={() => { setSuperAdminTab('soporte'); setIsNavOpen(false); }}
+                        className={`w-full text-left p-2.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-2.5 border ${
+                          superAdminTab === 'soporte'
+                            ? 'bg-purple-600 text-white border-purple-500 shadow-md'
+                            : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252B] border-[#2d2d32]'
+                        }`}
+                      >
+                        <MessageSquare className="w-4 h-4 text-blue-400 shrink-0" />
+                        <span>3. Soporte & Auditoría</span>
+                      </button>
                     </div>
-                    {activeSubSection === 'superadmin' && <span className="w-2 h-2 rounded-full bg-red-400 animate-ping" />}
-                  </button>
+                  </div>
+                )}
 
-                  <button
-                    onClick={() => { setActiveSubSection('admininmobiliaria'); setIsNavOpen(false); }}
-                    className={`w-full text-left p-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center justify-between border ${
-                      activeSubSection === 'admininmobiliaria'
-                        ? 'bg-purple-500/20 text-purple-300 border-purple-500/40 shadow-lg'
-                        : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252B] border-[#2d2d32]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <Building2 className="w-4 h-4 text-purple-400 shrink-0" />
-                      <span>2. Admin Condominio</span>
+                {activeSubSection === 'admininmobiliaria' && (
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-purple-400 font-mono px-1 flex items-center justify-between">
+                      <span>Módulos Admin Condominio</span>
+                      <span className="text-[8px] font-bold text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded border border-purple-500/20">Administrador</span>
+                    </span>
+
+                    <div className="space-y-1.5">
+                      <button
+                        onClick={() => { setAdminCondoTab('comunidad'); setIsNavOpen(false); }}
+                        className={`w-full text-left p-2.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-2.5 border ${
+                          adminCondoTab === 'comunidad'
+                            ? 'bg-purple-600 text-white border-purple-500 shadow-md'
+                            : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252B] border-[#2d2d32]'
+                        }`}
+                      >
+                        <Building2 className="w-4 h-4 text-purple-400 shrink-0" />
+                        <span>1. Estructura & Residentes</span>
+                      </button>
+
+                      <button
+                        onClick={() => { setAdminCondoTab('finanzas'); setIsNavOpen(false); }}
+                        className={`w-full text-left p-2.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-2.5 border ${
+                          adminCondoTab === 'finanzas'
+                            ? 'bg-purple-600 text-white border-purple-500 shadow-md'
+                            : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252B] border-[#2d2d32]'
+                        }`}
+                      >
+                        <DollarSign className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <span>2. Finanzas & Cobros</span>
+                      </button>
+
+                      <button
+                        onClick={() => { setAdminCondoTab('facturacion'); setIsNavOpen(false); }}
+                        className={`w-full text-left p-2.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-2.5 border ${
+                          adminCondoTab === 'facturacion'
+                            ? 'bg-purple-600 text-white border-purple-500 shadow-md'
+                            : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252B] border-[#2d2d32]'
+                        }`}
+                      >
+                        <FileText className="w-4 h-4 text-blue-400 shrink-0" />
+                        <span>3. Facturación CFDI 4.0</span>
+                      </button>
+
+                      <button
+                        onClick={() => { setAdminCondoTab('operacion'); setIsNavOpen(false); }}
+                        className={`w-full text-left p-2.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-2.5 border ${
+                          adminCondoTab === 'operacion'
+                            ? 'bg-purple-600 text-white border-purple-500 shadow-md'
+                            : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252B] border-[#2d2d32]'
+                        }`}
+                      >
+                        <Wrench className="w-4 h-4 text-amber-400 shrink-0" />
+                        <span>4. Operación & Personal</span>
+                      </button>
+
+                      <button
+                        onClick={() => { setAdminCondoTab('comunicacion'); setIsNavOpen(false); }}
+                        className={`w-full text-left p-2.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-2.5 border ${
+                          adminCondoTab === 'comunicacion'
+                            ? 'bg-purple-600 text-white border-purple-500 shadow-md'
+                            : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252B] border-[#2d2d32]'
+                        }`}
+                      >
+                        <Vote className="w-4 h-4 text-indigo-400 shrink-0" />
+                        <span>5. Encuestas & Avisos</span>
+                      </button>
                     </div>
-                    {activeSubSection === 'admininmobiliaria' && <span className="w-2 h-2 rounded-full bg-purple-400 animate-ping" />}
-                  </button>
+                  </div>
+                )}
 
-                  <button
-                    onClick={() => { setActiveSubSection('comite'); setIsNavOpen(false); }}
-                    className={`w-full text-left p-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center justify-between border ${
-                      activeSubSection === 'comite'
-                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-lg'
-                        : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252B] border-[#2d2d32]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <UserCheck className="w-4 h-4 text-amber-400 shrink-0" />
-                      <span>3. Comité Vigilancia</span>
+                {activeSubSection === 'comite' && (
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 font-mono px-1 flex items-center justify-between">
+                      <span>Módulos Comité Vigilancia</span>
+                      <span className="text-[8px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">Vigilancia</span>
+                    </span>
+
+                    <div className="space-y-1.5">
+                      <button
+                        onClick={() => { setComiteTab('auditoria'); setIsNavOpen(false); }}
+                        className={`w-full text-left p-2.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-2.5 border ${
+                          comiteTab === 'auditoria'
+                            ? 'bg-amber-600 text-white border-amber-500 shadow-md'
+                            : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252B] border-[#2d2d32]'
+                        }`}
+                      >
+                        <PieChart className="w-4 h-4 text-amber-400 shrink-0" />
+                        <span>1. Auditoría Financiera</span>
+                      </button>
+
+                      <button
+                        onClick={() => { setComiteTab('aprobaciones'); setIsNavOpen(false); }}
+                        className={`w-full text-left p-2.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-2.5 border ${
+                          comiteTab === 'aprobaciones'
+                            ? 'bg-amber-600 text-white border-amber-500 shadow-md'
+                            : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252B] border-[#2d2d32]'
+                        }`}
+                      >
+                        <CheckSquare className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <span>2. Aprobación Presupuestos</span>
+                      </button>
+
+                      <button
+                        onClick={() => { setComiteTab('actas'); setIsNavOpen(false); }}
+                        className={`w-full text-left p-2.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-2.5 border ${
+                          comiteTab === 'actas'
+                            ? 'bg-amber-600 text-white border-amber-500 shadow-md'
+                            : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252B] border-[#2d2d32]'
+                        }`}
+                      >
+                        <FileCheck className="w-4 h-4 text-blue-400 shrink-0" />
+                        <span>3. Actas de Asamblea</span>
+                      </button>
                     </div>
-                    {activeSubSection === 'comite' && <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />}
-                  </button>
+                  </div>
+                )}
 
-                  <button
-                    onClick={() => { setActiveSubSection('residente'); setIsNavOpen(false); }}
-                    className={`w-full text-left p-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center justify-between border ${
-                      activeSubSection === 'residente'
-                        ? 'bg-blue-500/20 text-blue-300 border-blue-500/40 shadow-lg'
-                        : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252B] border-[#2d2d32]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <Smartphone className="w-4 h-4 text-blue-400 shrink-0" />
-                      <span>4. Residente (PWA)</span>
+                {activeSubSection === 'residente' && (
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-blue-400 font-mono px-1 flex items-center justify-between">
+                      <span>Módulos Residente (PWA)</span>
+                      <span className="text-[8px] font-bold text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20">Autogestión</span>
+                    </span>
+
+                    <div className="space-y-1.5">
+                      <button
+                        onClick={() => { setResidenteTab('finanzas'); setIsNavOpen(false); }}
+                        className={`w-full text-left p-2.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-2.5 border ${
+                          residenteTab === 'finanzas'
+                            ? 'bg-blue-600 text-white border-blue-500 shadow-md'
+                            : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252B] border-[#2d2d32]'
+                        }`}
+                      >
+                        <DollarSign className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <span>1. Estado de Cuenta & Pagos</span>
+                      </button>
+
+                      <button
+                        onClick={() => { setResidenteTab('accesos'); setIsNavOpen(false); }}
+                        className={`w-full text-left p-2.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-2.5 border ${
+                          residenteTab === 'accesos'
+                            ? 'bg-blue-600 text-white border-blue-500 shadow-md'
+                            : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252B] border-[#2d2d32]'
+                        }`}
+                      >
+                        <QrCode className="w-4 h-4 text-purple-400 shrink-0" />
+                        <span>2. Pases QR & Invitados</span>
+                      </button>
+
+                      <button
+                        onClick={() => { setResidenteTab('amenidades'); setIsNavOpen(false); }}
+                        className={`w-full text-left p-2.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-2.5 border ${
+                          residenteTab === 'amenidades'
+                            ? 'bg-blue-600 text-white border-blue-500 shadow-md'
+                            : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252B] border-[#2d2d32]'
+                        }`}
+                      >
+                        <Calendar className="w-4 h-4 text-amber-400 shrink-0" />
+                        <span>3. Reservas Amenidades</span>
+                      </button>
+
+                      <button
+                        onClick={() => { setResidenteTab('comunicacion'); setIsNavOpen(false); }}
+                        className={`w-full text-left p-2.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-2.5 border ${
+                          residenteTab === 'comunicacion'
+                            ? 'bg-blue-600 text-white border-blue-500 shadow-md'
+                            : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252B] border-[#2d2d32]'
+                        }`}
+                      >
+                        <MessageSquare className="w-4 h-4 text-indigo-400 shrink-0" />
+                        <span>4. Comunicados & Votaciones</span>
+                      </button>
                     </div>
-                    {activeSubSection === 'residente' && <span className="w-2 h-2 rounded-full bg-blue-400 animate-ping" />}
-                  </button>
+                  </div>
+                )}
 
-                  <button
-                    onClick={() => { setActiveSubSection('guardia'); setIsNavOpen(false); }}
-                    className={`w-full text-left p-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center justify-between border ${
-                      activeSubSection === 'guardia'
-                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-lg'
-                        : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252B] border-[#2d2d32]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <BadgeCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                      <span>5. Guardia / Conserje</span>
+                {activeSubSection === 'guardia' && (
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 font-mono px-1 flex items-center justify-between">
+                      <span>Módulos Caseta / Conserje</span>
+                      <span className="text-[8px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">Seguridad</span>
+                    </span>
+
+                    <div className="space-y-1.5">
+                      <button
+                        onClick={() => { setGuardiaTab('accesos'); setIsNavOpen(false); }}
+                        className={`w-full text-left p-2.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-2.5 border ${
+                          guardiaTab === 'accesos'
+                            ? 'bg-emerald-600 text-white border-emerald-500 shadow-md'
+                            : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252B] border-[#2d2d32]'
+                        }`}
+                      >
+                        <BadgeCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <span>1. Control Visitas en Vivo</span>
+                      </button>
+
+                      <button
+                        onClick={() => { setGuardiaTab('paqueteria'); setIsNavOpen(false); }}
+                        className={`w-full text-left p-2.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-2.5 border ${
+                          guardiaTab === 'paqueteria'
+                            ? 'bg-emerald-600 text-white border-emerald-500 shadow-md'
+                            : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252B] border-[#2d2d32]'
+                        }`}
+                      >
+                        <PackageCheck className="w-4 h-4 text-amber-400 shrink-0" />
+                        <span>2. Recepción Paquería</span>
+                      </button>
+
+                      <button
+                        onClick={() => { setGuardiaTab('bitacora'); setIsNavOpen(false); }}
+                        className={`w-full text-left p-2.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-2.5 border ${
+                          guardiaTab === 'bitacora'
+                            ? 'bg-emerald-600 text-white border-emerald-500 shadow-md'
+                            : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252B] border-[#2d2d32]'
+                        }`}
+                      >
+                        <Clipboard className="w-4 h-4 text-blue-400 shrink-0" />
+                        <span>3. Bitácora Digital</span>
+                      </button>
                     </div>
-                    {activeSubSection === 'guardia' && <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />}
-                  </button>
+                  </div>
+                )}
 
-                  <button
-                    onClick={() => { setActiveSubSection('inicio'); setIsNavOpen(false); }}
-                    className={`w-full text-left p-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2.5 border ${
-                      activeSubSection === 'inicio'
-                        ? 'bg-slate-700/50 text-white border-slate-600'
-                        : 'bg-[#1E1E22] text-slate-400 hover:bg-[#25252B] border-[#2d2d32]'
-                    }`}
-                  >
-                    <Home className="w-4 h-4 text-slate-400 shrink-0" />
-                    <span>Panel de Inicio (General)</span>
-                  </button>
-                </div>
+                {activeSubSection === 'inicio' && (
+                  <div className="p-3 bg-purple-950/30 border border-purple-500/30 rounded-xl text-xs text-purple-300 space-y-1 font-sans">
+                    <p className="font-extrabold flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-purple-400 shrink-0" /> Panel de Inicio
+                    </p>
+                    <p className="text-[11px] text-slate-300">
+                      Seleccione un módulo a continuación para acceder a las herramientas correspondientes.
+                    </p>
+                  </div>
+                )}
               </div>
 
-              {/* 2. SUB-MÓDULOS DEL ROL ACTIVO */}
-              {activeSubSection === 'superadmin' && (
-                <div className="space-y-2 pt-3 border-t border-[#2d2d32]">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-red-400 font-mono px-1">
-                    Módulos SuperAdmin
+              {/* 2. SEGUNDO LUGAR (ABAJO): MENÚ DE ROLES (EXCLUSIVO ADMINISTRADOR) */}
+              {isUserAdmin && (
+                <div className="space-y-2 pt-4 border-t border-[#2d2d32]">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-purple-400 font-mono px-1 flex items-center justify-between">
+                    <span>Menú de Roles</span>
+                    <span className="text-[8px] font-extrabold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded">Exclusivo Admin</span>
                   </span>
 
                   <div className="space-y-1.5">
                     <button
-                      onClick={() => { setSuperAdminTab('clientes'); setIsNavOpen(false); }}
-                      className={`w-full text-left p-2.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-2.5 border ${
-                        superAdminTab === 'clientes'
-                          ? 'bg-purple-600 text-white border-purple-500 shadow-md'
+                      onClick={() => { setActiveSubSection('superadmin'); setIsNavOpen(false); }}
+                      className={`w-full text-left p-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center justify-between border ${
+                        activeSubSection === 'superadmin'
+                          ? 'bg-red-500/20 text-red-300 border-red-500/40 shadow-lg'
                           : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252B] border-[#2d2d32]'
                       }`}
                     >
-                      <Building className="w-4 h-4 text-purple-300 shrink-0" />
-                      <span>1. Gestión de Clientes</span>
+                      <div className="flex items-center gap-2.5">
+                        <Crown className="w-4 h-4 text-red-400 shrink-0" />
+                        <span>1. Super Admin (SaaS Owner)</span>
+                      </div>
+                      {activeSubSection === 'superadmin' && <span className="w-2 h-2 rounded-full bg-red-400 animate-ping" />}
                     </button>
 
                     <button
-                      onClick={() => { setSuperAdminTab('finanzas'); setIsNavOpen(false); }}
-                      className={`w-full text-left p-2.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-2.5 border ${
-                        superAdminTab === 'finanzas'
-                          ? 'bg-purple-600 text-white border-purple-500 shadow-md'
+                      onClick={() => { setActiveSubSection('admininmobiliaria'); setIsNavOpen(false); }}
+                      className={`w-full text-left p-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center justify-between border ${
+                        activeSubSection === 'admininmobiliaria'
+                          ? 'bg-purple-500/20 text-purple-300 border-purple-500/40 shadow-lg'
                           : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252B] border-[#2d2d32]'
                       }`}
                     >
-                      <DollarSign className="w-4 h-4 text-emerald-400 shrink-0" />
-                      <span>2. Finanzas Globales</span>
+                      <div className="flex items-center gap-2.5">
+                        <Building2 className="w-4 h-4 text-purple-400 shrink-0" />
+                        <span>2. Admin Condominio</span>
+                      </div>
+                      {activeSubSection === 'admininmobiliaria' && <span className="w-2 h-2 rounded-full bg-purple-400 animate-ping" />}
                     </button>
 
                     <button
-                      onClick={() => { setSuperAdminTab('soporte'); setIsNavOpen(false); }}
-                      className={`w-full text-left p-2.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-2.5 border ${
-                        superAdminTab === 'soporte'
-                          ? 'bg-purple-600 text-white border-purple-500 shadow-md'
+                      onClick={() => { setActiveSubSection('comite'); setIsNavOpen(false); }}
+                      className={`w-full text-left p-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center justify-between border ${
+                        activeSubSection === 'comite'
+                          ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-lg'
                           : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252B] border-[#2d2d32]'
                       }`}
                     >
-                      <MessageSquare className="w-4 h-4 text-blue-400 shrink-0" />
-                      <span>3. Soporte & Auditoría</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {activeSubSection === 'admininmobiliaria' && (
-                <div className="space-y-2 pt-3 border-t border-[#2d2d32]">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-purple-400 font-mono px-1">
-                    Módulos Admin Condominio
-                  </span>
-
-                  <div className="space-y-1.5">
-                    <button
-                      onClick={() => { setAdminCondoTab('finanzas'); setIsNavOpen(false); }}
-                      className={`w-full text-left p-2.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-2.5 border ${
-                        adminCondoTab === 'finanzas'
-                          ? 'bg-purple-600 text-white border-purple-500 shadow-md'
-                          : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252B] border-[#2d2d32]'
-                      }`}
-                    >
-                      <DollarSign className="w-4 h-4 text-emerald-400 shrink-0" />
-                      <span>1. Finanzas & Cobros</span>
+                      <div className="flex items-center gap-2.5">
+                        <UserCheck className="w-4 h-4 text-amber-400 shrink-0" />
+                        <span>3. Comité Vigilancia</span>
+                      </div>
+                      {activeSubSection === 'comite' && <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />}
                     </button>
 
                     <button
-                      onClick={() => { setAdminCondoTab('facturacion'); setIsNavOpen(false); }}
-                      className={`w-full text-left p-2.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-2.5 border ${
-                        adminCondoTab === 'facturacion'
-                          ? 'bg-purple-600 text-white border-purple-500 shadow-md'
+                      onClick={() => { setActiveSubSection('residente'); setIsNavOpen(false); }}
+                      className={`w-full text-left p-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center justify-between border ${
+                        activeSubSection === 'residente'
+                          ? 'bg-blue-500/20 text-blue-300 border-blue-500/40 shadow-lg'
                           : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252B] border-[#2d2d32]'
                       }`}
                     >
-                      <FileText className="w-4 h-4 text-blue-400 shrink-0" />
-                      <span>2. Facturación CFDI 4.0</span>
+                      <div className="flex items-center gap-2.5">
+                        <Smartphone className="w-4 h-4 text-blue-400 shrink-0" />
+                        <span>4. Residente (PWA)</span>
+                      </div>
+                      {activeSubSection === 'residente' && <span className="w-2 h-2 rounded-full bg-blue-400 animate-ping" />}
+                    </button>
+
+                    <button
+                      onClick={() => { setActiveSubSection('guardia'); setIsNavOpen(false); }}
+                      className={`w-full text-left p-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center justify-between border ${
+                        activeSubSection === 'guardia'
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-lg'
+                          : 'bg-[#1E1E22] text-slate-300 hover:bg-[#25252B] border-[#2d2d32]'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <BadgeCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <span>5. Guardia / Conserje</span>
+                      </div>
+                      {activeSubSection === 'guardia' && <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />}
+                    </button>
+
+                    <button
+                      onClick={() => { setActiveSubSection('inicio'); setIsNavOpen(false); }}
+                      className={`w-full text-left p-2.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-2.5 border ${
+                        activeSubSection === 'inicio'
+                          ? 'bg-slate-700/50 text-white border-slate-600'
+                          : 'bg-[#1E1E22] text-slate-400 hover:bg-[#25252B] border-[#2d2d32]'
+                      }`}
+                    >
+                      <Home className="w-4 h-4 text-slate-400 shrink-0" />
+                      <span>Panel de Inicio (General)</span>
                     </button>
                   </div>
                 </div>
