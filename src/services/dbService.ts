@@ -752,7 +752,7 @@ const LocalDB = {
         uid: 'condo-admin-uid',
         name: 'Administrador de Condominios',
         email: 'admin@condominios.local',
-        username: 'admin',
+        username: 'admin_condo',
         role: SystemUserRole.CONDOMINIOS,
         isActive: true,
         password: 'Admin_123',

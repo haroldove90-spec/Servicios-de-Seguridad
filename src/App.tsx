@@ -588,45 +588,38 @@ export default function App() {
       // 1. First look for candidate matching credentials AND allowed target card role
       let matched = allCandidates.find(r => matchesCredentials(r) && (allowedRolesForCard.length === 0 || allowedRolesForCard.includes(r.role)));
 
-      // 2. If no candidate matched the specific target card, but input is admin or target is Condominios/Admin, auto-adapt role or check any matched user
+      // 2. If no candidate matched the specific target card, enforce strict system isolation
       if (!matched) {
         const anyMatched = allCandidates.find(r => matchesCredentials(r));
         if (anyMatched) {
-          if (
-            (targetRole === SystemUserRole.CONDOMINIOS || targetRole === SystemUserRole.ADMIN) &&
-            (anyMatched.role === SystemUserRole.ADMIN || anyMatched.role === SystemUserRole.CONDOMINIOS || anyMatched.username === 'admin')
-          ) {
-            // Adapt role so admin can access Condominios panel directly
-            matched = {
-              ...anyMatched,
-              role: targetRole || SystemUserRole.CONDOMINIOS,
-              name: targetRole === SystemUserRole.CONDOMINIOS ? 'Administrador de Condominios' : anyMatched.name
-            };
-          } else {
-            const roleLabelMap: Record<string, string> = {
-              admin: 'Administración General',
-              supervisor: 'Caseta / Seguridad',
-              guard: 'Caseta / Vigilancia',
-              residente: 'Residente Autogestión',
-              auditor: 'Auditoría de Seguridad',
-              condominios: 'Administración de Condominios'
-            };
-            const userRoleLabel = roleLabelMap[anyMatched.role] || anyMatched.role;
-
-            let targetCardName = 'correspondiente a su perfil';
-            if (anyMatched.role === SystemUserRole.SUPERVISOR || anyMatched.role === SystemUserRole.GUARD) {
-              targetCardName = '"Panel Caseta de Guardias"';
-            } else if (anyMatched.role === SystemUserRole.RESIDENTE) {
-              targetCardName = '"Panel Autogestión de Residentes"';
-            } else if (anyMatched.role === SystemUserRole.ADMIN) {
-              targetCardName = '"Panel Administración General"';
-            } else if (anyMatched.role === SystemUserRole.CONDOMINIOS) {
-              targetCardName = '"Administración de Condominios"';
-            }
-
-            setLoginError(`Acceso Restringido: Sus credenciales pertenecen al perfil de "${userRoleLabel}". Por favor, ingrese seleccionando la tarjeta ${targetCardName} en el menú de inicio.`);
+          if (targetRole === SystemUserRole.CONDOMINIOS && anyMatched.role !== SystemUserRole.CONDOMINIOS) {
+            setLoginError('Acceso Denegado: Los usuarios registrados en Acceso Residencial CNLS (Administración, Caseta de Seguridad y Residentes) no pueden ingresar al módulo de Administración de Condominios hasta que sean registrados expresamente por el Administrador en dicho rol. Son sistemas separados e independientes.');
             return;
           }
+
+          const roleLabelMap: Record<string, string> = {
+            admin: 'Administración General',
+            supervisor: 'Caseta / Seguridad',
+            guard: 'Caseta / Vigilancia',
+            residente: 'Residente Autogestión',
+            auditor: 'Auditoría de Seguridad',
+            condominios: 'Administración de Condominios'
+          };
+          const userRoleLabel = roleLabelMap[anyMatched.role] || anyMatched.role;
+
+          let targetCardName = 'correspondiente a su perfil';
+          if (anyMatched.role === SystemUserRole.SUPERVISOR || anyMatched.role === SystemUserRole.GUARD) {
+            targetCardName = '"Panel Caseta de Guardias"';
+          } else if (anyMatched.role === SystemUserRole.RESIDENTE) {
+            targetCardName = '"Panel Autogestión de Residentes"';
+          } else if (anyMatched.role === SystemUserRole.ADMIN) {
+            targetCardName = '"Panel Administración General"';
+          } else if (anyMatched.role === SystemUserRole.CONDOMINIOS) {
+            targetCardName = '"Administración de Condominios"';
+          }
+
+          setLoginError(`Acceso Restringido: Sus credenciales pertenecen al perfil de "${userRoleLabel}". Por favor, ingrese seleccionando la tarjeta ${targetCardName} en el menú de inicio.`);
+          return;
         } else {
           setLoginError('Usuario o contraseña incorrectos. Verifica tus credenciales o solicita acceso al administrador.');
           return;
@@ -2603,11 +2596,28 @@ export default function App() {
                   )}
 
                   {activeTab === 'condominios' && (
-                    <CondominiosDashboard 
-                      currentUser={userRole} 
-                      onSignOut={handleSignOut} 
-                      initialSubSection={selectedCondoSubSection}
-                    />
+                    isCondominios ? (
+                      <CondominiosDashboard 
+                        currentUser={userRole} 
+                        onSignOut={handleSignOut} 
+                        initialSubSection={selectedCondoSubSection}
+                      />
+                    ) : (
+                      <div className="max-w-2xl mx-auto my-12 p-8 bg-[#18181b] border-2 border-red-600/50 rounded-3xl text-center space-y-4 shadow-2xl animate-fade-in">
+                        <ShieldAlert className="w-12 h-12 text-red-500 mx-auto animate-pulse" />
+                        <h3 className="text-xl font-extrabold text-white">Acceso Denegado - Sistemas Independientes</h3>
+                        <p className="text-xs text-slate-300 leading-relaxed max-w-md mx-auto">
+                          Los usuarios de Acceso Residencial CNLS (Administración General, Caseta de Seguridad y Residentes) no tienen acceso al módulo de Administración de Condominios.
+                          Debe ser registrado expresamente por el Administrador con el rol exclusivo de "Administración de Condominios".
+                        </p>
+                        <button
+                          onClick={() => setActiveTab('metricas')}
+                          className="px-5 py-2.5 bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-xl transition cursor-pointer"
+                        >
+                          Volver al Panel Residencial
+                        </button>
+                      </div>
+                    )
                   )}
                 </div>
 
