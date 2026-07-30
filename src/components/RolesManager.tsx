@@ -162,6 +162,24 @@ export default function RolesManager({
     }
 
     const cleanedUsername = formUsername.trim().toLowerCase();
+    const cleanedEmail = formEmail.trim().toLowerCase();
+
+    // Check for duplicate email across roles
+    if (cleanedEmail) {
+      const duplicateEmail = roles.find(r => r.uid !== editingUid && r.email?.toLowerCase() === cleanedEmail);
+      if (duplicateEmail) {
+        const roleLabelMap: Record<string, string> = {
+          admin: 'Administración General',
+          supervisor: 'Caseta / Seguridad',
+          residente: 'Residente Autogestión',
+          condominios: 'Administración de Condominios',
+          auditor: 'Auditoría'
+        };
+        const roleName = roleLabelMap[duplicateEmail.role] || duplicateEmail.role;
+        setFormAlert(`El correo electrónico "${formEmail}" ya está registrado con el rol de "${roleName}". No es posible registrar o asignar el mismo correo a un rol diferente.`);
+        return;
+      }
+    }
     
     // Check for username duplication if creating or if changing username
     if (cleanedUsername) {

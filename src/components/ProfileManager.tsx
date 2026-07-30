@@ -127,7 +127,7 @@ export const ProfileManager: React.FC<ProfileManagerProps> = ({ currentUser, onP
     setIsSaving(true);
     
     try {
-      // Validate unique username among other operators (excluding self)
+      // Validate unique username and email among other operators (excluding self)
       const allRoles = await dbService.getAllSystemRoles();
       if (allRoles) {
         const usernameClash = allRoles.find(
@@ -137,6 +137,25 @@ export const ProfileManager: React.FC<ProfileManagerProps> = ({ currentUser, onP
           showMsg('error', `El usuario "${username}" ya se encuentra ocupado por otro integrante del panel residencial.`);
           setIsSaving(false);
           return;
+        }
+
+        if (email.trim()) {
+          const emailClash = allRoles.find(
+            r => r.uid !== currentUser.uid && r.email?.toLowerCase() === email.trim().toLowerCase()
+          );
+          if (emailClash) {
+            const roleLabelMap: Record<string, string> = {
+              admin: 'Administración General',
+              supervisor: 'Caseta / Seguridad',
+              residente: 'Residente Autogestión',
+              condominios: 'Administración de Condominios',
+              auditor: 'Auditoría'
+            };
+            const roleName = roleLabelMap[emailClash.role] || emailClash.role;
+            showMsg('error', `El correo "${email}" ya está registrado por otro usuario con el rol de "${roleName}". No se pueden duplicar correos entre diferentes cuentas.`);
+            setIsSaving(false);
+            return;
+          }
         }
       }
 

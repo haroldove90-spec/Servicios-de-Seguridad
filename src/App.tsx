@@ -755,9 +755,18 @@ export default function App() {
         return;
       }
 
-      const emailExists = registeredRoles.some(r => r.email.toLowerCase() === regEmail.trim().toLowerCase());
+      const emailExists = registeredRoles.some(r => r.email && r.email.toLowerCase() === regEmail.trim().toLowerCase());
       if (emailExists) {
-        setLoginError(`El correo electrónico "${regEmail}" ya se encuentra registrado.`);
+        const existingUser = registeredRoles.find(r => r.email && r.email.toLowerCase() === regEmail.trim().toLowerCase());
+        const roleLabelMap: Record<string, string> = {
+          admin: 'Administración General',
+          supervisor: 'Caseta / Seguridad',
+          residente: 'Residente Autogestión',
+          condominios: 'Administración de Condominios',
+          auditor: 'Auditoría'
+        };
+        const roleName = existingUser ? (roleLabelMap[existingUser.role] || existingUser.role) : '';
+        setLoginError(`El correo electrónico "${regEmail}" ya se encuentra registrado en el sistema${roleName ? ` con el rol de "${roleName}"` : ''}. No se permite registrar el mismo correo con diferentes roles.`);
         return;
       }
 
