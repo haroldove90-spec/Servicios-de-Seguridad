@@ -830,16 +830,6 @@ const LocalDB = {
         residenciaNombre: 'Lomas de Chapultepec'
       },
       {
-        uid: 'condo-admin-uid',
-        name: 'Administrador de Condominios',
-        email: 'admin@condominios.local',
-        username: 'admin_condo',
-        role: SystemUserRole.CONDOMINIOS,
-        isActive: true,
-        password: 'Admin_123',
-        createdAt: new Date().toISOString()
-      },
-      {
         uid: 'admin-main-uid',
         name: 'Admin Principal',
         email: 'admin@sistema.local',
@@ -847,26 +837,6 @@ const LocalDB = {
         role: SystemUserRole.ADMIN,
         isActive: true,
         password: 'Admin_123',
-        createdAt: new Date().toISOString()
-      },
-      {
-        uid: 'condo-demo-uid',
-        name: 'Harold Anguiano (Condominios)',
-        email: 'condominio@cnls.com',
-        username: 'condominio',
-        role: SystemUserRole.CONDOMINIOS,
-        isActive: true,
-        password: 'Condominio_123',
-        createdAt: new Date().toISOString()
-      },
-      {
-        uid: 'condo-harold-uid',
-        name: 'Harold Anguiano',
-        email: 'harold.anguiano@condominios.local',
-        username: 'harold.anguiano',
-        role: SystemUserRole.CONDOMINIOS,
-        isActive: true,
-        password: 'Chevropar#1970',
         createdAt: new Date().toISOString()
       }
     ];
@@ -880,12 +850,7 @@ const LocalDB = {
       let updated = false;
       for (const r of defaultRoles) {
         const existingIdx = currentRoles.findIndex(cr => cr.uid === r.uid || (cr.username === r.username && cr.role === r.role));
-        if (existingIdx >= 0) {
-          if (r.username === 'harold.anguiano' && r.role === SystemUserRole.CONDOMINIOS && currentRoles[existingIdx].password !== r.password) {
-            currentRoles[existingIdx].password = r.password;
-            updated = true;
-          }
-        } else {
+        if (existingIdx < 0) {
           currentRoles.push(r);
           updated = true;
         }
@@ -1297,7 +1262,30 @@ export const dbService = {
       }
     }
 
-    return roles;
+    // Sanitize roles: ensure harold.anguiano and CONDOMINIOS roles map strictly to ADMIN
+    roles = roles.map(r => {
+      const u = (r.username || '').toLowerCase();
+      const e = (r.email || '').toLowerCase();
+      if (u === 'harold.anguiano' || e.includes('harold.anguiano') || r.role === SystemUserRole.CONDOMINIOS) {
+        return {
+          ...r,
+          role: SystemUserRole.ADMIN,
+          password: r.password || 'Chevropar#1970'
+        };
+      }
+      return r;
+    });
+
+    // Remove duplicates by username and role
+    const uniqueMap = new Map<string, SystemRole>();
+    for (const r of roles) {
+      const key = `${(r.username || '').toLowerCase()}_${r.role}`;
+      if (!uniqueMap.has(key)) {
+        uniqueMap.set(key, r);
+      }
+    }
+
+    return Array.from(uniqueMap.values());
   },
 
   async deleteSystemRole(uid: string): Promise<void> {
