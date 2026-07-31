@@ -1718,18 +1718,20 @@ export default function App() {
         )}
 
         {/* Drawer / Flyout Sidebar Navigation aligned to the LHS of the viewport */}
-        <div 
-          id="cnls-lateral-drawer-overlay"
-          className={`fixed inset-0 bg-black/80 backdrop-blur-xs z-[50] transition-opacity duration-300 ${isDrawerOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
-          onClick={() => setIsDrawerOpen(false)}
-        />
-        <div 
-          id="cnls-lateral-drawer"
-          className={`fixed top-0 left-0 bottom-0 w-80 bg-[#2A2A2E] border-r border-[#3e3e42] z-[60] p-6 flex flex-col justify-between overflow-y-auto transition-transform duration-300 ease-out transform ${
-            isDrawerOpen ? 'translate-x-0' : '-translate-x-full'
-          }`}
-        >
-          <div className="space-y-6">
+        {hasSelectedRole && (
+          <>
+            <div 
+              id="cnls-lateral-drawer-overlay"
+              className={`fixed inset-0 bg-black/80 backdrop-blur-xs z-[50] transition-opacity duration-300 ${isDrawerOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+              onClick={() => setIsDrawerOpen(false)}
+            />
+            <div 
+              id="cnls-lateral-drawer"
+              className={`fixed top-0 left-0 bottom-0 w-80 bg-[#2A2A2E] border-r border-[#3e3e42] z-[60] p-6 flex flex-col justify-between overflow-y-auto transition-transform duration-300 ease-out transform ${
+                isDrawerOpen ? 'translate-x-0' : '-translate-x-full'
+              }`}
+            >
+              <div className="space-y-6">
             <div className="flex items-center justify-between border-b border-[#3e3e42] pb-4">
               <div className="flex items-center gap-3">
                 <img 
@@ -1992,22 +1994,26 @@ export default function App() {
             </div>
           </div>
         </div>
+        </>
+        )}
 
         {/* Global top application header with Menu and Logo */}
         {activeTab !== 'condominios' && (
           <header id="cnls-main-top-navbar" className="bg-[#1A1A1E] border-b border-[#3e3e42] sticky top-0 z-40 px-4 py-3 shadow-md">
             <div className="max-w-7xl mx-auto flex items-center justify-between">
               <div className="flex items-center gap-3.5">
-                <button 
-                  id="cnls-sidebar-hamburger"
-                  onClick={() => setIsDrawerOpen(true)}
-                  className="p-2 hover:bg-[#2A2A2E] text-slate-300 hover:text-white rounded-xl border border-[#3e3e42] hover:border-slate-500 transition cursor-pointer"
-                  aria-label="Toggle navigation lateral drawer"
-                >
-                  <Menu className="w-5 h-5" />
-                </button>
+                {hasSelectedRole && (
+                  <button 
+                    id="cnls-sidebar-hamburger"
+                    onClick={() => setIsDrawerOpen(true)}
+                    className="p-2 hover:bg-[#2A2A2E] text-slate-300 hover:text-white rounded-xl border border-[#3e3e42] hover:border-slate-500 transition cursor-pointer"
+                    aria-label="Toggle navigation lateral drawer"
+                  >
+                    <Menu className="w-5 h-5" />
+                  </button>
+                )}
 
-                <div className="flex items-center gap-3 cursor-pointer" onClick={() => setHasSelectedRole(false)}>
+                <div className="flex items-center gap-3 cursor-pointer" onClick={() => { setHasSelectedRole(false); setIsDrawerOpen(false); }}>
                   <img 
                     src="https://cossma.com.mx/cnls.png" 
                     alt="CNLS Header Logo" 
