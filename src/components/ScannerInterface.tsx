@@ -1702,14 +1702,9 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
                   <div key={ev.id} className="bg-[#020617] p-4 rounded-xl border border-slate-850 flex flex-col sm:flex-row gap-4 hover:border-slate-800 transition">
                     {/* Photo Thumbnail */}
                     <div 
-                      onClick={() => setSelectedEvidImage(ev)}
-                      className="w-full sm:w-28 h-28 bg-slate-950 rounded-xl overflow-hidden shrink-0 border border-slate-800 relative group cursor-pointer"
-                      title="Haz clic para ver la evidencia con zoom 🔍"
+                      className="w-full sm:w-28 h-28 bg-slate-950 rounded-xl overflow-hidden shrink-0 border border-slate-800 relative"
                     >
-                      <img src={ev.photoUrl} alt="Foto de evidencia" referrerPolicy="no-referrer" className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
-                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition text-[10px] text-white font-bold gap-1">
-                        🔍 Zoom Image
-                      </div>
+                      <img src={ev.photoUrl} alt="Foto de evidencia" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
                     </div>
 
                     {/* Evidence descriptions */}
@@ -1748,14 +1743,6 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
                             <span>Caseta: <strong className="text-slate-200">{ev.casetaNombre}</strong></span>
                           </>
                         )}
-                        <span className="text-slate-650">•</span>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedEvidImage(ev)}
-                          className="text-emerald-400 hover:text-emerald-300 hover:underline cursor-pointer font-bold flex items-center gap-1"
-                        >
-                          🔍 Ampliar
-                        </button>
                         <span className="text-slate-650">•</span>
                         <button
                           type="button"
