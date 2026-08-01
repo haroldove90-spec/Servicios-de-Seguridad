@@ -112,6 +112,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
   const [savingEvidence, setSavingEvidence] = useState<boolean>(false);
   const [evidenceType, setEvidenceType] = useState<'placa' | 'credencial'>('placa');
   const [activeSubTab, setActiveSubTab] = useState<'scan' | 'evidencias'>('scan');
+  const [selectedEvidImage, setSelectedEvidImage] = useState<Evidencia | null>(null);
 
   // Pull evidence logs
   const reloadEvidencias = async () => {
@@ -1089,6 +1090,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
     reader.onload = () => {
       if (typeof reader.result === 'string') {
         setCapturedPhoto(reader.result);
+        setActiveSubTab('evidencias');
       }
     };
     reader.readAsDataURL(file);
@@ -1685,89 +1687,102 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
               </button>
             </div>
 
-            {evidenciasList.filter(ev => !currentGuard?.residenciaId || ev.residenciaId === currentGuard.residenciaId || ev.residenciaId === 'residencia_general' || !ev.residenciaId).map((ev) => {
-              const parsedTime = new Date(ev.timestamp).toLocaleString([], {
-                day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+            {(() => {
+              const displayed = evidenciasList.filter(ev => {
+                if (!currentGuard?.residenciaId) return true;
+                return ev.residenciaId === currentGuard.residenciaId || ev.residenciaId === 'residencia_general' || !ev.residenciaId || ev.casetaId === currentGuard.casetaId;
               });
-              return (
-                <div key={ev.id} className="bg-[#020617] p-4 rounded-xl border border-slate-850 flex flex-col sm:flex-row gap-4 hover:border-slate-800 transition">
-                  {/* Photo Thumbnail */}
-                  <div className="w-full sm:w-28 h-28 bg-slate-950 rounded-xl overflow-hidden shrink-0 border border-slate-800 relative group cursor-pointer">
-                    <img src={ev.photoUrl} alt="Foto de placas" referrerPolicy="no-referrer" className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
+
+              if (displayed.length === 0) {
+                return (
+                  <div className="text-center py-12 bg-[#020617]/50 rounded-2xl border border-slate-900 text-slate-500 text-xs">
+                    <Camera className="w-6 h-6 mx-auto mb-2 text-slate-600" />
+                    No se registran evidencias de placas o credenciales para esta residencia o caseta aún.
+                  </div>
+                );
+              }
+
+              return displayed.map((ev) => {
+                const parsedTime = new Date(ev.timestamp).toLocaleString([], {
+                  day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+                });
+                return (
+                  <div key={ev.id} className="bg-[#020617] p-4 rounded-xl border border-slate-850 flex flex-col sm:flex-row gap-4 hover:border-slate-800 transition">
+                    {/* Photo Thumbnail */}
                     <div 
-                      onClick={() => {
-                        const win = window.open();
-                        if (win) {
-                          win.document.write(`<img src="${ev.photoUrl}" style="max-width:100%; max-height:100vh; display:block; margin:auto;" />`);
-                        }
-                      }}
-                      className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition text-[10px] text-white font-bold"
+                      onClick={() => setSelectedEvidImage(ev)}
+                      className="w-full sm:w-28 h-28 bg-slate-950 rounded-xl overflow-hidden shrink-0 border border-slate-800 relative group cursor-pointer"
+                      title="Haz clic para ver la evidencia con zoom 🔍"
                     >
-                      Ver Imagen ↗
-                    </div>
-                  </div>
-
-                  {/* Evidence descriptions */}
-                  <div className="flex-1 flex flex-col justify-between">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                        {/* Plate/Data Graphic Box */}
-                        <span className="px-2 py-0.5 bg-white border-2 border-slate-900 border-b-4 font-mono font-black text-slate-800 rounded-md text-[11px] shadow-xs uppercase tracking-wide">
-                          {ev.placas || (ev.tipo === 'credencial' ? 'S/DATO' : 'S/PLACA')}
-                        </span>
-
-                        {/* Type badge */}
-                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide ${
-                          ev.tipo === 'credencial' 
-                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' 
-                            : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                        }`}>
-                          {ev.tipo === 'credencial' ? '🪪 Credencial' : '🚗 Placa'}
-                        </span>
-                        
-                        <span className="text-[10px] font-mono text-slate-500">{parsedTime}</span>
+                      <img src={ev.photoUrl} alt="Foto de evidencia" referrerPolicy="no-referrer" className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition text-[10px] text-white font-bold gap-1">
+                        🔍 Zoom Image
                       </div>
-                      
-                      {ev.notas ? (
-                        <p className="text-xs text-slate-300 italic mb-2">"{ev.notas}"</p>
-                      ) : (
-                        <p className="text-xs text-slate-550 mb-2">Sin observaciones registradas.</p>
-                      )}
                     </div>
 
-                    <div className="text-[10px] text-slate-400 flex flex-wrap gap-2 border-t border-slate-900 pt-2 bg-slate-950/20 px-2 rounded-lg">
-                      <span>Vigilante: <strong className="text-slate-200">{ev.guardName}</strong></span>
-                      {ev.casetaNombre && (
-                        <>
-                          <span className="text-slate-650">•</span>
-                          <span>Caseta: <strong className="text-slate-200">{ev.casetaNombre}</strong></span>
-                        </>
-                      )}
-                      <span className="text-slate-650">•</span>
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          if (confirm("¿Estás seguro de que deseas eliminar esta evidencia?")) {
-                            await dbService.deleteEvidencia(ev.id);
-                            reloadEvidencias();
-                          }
-                        }}
-                        className="text-red-500 hover:text-red-400 hover:underline cursor-pointer ml-auto font-bold"
-                      >
-                        Eliminar
-                      </button>
+                    {/* Evidence descriptions */}
+                    <div className="flex-1 flex flex-col justify-between">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                          {/* Plate/Data Graphic Box */}
+                          <span className="px-2 py-0.5 bg-white border-2 border-slate-900 border-b-4 font-mono font-black text-slate-800 rounded-md text-[11px] shadow-xs uppercase tracking-wide">
+                            {ev.placas || (ev.tipo === 'credencial' ? 'S/DATO' : 'S/PLACA')}
+                          </span>
+
+                          {/* Type badge */}
+                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide ${
+                            ev.tipo === 'credencial' 
+                              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' 
+                              : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                          }`}>
+                            {ev.tipo === 'credencial' ? '🪪 Credencial' : '🚗 Placa'}
+                          </span>
+                          
+                          <span className="text-[10px] font-mono text-slate-500">{parsedTime}</span>
+                        </div>
+                        
+                        {ev.notas ? (
+                          <p className="text-xs text-slate-300 italic mb-2">"{ev.notas}"</p>
+                        ) : (
+                          <p className="text-xs text-slate-550 mb-2">Sin observaciones registradas.</p>
+                        )}
+                      </div>
+
+                      <div className="text-[10px] text-slate-400 flex flex-wrap gap-2 border-t border-slate-900 pt-2 bg-slate-950/20 px-2 rounded-lg items-center">
+                        <span>Vigilante: <strong className="text-slate-200">{ev.guardName}</strong></span>
+                        {ev.casetaNombre && (
+                          <>
+                            <span className="text-slate-650">•</span>
+                            <span>Caseta: <strong className="text-slate-200">{ev.casetaNombre}</strong></span>
+                          </>
+                        )}
+                        <span className="text-slate-650">•</span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedEvidImage(ev)}
+                          className="text-emerald-400 hover:text-emerald-300 hover:underline cursor-pointer font-bold flex items-center gap-1"
+                        >
+                          🔍 Ampliar
+                        </button>
+                        <span className="text-slate-650">•</span>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (confirm("¿Estás seguro de que deseas eliminar esta evidencia?")) {
+                              await dbService.deleteEvidencia(ev.id);
+                              reloadEvidencias();
+                            }
+                          }}
+                          className="text-red-500 hover:text-red-400 hover:underline cursor-pointer ml-auto font-bold"
+                        >
+                          Eliminar
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-
-            {evidenciasList.filter(ev => ev.residenciaId === currentGuard?.residenciaId).length === 0 && (
-              <div className="text-center py-12 bg-[#020617]/50 rounded-2xl border border-slate-900 text-slate-500 text-xs">
-                <Camera className="w-6 h-6 mx-auto mb-2 text-slate-600" />
-                No se registran evidencias de placas o credenciales para esta residencia aún.
-              </div>
-            )}
+                );
+              });
+            })()}
           </div>
         </div>
       )}
@@ -2244,7 +2259,132 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
         </div>
       )}
 
+      {/* ENLARGED EVIDENCE IMAGE ZOOM LIGHTBOX MODAL */}
+      {selectedEvidImage && (
+        <EvidenceZoomModal evidencia={selectedEvidImage} onClose={() => setSelectedEvidImage(null)} />
+      )}
+
     </div>
   </div>
 );
+}
+
+// Subcomponent for interactive zoom on captured evidence photos
+function EvidenceZoomModal({ evidencia, onClose }: { evidencia: Evidencia; onClose: () => void }) {
+  const [zoomLevel, setZoomLevel] = useState<number>(1);
+
+  const handleZoomIn = () => setZoomLevel(prev => Math.min(prev + 0.5, 3));
+  const handleZoomOut = () => setZoomLevel(prev => Math.max(prev - 0.5, 1));
+  const handleResetZoom = () => setZoomLevel(1);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  const parsedTime = evidencia.timestamp 
+    ? new Date(evidencia.timestamp).toLocaleString([], { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : 'Fecha no disponible';
+
+  return (
+    <div 
+      className="fixed inset-0 z-[9999] bg-slate-950/95 backdrop-blur-md flex flex-col items-center justify-between p-4 sm:p-6 select-none animate-fade-in"
+      onClick={onClose}
+    >
+      {/* Top Controls Bar */}
+      <div 
+        className="w-full max-w-4xl flex items-center justify-between bg-slate-900/90 border border-slate-800 rounded-2xl px-4 py-3 shadow-xl z-10"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-3">
+          <span className="px-2.5 py-1 bg-white border-2 border-slate-950 font-mono font-black text-slate-900 rounded-md text-xs uppercase tracking-wider">
+            {evidencia.placas || (evidencia.tipo === 'credencial' ? 'S/DATO' : 'S/PLACA')}
+          </span>
+          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide ${
+            evidencia.tipo === 'credencial' 
+              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' 
+              : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+          }`}>
+            {evidencia.tipo === 'credencial' ? '🪪 Credencial INE / ID' : '🚗 Placa Vehicular'}
+          </span>
+        </div>
+
+        {/* Zoom Controls */}
+        <div className="flex items-center gap-2">
+          <button 
+            type="button" 
+            onClick={handleZoomOut}
+            disabled={zoomLevel <= 1}
+            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-bold transition disabled:opacity-30 cursor-pointer"
+            title="Alejar (-)"
+          >
+            -
+          </button>
+          <span className="text-xs font-mono font-bold text-slate-300 px-1">{Math.round(zoomLevel * 100)}%</span>
+          <button 
+            type="button" 
+            onClick={handleZoomIn}
+            disabled={zoomLevel >= 3}
+            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-bold transition disabled:opacity-30 cursor-pointer"
+            title="Acercar (+)"
+          >
+            +
+          </button>
+          {zoomLevel > 1 && (
+            <button 
+              type="button" 
+              onClick={handleResetZoom}
+              className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold transition cursor-pointer"
+            >
+              Restablecer
+            </button>
+          )}
+          <button 
+            type="button" 
+            onClick={onClose}
+            className="ml-2 px-3 py-1 bg-red-600/80 hover:bg-red-600 text-white rounded-lg text-xs font-bold transition cursor-pointer"
+            title="Cerrar modal (Esc)"
+          >
+            ✕ Cerrar
+          </button>
+        </div>
+      </div>
+
+      {/* Zoomable Image Container */}
+      <div 
+        className="relative max-w-4xl w-full flex-1 my-4 flex items-center justify-center overflow-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <img 
+          src={evidencia.photoUrl} 
+          referrerPolicy="no-referrer" 
+          alt="Evidencia ampliada" 
+          onClick={() => setZoomLevel(prev => prev > 1 ? 1 : 1.8)}
+          style={{ transform: `scale(${zoomLevel})` }}
+          className="rounded-2xl border border-slate-800 shadow-2xl object-contain max-w-full max-h-[70vh] transition-transform duration-300 cursor-zoom-in"
+        />
+      </div>
+
+      {/* Footer Info Box */}
+      <div 
+        className="w-full max-w-4xl bg-slate-900/90 border border-slate-800 rounded-2xl p-3 sm:p-4 text-xs text-slate-300 shadow-xl space-y-2 z-10"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2">
+          <span>📅 Fecha: <strong className="text-white font-mono">{parsedTime}</strong></span>
+          <span>🛡️ Vigilante: <strong className="text-slate-100">{evidencia.guardName}</strong></span>
+          {evidencia.casetaNombre && <span>🏠 Caseta: <strong className="text-slate-100">{evidencia.casetaNombre}</strong></span>}
+          {evidencia.residenciaNombre && <span>🏡 Residencia: <strong className="text-slate-100">{evidencia.residenciaNombre}</strong></span>}
+        </div>
+        {evidencia.notas && (
+          <p className="text-slate-300 italic">
+            📝 Observaciones: <span className="text-white font-normal">"{evidencia.notas}"</span>
+          </p>
+        )}
+      </div>
+    </div>
+  );
 }
