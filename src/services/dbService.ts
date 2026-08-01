@@ -1687,6 +1687,7 @@ export const dbService = {
   // Access Logs Management (Check-in / Check-out Audits)
   // --------------------------------------------------
   async getAccessLogs(): Promise<AccessLog[]> {
+    let remoteLogs: AccessLog[] = [];
     if (!supabaseRecursionBlocked) {
       try {
         const { data, error } = await supabase
@@ -1695,9 +1696,8 @@ export const dbService = {
           .order('timestamp', { ascending: false });
 
         if (!error && data) {
-          return (data as any[]).map(normalizeLogRow);
-        }
-        if (error) {
+          remoteLogs = (data as any[]).map(normalizeLogRow);
+        } else if (error) {
           if (!checkAndMarkRecursion(error)) {
             console.warn('Supabase getAccessLogs returned query error. Code:', error.code, 'Msg:', error.message);
           }
@@ -1709,55 +1709,102 @@ export const dbService = {
       }
     }
 
-    if (IS_FIREBASE_DUMMY) {
-      return LocalDB.getLogs().sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    if (!IS_FIREBASE_DUMMY && remoteLogs.length === 0) {
+      try {
+        const colRef = collection(db, 'access_logs');
+        const q = query(colRef, orderBy('timestamp', 'desc'));
+        const snap = await getDocs(q);
+        const results: AccessLog[] = [];
+        snap.forEach(d => {
+          results.push(normalizeLogRow(d.data()));
+        });
+        remoteLogs = results;
+      } catch (err) {
+        console.warn('Firestore getAccessLogs exception:', err);
+      }
     }
 
-    try {
-      const colRef = collection(db, 'access_logs');
-      const q = query(colRef, orderBy('timestamp', 'desc'));
-      const snap = await getDocs(q);
-      const results: AccessLog[] = [];
-      snap.forEach(d => {
-        results.push(d.data() as AccessLog);
-      });
-      return results;
-    } catch (err) {
-      handleFirestoreError(err, OperationType.LIST, 'access_logs');
-      return [];
-    }
+    // Merge remote and local access logs seamlessly
+    const local = LocalDB.getLogs().map(normalizeLogRow);
+    const unifiedMap = new Map<string, AccessLog>();
+    local.forEach(l => unifiedMap.set(l.id, l));
+    remoteLogs.forEach(r => unifiedMap.set(r.id, r));
+
+    return Array.from(unifiedMap.values()).sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
   },
 
   async createAccessLog(log: Omit<AccessLog, 'id'>): Promise<AccessLog> {
     const id = 'log_' + generateId();
     const newLog: AccessLog = { ...log, id };
 
+    // 1. Save to LocalDB immediately for instant responsiveness
     try {
-      const { error } = await robustSupabaseInsert('access_logs', newLog);
-      if (error) {
-        console.warn('Supabase createAccessLog returned query error:', error);
-      } else {
-        console.log('Successfully inserted access log to Supabase!');
-      }
-    } catch (err) {
-      console.warn('Supabase createAccessLog exception, using fallback:', err);
-    }
-
-    if (IS_FIREBASE_DUMMY) {
       const logs = LocalDB.getLogs();
       logs.unshift(newLog);
       LocalDB.saveLogs(logs);
-      return newLog;
+    } catch (locErr) {
+      console.warn('LocalDB saveLogs cache error:', locErr);
     }
 
-    try {
-      const docRef = doc(db, 'access_logs', id);
-      await setDoc(docRef, newLog);
-      return newLog;
-    } catch (err) {
-      handleFirestoreError(err, OperationType.CREATE, `access_logs/${id}`);
-      throw err;
-    }
+    // 2. Perform background remote sync with multi-casing payload for Supabase
+    const remoteSync = async () => {
+      const supabasePayload = {
+        id: newLog.id,
+        userId: newLog.userId,
+        user_id: newLog.userId,
+        userid: newLog.userId,
+        userName: newLog.userName,
+        user_name: newLog.userName,
+        username: newLog.userName,
+        documentId: newLog.documentId || 'N/A',
+        document_id: newLog.documentId || 'N/A',
+        documentid: newLog.documentId || 'N/A',
+        timestamp: newLog.timestamp,
+        type: newLog.type,
+        status: newLog.status,
+        guardId: newLog.guardId,
+        guard_id: newLog.guardId,
+        guardid: newLog.guardId,
+        guardName: newLog.guardName,
+        guard_name: newLog.guardName,
+        guardname: newLog.guardName,
+        residenciaId: newLog.residenciaId || null,
+        residencia_id: newLog.residenciaId || null,
+        residenciaid: newLog.residenciaId || null,
+        residenciaNombre: newLog.residenciaNombre || null,
+        residencia_nombre: newLog.residenciaNombre || null,
+        residencianombre: newLog.residenciaNombre || null,
+        casetaId: newLog.casetaId || null,
+        caseta_id: newLog.casetaId || null,
+        casetaid: newLog.casetaId || null,
+        casetaNombre: newLog.casetaNombre || null,
+        caseta_nombre: newLog.casetaNombre || null,
+        casetanombre: newLog.casetaNombre || null
+      };
+
+      try {
+        await robustSupabaseInsert('access_logs', supabasePayload);
+      } catch (err) {
+        console.warn('Supabase createAccessLog exception:', err);
+      }
+
+      if (!IS_FIREBASE_DUMMY) {
+        try {
+          const docRef = doc(db, 'access_logs', id);
+          await setDoc(docRef, newLog);
+        } catch (err) {
+          console.warn('Firestore setDoc access_log warning:', err);
+        }
+      }
+    };
+
+    // Race remote sync with 1200ms timeout
+    await Promise.race([
+      remoteSync(),
+      new Promise((res) => setTimeout(res, 1200))
+    ]);
+
+    return newLog;
   },
 
   async deleteAccessLog(id: string): Promise<void> {
