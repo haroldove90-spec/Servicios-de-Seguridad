@@ -1082,14 +1082,46 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
     }
   };
 
+  const compressImage = (dataUrl: string, maxDimension = 1024, quality = 0.75): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = dataUrl;
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = Math.round((height * maxDimension) / width);
+            width = maxDimension;
+          } else {
+            width = Math.round((width * maxDimension) / height);
+            height = maxDimension;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        } else {
+          resolve(dataUrl);
+        }
+      };
+      img.onerror = () => resolve(dataUrl);
+    });
+  };
+
   const handleEvidencePhotoSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       if (typeof reader.result === 'string') {
-        setCapturedPhoto(reader.result);
+        const compressed = await compressImage(reader.result, 1024, 0.75);
+        setCapturedPhoto(compressed);
         setActiveSubTab('evidencias');
       }
     };
@@ -1098,7 +1130,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
 
   const handleSaveEvidence = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!capturedPhoto) return;
+    if (!capturedPhoto || savingEvidence) return;
 
     const targetResidenciaId = currentGuard?.residenciaId || currentGuard?.casetaId || 'residencia_general';
     const targetResidenciaNombre = currentGuard?.residenciaNombre || currentGuard?.casetaNombre || 'Residencia';
@@ -1557,7 +1589,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
       </div>
       ) : (
         <div id="evidencias-terminal-frame" className="lg:col-span-7 bg-[#0f172a] rounded-2xl border border-[#1e293b] p-6 shadow-2xl flex flex-col justify-stretch space-y-6">
-          <div className="flex items-center justify-between border-b border-[#1e293b] pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#1e293b] pb-4">
             <div>
               <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
                 <Camera className="w-5 h-5 text-emerald-400 animate-pulse" />
@@ -1567,7 +1599,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
             </div>
             
             {/* Quick Camera Actions directly in header */}
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <label className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer">
                 <Camera className="w-4 h-4" />
                 <span>Foto de Placa</span>

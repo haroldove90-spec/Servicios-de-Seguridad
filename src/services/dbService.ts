@@ -2545,55 +2545,44 @@ export const dbService = {
       console.warn('LocalDB saveEvidencias cache error:', locErr);
     }
 
-    // 2. Multi-casing expansion for Supabase insert compatibility
-    const supabasePayload = {
-      id: newEvidencia.id,
-      residenciaId: newEvidencia.residenciaId,
-      residencia_id: newEvidencia.residenciaId,
-      residenciaid: newEvidencia.residenciaId,
-      residenciaNombre: newEvidencia.residenciaNombre,
-      residencia_nombre: newEvidencia.residenciaNombre,
-      residencianombre: newEvidencia.residenciaNombre,
-      casetaId: newEvidencia.casetaId,
-      caseta_id: newEvidencia.casetaId,
-      casetaid: newEvidencia.casetaId,
-      casetaNombre: newEvidencia.casetaNombre,
-      caseta_nombre: newEvidencia.casetaNombre,
-      casetanombre: newEvidencia.casetaNombre,
-      guardId: newEvidencia.guardId,
-      guard_id: newEvidencia.guardId,
-      guardid: newEvidencia.guardId,
-      guardName: newEvidencia.guardName,
-      guard_name: newEvidencia.guardName,
-      guardname: newEvidencia.guardName,
-      photoUrl: newEvidencia.photoUrl,
-      photo_url: newEvidencia.photoUrl,
-      photourl: newEvidencia.photoUrl,
-      placas: newEvidencia.placas || '',
-      timestamp: newEvidencia.timestamp,
-      notas: newEvidencia.notas || '',
-      tipo: newEvidencia.tipo || 'placa'
+    // 2. Perform background remote sync with a safety timeout so UI never freezes
+    const remoteSync = async () => {
+      const supabasePayload = {
+        id: newEvidencia.id,
+        residenciaId: newEvidencia.residenciaId || null,
+        residenciaNombre: newEvidencia.residenciaNombre || null,
+        casetaId: newEvidencia.casetaId || null,
+        casetaNombre: newEvidencia.casetaNombre || null,
+        guardId: newEvidencia.guardId || null,
+        guardName: newEvidencia.guardName || null,
+        photoUrl: newEvidencia.photoUrl,
+        placas: newEvidencia.placas || '',
+        timestamp: newEvidencia.timestamp,
+        notas: newEvidencia.notas || '',
+        tipo: newEvidencia.tipo || 'placa'
+      };
+
+      try {
+        await robustSupabaseInsert('evidencias', supabasePayload);
+      } catch (err) {
+        console.warn('Supabase createEvidencia exception:', err);
+      }
+
+      if (!IS_FIREBASE_DUMMY) {
+        try {
+          const docRef = doc(db, 'evidencias', id);
+          await setDoc(docRef, newEvidencia);
+        } catch (err) {
+          console.warn('Firestore setDoc evidencia warning:', err);
+        }
+      }
     };
 
-    try {
-      const { error } = await robustSupabaseInsert('evidencias', supabasePayload);
-      if (error) {
-        console.warn('Supabase createEvidencia returned query error:', error);
-      } else {
-        console.log('Successfully inserted evidence to Supabase!');
-      }
-    } catch (err) {
-      console.warn('Supabase createEvidencia exception:', err);
-    }
-
-    if (!IS_FIREBASE_DUMMY) {
-      try {
-        const docRef = doc(db, 'evidencias', id);
-        await setDoc(docRef, newEvidencia);
-      } catch (err) {
-        console.warn('Firestore setDoc evidencia warning:', err);
-      }
-    }
+    // Race remote sync with 1200ms timeout so UI response is crisp and never gets stuck
+    await Promise.race([
+      remoteSync(),
+      new Promise((res) => setTimeout(res, 1200))
+    ]);
 
     return newEvidencia;
   },
