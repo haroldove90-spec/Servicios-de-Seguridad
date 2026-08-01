@@ -1113,16 +1113,44 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
     });
   };
 
-  const handleEvidencePhotoSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleEvidencePhotoSelected = (e: React.ChangeEvent<HTMLInputElement>, type: 'placa' | 'credencial') => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    setSavingEvidence(true);
+    setEvidenceType(type);
 
     const reader = new FileReader();
     reader.onload = async () => {
       if (typeof reader.result === 'string') {
-        const compressed = await compressImage(reader.result, 1024, 0.75);
-        setCapturedPhoto(compressed);
-        setActiveSubTab('evidencias');
+        try {
+          const compressed = await compressImage(reader.result, 1024, 0.75);
+          const targetResidenciaId = currentGuard?.residenciaId || currentGuard?.casetaId || 'residencia_general';
+          const targetResidenciaNombre = currentGuard?.residenciaNombre || currentGuard?.casetaNombre || 'Residencia';
+
+          await dbService.createEvidencia({
+            residenciaId: targetResidenciaId,
+            residenciaNombre: targetResidenciaNombre,
+            casetaId: currentGuard?.casetaId || undefined,
+            casetaNombre: currentGuard?.casetaNombre || undefined,
+            guardId: currentGuard?.uid || 'guard-1',
+            guardName: currentGuard?.name || 'Vigilante',
+            photoUrl: compressed,
+            placas: type === 'placa' ? 'FOTO DE PLACA' : 'FOTO INE / CREDENCIAL',
+            timestamp: new Date().toISOString(),
+            tipo: type
+          });
+
+          await reloadEvidencias();
+          setActiveSubTab('evidencias');
+        } catch (err) {
+          console.error("Error al guardar evidencia:", err);
+        } finally {
+          setSavingEvidence(false);
+          if (e.target) e.target.value = '';
+        }
+      } else {
+        setSavingEvidence(false);
       }
     };
     reader.readAsDataURL(file);
@@ -1469,8 +1497,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
                           accept="image/*"
                           capture="environment"
                           onChange={(e) => {
-                            setEvidenceType('placa');
-                            handleEvidencePhotoSelected(e);
+                            handleEvidencePhotoSelected(e, 'placa');
                           }}
                           className="hidden"
                         />
@@ -1486,8 +1513,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
                           accept="image/*"
                           capture="environment"
                           onChange={(e) => {
-                            setEvidenceType('credencial');
-                            handleEvidencePhotoSelected(e);
+                            handleEvidencePhotoSelected(e, 'credencial');
                           }}
                           className="hidden"
                         />
@@ -1588,125 +1614,59 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
         </div>
       </div>
       ) : (
-        <div id="evidencias-terminal-frame" className="lg:col-span-7 bg-[#0f172a] rounded-2xl border border-[#1e293b] p-6 shadow-2xl flex flex-col justify-stretch space-y-6">
+        <div id="evidencias-terminal-frame" className="lg:col-span-7 bg-[#0f172a] rounded-2xl border border-[#1e293b] p-4 sm:p-6 shadow-2xl flex flex-col justify-stretch space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#1e293b] pb-4">
             <div>
               <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
                 <Camera className="w-5 h-5 text-emerald-400 animate-pulse" />
-                Módulo de Evidencias de Placas e Identificaciones
+                Módulo de Evidencias Fotograficas
               </h3>
-              <p className="text-xs text-slate-400 mt-0.5">Captura y visualización de matrículas de autos e identificaciones de residentes</p>
+              <p className="text-xs text-slate-400 mt-0.5">Captura directa y visualización inmediata de matrículas e identificaciones</p>
             </div>
             
-            {/* Quick Camera Actions directly in header */}
+            {/* Direct Auto-Save Camera Buttons */}
             <div className="flex flex-wrap gap-2">
-              <label className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer">
+              <label className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer">
                 <Camera className="w-4 h-4" />
-                <span>Foto de Placa</span>
+                <span>📸 Foto de Placa</span>
                 <input
                   type="file"
                   accept="image/*"
                   capture="environment"
-                  onChange={(e) => {
-                    setEvidenceType('placa');
-                    handleEvidencePhotoSelected(e);
-                  }}
+                  disabled={savingEvidence}
+                  onChange={(e) => handleEvidencePhotoSelected(e, 'placa')}
                   className="hidden"
                 />
               </label>
 
-              <label className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer">
+              <label className="flex items-center gap-1.5 px-3.5 py-2 bg-amber-600 hover:bg-amber-500 active:scale-95 text-white font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer">
                 <Camera className="w-4 h-4" />
-                <span>Foto de Credencial</span>
+                <span>🪪 Foto de Credencial</span>
                 <input
                   type="file"
                   accept="image/*"
                   capture="environment"
-                  onChange={(e) => {
-                    setEvidenceType('credencial');
-                    handleEvidencePhotoSelected(e);
-                  }}
+                  disabled={savingEvidence}
+                  onChange={(e) => handleEvidencePhotoSelected(e, 'credencial')}
                   className="hidden"
                 />
               </label>
             </div>
           </div>
 
-          {/* Section to input plate info if a photo was captured */}
-          {capturedPhoto && (
-            <motion.form 
-              initial={{ opacity: 0, y: -10 }} 
-              animate={{ opacity: 1, y: 0 }} 
-              className="p-5 border border-emerald-550/25 bg-emerald-950/10 rounded-2xl space-y-4"
-              onSubmit={handleSaveEvidence}
-            >
-              <div className="flex items-center gap-2 pb-2 border-b border-emerald-500/10">
-                <CheckCircle className="w-4 h-4 text-emerald-400" />
-                <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-wider font-sans">
-                  Foto de {evidenceType === 'placa' ? 'Placa' : 'Credencial / ID'} capturada correctamente. Completa los datos:
-                </h4>
+          {/* Auto-saving Status Banner */}
+          {savingEvidence && (
+            <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-center gap-3 text-xs text-emerald-300 animate-pulse">
+              <RefreshCw className="w-5 h-5 animate-spin text-emerald-400 shrink-0" />
+              <div>
+                <strong className="block text-white font-bold">Guardando evidencia en bitácora...</strong>
+                <span>La fotografía se está registrando automáticamente. Espere un momento.</span>
               </div>
-
-              <div className="flex flex-col sm:flex-row gap-4">
-                {/* Thumbnail preview */}
-                <div className="w-full sm:w-1/3 aspect-video sm:aspect-square bg-slate-950 border border-slate-800 rounded-xl overflow-hidden relative">
-                  <img src={capturedPhoto} referrerPolicy="no-referrer" alt="Foto capturada" className="w-full h-full object-cover" />
-                </div>
-                
-                <div className="flex-1 space-y-3">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-405 uppercase tracking-wider mb-1">
-                      {evidenceType === 'placa' ? 'Cargar placas del auto (Obligatorio):' : 'Identificación o Nombre de residente (Opcional):'}
-                    </label>
-                    <input
-                      type="text"
-                      required={evidenceType === 'placa'}
-                      placeholder={evidenceType === 'placa' ? 'Ej. ABC123A o 456-XYZ' : 'Ej. Juan Pérez - Casa 12 o ID #456'}
-                      value={platesInput}
-                      onChange={(e) => setPlatesInput(e.target.value)}
-                      className="w-full px-3 py-2 text-sm bg-slate-950 border border-slate-800 rounded-xl text-white font-bold placeholder-slate-600 focus:border-red-500 focus:outline-hidden"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-405 uppercase tracking-wider mb-1">Notas / Observaciones adicionales (Opcional):</label>
-                    <textarea
-                      placeholder={evidenceType === 'placa' ? 'Ej. Camioneta gris Nissan, chofer con playera roja.' : 'Ej. Credencial de elector INE, entregó copia física para archivo.'}
-                      value={evidenceNotesInput}
-                      onChange={(e) => setEvidenceNotesInput(e.target.value)}
-                      className="w-full px-3 py-1.5 text-xs bg-slate-950 border border-slate-850 rounded-xl text-slate-200 placeholder-slate-600 focus:border-red-500 focus:outline-hidden min-h-[60px]"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex gap-2 justify-end">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCapturedPhoto(null);
-                    setPlatesInput('');
-                    setEvidenceNotesInput('');
-                  }}
-                  className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 text-xs font-bold rounded-lg transition"
-                >
-                  Cancelar
-                </button>
-                
-                <button
-                  type="submit"
-                  disabled={savingEvidence}
-                  className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 disabled:opacity-50"
-                >
-                  {savingEvidence ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : null}
-                  {savingEvidence ? 'Guardando...' : 'Guardar en Bitácora'}
-                </button>
-              </div>
-            </motion.form>
+            </div>
           )}
 
           {/* Evidencias List / Grid */}
-          <div className="flex-1 overflow-y-auto max-h-[480px] space-y-4 pr-1">
+          <div className="flex-1 overflow-y-auto max-h-[500px] space-y-4 pr-1">
             <div className="flex items-center justify-between text-[11px] text-slate-400 font-semibold mb-2 bg-[#020617] p-2 rounded-xl border border-slate-900">
               <span>Evidencias Registradas ({currentGuard?.residenciaNombre || 'General / Caseta'}):</span>
               <button 
@@ -2304,6 +2264,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
 // Subcomponent for interactive zoom on captured evidence photos
 function EvidenceZoomModal({ evidencia, onClose }: { evidencia: Evidencia; onClose: () => void }) {
   const [zoomLevel, setZoomLevel] = useState<number>(1);
+  const [imageError, setImageError] = useState<boolean>(false);
 
   const handleZoomIn = () => setZoomLevel(prev => Math.min(prev + 0.5, 3));
   const handleZoomOut = () => setZoomLevel(prev => Math.max(prev - 0.5, 1));
@@ -2321,18 +2282,39 @@ function EvidenceZoomModal({ evidencia, onClose }: { evidencia: Evidencia; onClo
     ? new Date(evidencia.timestamp).toLocaleString([], { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
     : 'Fecha no disponible';
 
+  const handleOpenNewTab = () => {
+    const win = window.open();
+    if (win) {
+      win.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Evidencia - ${evidencia.placas || 'Foto'}</title>
+            <style>
+              body { margin: 0; background: #0a0a0c; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+              img { max-width: 100%; max-height: 100vh; object-fit: contain; }
+            </style>
+          </head>
+          <body>
+            <img src="${evidencia.photoUrl}" alt="Evidencia" />
+          </body>
+        </html>
+      `);
+    }
+  };
+
   return (
     <div 
-      className="fixed inset-0 z-[9999] bg-slate-950/95 backdrop-blur-md flex flex-col items-center justify-between p-4 sm:p-6 select-none animate-fade-in"
+      className="fixed inset-0 z-[99999] bg-slate-950/95 backdrop-blur-md flex flex-col items-center justify-between p-3 sm:p-6 select-none animate-fade-in"
       onClick={onClose}
     >
       {/* Top Controls Bar */}
       <div 
-        className="w-full max-w-4xl flex items-center justify-between bg-slate-900/90 border border-slate-800 rounded-2xl px-4 py-3 shadow-xl z-10"
+        className="w-full max-w-4xl flex flex-wrap items-center justify-between bg-slate-900/95 border border-slate-800 rounded-2xl px-3 sm:px-4 py-2.5 shadow-2xl z-10 gap-2"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-3">
-          <span className="px-2.5 py-1 bg-white border-2 border-slate-950 font-mono font-black text-slate-900 rounded-md text-xs uppercase tracking-wider">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <span className="px-2 py-0.5 bg-white border border-slate-900 font-mono font-black text-slate-900 rounded text-[11px] uppercase tracking-wider">
             {evidencia.placas || (evidencia.tipo === 'credencial' ? 'S/DATO' : 'S/PLACA')}
           </span>
           <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide ${
@@ -2340,12 +2322,12 @@ function EvidenceZoomModal({ evidencia, onClose }: { evidencia: Evidencia; onClo
               ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' 
               : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
           }`}>
-            {evidencia.tipo === 'credencial' ? '🪪 Credencial INE / ID' : '🚗 Placa Vehicular'}
+            {evidencia.tipo === 'credencial' ? '🪪 Credencial INE' : '🚗 Placa'}
           </span>
         </div>
 
         {/* Zoom Controls */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <button 
             type="button" 
             onClick={handleZoomOut}
@@ -2374,10 +2356,18 @@ function EvidenceZoomModal({ evidencia, onClose }: { evidencia: Evidencia; onClo
               Restablecer
             </button>
           )}
+          <button
+            type="button"
+            onClick={handleOpenNewTab}
+            className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-bold transition cursor-pointer"
+            title="Abrir en pestaña nueva"
+          >
+            ↗ Abrir
+          </button>
           <button 
             type="button" 
             onClick={onClose}
-            className="ml-2 px-3 py-1 bg-red-600/80 hover:bg-red-600 text-white rounded-lg text-xs font-bold transition cursor-pointer"
+            className="ml-1 sm:ml-2 px-3 py-1 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-bold transition cursor-pointer"
             title="Cerrar modal (Esc)"
           >
             ✕ Cerrar
@@ -2387,35 +2377,44 @@ function EvidenceZoomModal({ evidencia, onClose }: { evidencia: Evidencia; onClo
 
       {/* Zoomable Image Container */}
       <div 
-        className="relative max-w-4xl w-full flex-1 my-4 flex items-center justify-center overflow-auto"
+        className="relative max-w-4xl w-full flex-1 my-2 sm:my-4 flex items-center justify-center overflow-auto min-h-0 bg-slate-950/80 rounded-2xl border border-slate-800 p-2 shadow-inner"
         onClick={(e) => e.stopPropagation()}
       >
-        <img 
-          src={evidencia.photoUrl} 
-          referrerPolicy="no-referrer" 
-          alt="Evidencia ampliada" 
-          onClick={() => setZoomLevel(prev => prev > 1 ? 1 : 1.8)}
-          style={{ transform: `scale(${zoomLevel})` }}
-          className="rounded-2xl border border-slate-800 shadow-2xl object-contain max-w-full max-h-[70vh] transition-transform duration-300 cursor-zoom-in"
-        />
+        {imageError ? (
+          <div className="text-center p-8 text-slate-400 text-xs flex flex-col items-center gap-3">
+            <AlertTriangle className="w-10 h-10 text-amber-500" />
+            <p className="font-bold text-slate-200 text-sm">Vista previa no disponible en este visor.</p>
+            <button
+              type="button"
+              onClick={handleOpenNewTab}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs cursor-pointer shadow-md"
+            >
+              Abrir imagen en nueva pestaña ↗
+            </button>
+          </div>
+        ) : (
+          <img 
+            src={evidencia.photoUrl} 
+            alt="Evidencia ampliada" 
+            onError={() => setImageError(true)}
+            onClick={() => setZoomLevel(prev => prev > 1 ? 1 : 1.8)}
+            style={{ transform: `scale(${zoomLevel})`, transformOrigin: 'center center' }}
+            className="max-w-full max-h-[65vh] sm:max-h-[72vh] object-contain rounded-xl shadow-2xl transition-transform duration-200 cursor-zoom-in"
+          />
+        )}
       </div>
 
       {/* Footer Info Box */}
       <div 
-        className="w-full max-w-4xl bg-slate-900/90 border border-slate-800 rounded-2xl p-3 sm:p-4 text-xs text-slate-300 shadow-xl space-y-2 z-10"
+        className="w-full max-w-4xl bg-slate-900/95 border border-slate-800 rounded-2xl p-3 text-xs text-slate-300 shadow-2xl space-y-1 z-10"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <span>📅 Fecha: <strong className="text-white font-mono">{parsedTime}</strong></span>
           <span>🛡️ Vigilante: <strong className="text-slate-100">{evidencia.guardName}</strong></span>
           {evidencia.casetaNombre && <span>🏠 Caseta: <strong className="text-slate-100">{evidencia.casetaNombre}</strong></span>}
           {evidencia.residenciaNombre && <span>🏡 Residencia: <strong className="text-slate-100">{evidencia.residenciaNombre}</strong></span>}
         </div>
-        {evidencia.notas && (
-          <p className="text-slate-300 italic">
-            📝 Observaciones: <span className="text-white font-normal">"{evidencia.notas}"</span>
-          </p>
-        )}
       </div>
     </div>
   );
