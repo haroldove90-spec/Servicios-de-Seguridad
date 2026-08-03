@@ -3526,7 +3526,7 @@ export default function CondominiosDashboard({ currentUser, onSignOut, initialSu
                       <p className="text-[10px] text-slate-400">Dirigiéndose a: <strong className="text-slate-200 font-sans">{visitorCondo}</strong></p>
                       
                       <a
-                        href={`https://wa.me/?text=${encodeURIComponent(`¡Hola *${visitorName}*!\n\nTe comparto tu *Pase Temporal de Entrada QR* autorizado para dirigirte al domicilio en *${visitorCondo}*.\n\nPresiona el siguiente enlace para ver el pase:\n🔗 http://app.cnls-acceso.mx/pass/${generatedInviteQR}\n\n⚠️ *Favor de presentar su INE o Licencia al ingresar a la residencia*`)}`}
+                        href={`https://wa.me/?text=${encodeURIComponent(`¡Hola *${visitorName}*!\n\nTe comparto tu *Pase Temporal de Entrada QR* autorizado para dirigirte al domicilio en *${visitorCondo}*.\n\nPresiona el siguiente enlace para ver el pase:\n🔗 ${window.location.origin}${window.location.pathname}?pass=${generatedInviteQR}\n\n⚠️ *Favor de presentar su INE o Licencia al ingresar a la residencia*`)}`}
                         target="_blank"
                         referrerPolicy="no-referrer"
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] rounded-lg transition"

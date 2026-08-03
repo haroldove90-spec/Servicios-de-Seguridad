@@ -375,8 +375,7 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
   const getWhatsAppShareUrl = (item: Residente) => {
     if (!item) return '#';
     const cleanPhone = item.whatsapp ? item.whatsapp.replace(/\D/g, '') : '';
-    const passUrl = `${window.location.origin}${window.location.pathname}?pass=${item.qrcodeToken || ''}`;
-    const portalUrl = `${window.location.origin}/?role=residente`;
+    const passUrl = `${window.location.origin}${window.location.pathname}?pass=${encodeURIComponent(item.qrcodeToken || '')}`;
 
     const itemNameClean = (item.nombre || '').toLowerCase().replace(/\s*\(visita\)/g, '').trim();
 
@@ -388,6 +387,8 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
 
     const usr = linkedRole?.username || item.username || 'condominio';
     const pwd = linkedRole?.password || item.password || 'Condominio_123';
+
+    const portalUrl = `${window.location.origin}${window.location.pathname}?role=residente&user=${encodeURIComponent(usr)}&token=${encodeURIComponent(item.qrcodeToken || '')}`;
 
     const text = `¡Hola *${item.nombre || 'Residente'}*!\n\nTe comparto tus datos de acceso al portal de *${item.residenciaNombre || ''}* (Domicilio: *${item.direccion || ''}*):\n\n🌐 *LINK DE ACCESO A TU ROL RESIDENTE AUTOGESTIÓN:*\n${portalUrl}\n\n🔑 *TUS CREDENCIALES DE ACCESO EN LA APP:*\n• *Nombre de Usuario:* ${usr}\n• *Contraseña Segura:* ${pwd}\n\n🪪 *ENLACE DIRECTO Y PASE QR PERMANENTE:*\n${passUrl}`;
     return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
@@ -918,8 +919,10 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
                       }</span>
                     </div>
                   </div>
-                  <div className="mt-1.5 pt-1.5 border-t border-slate-800/80 text-[8.5px] text-slate-400 font-sans">
-                    🌐 Link Portal: <span className="text-blue-400 font-mono">servicios-de-seguridad.vercel.app/?role=residente</span>
+                  <div className="mt-1.5 pt-1.5 border-t border-slate-800/80 text-[8.5px] text-slate-400 font-sans break-all">
+                    🌐 Link Portal: <span className="text-blue-400 font-mono">servicios-de-seguridad.vercel.app/?role=residente&user={
+                      systemRoles.find(r => r.uid === selectedResidentQR.accessUserId || (r.username && selectedResidentQR.username && r.username.toLowerCase() === selectedResidentQR.username.toLowerCase()))?.username || selectedResidentQR.username || selectedResidentQR.id
+                    }</span>
                   </div>
                 </div>
 

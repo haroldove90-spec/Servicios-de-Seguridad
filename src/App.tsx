@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { auth, IS_FIREBASE_DUMMY } from './firebase';
 import { dbService } from './services/dbService';
-import { SystemUserRole, SystemRole, AccessLog, Residencia, UserStatus } from './types';
+import { SystemUserRole, SystemRole, AccessLog, Residencia, UserStatus, Residente } from './types';
 import ScannerInterface from './components/ScannerInterface';
 import AdminDashboard from './components/AdminDashboard';
 import AuditLogs from './components/AuditLogs';
@@ -1027,9 +1027,96 @@ export default function App() {
       const updateOrSeedUserRole = async () => {
         setLoading(true);
         try {
-          // Fetch all system roles in database
+          // 0. Check URL parameters for explicit user/token login overrides
+          const params = new URLSearchParams(window.location.search);
+          const targetUserParam = params.get('user') || params.get('username') || params.get('residente') || params.get('residenteId') || params.get('u');
+          const targetTokenParam = params.get('token') || params.get('pass');
+          const targetRoleParam = params.get('role');
+
+          // Fetch all system roles in database and registered residents
           const registeredRoles = await dbService.getAllSystemRoles();
-          
+          const registeredResidentes = await dbService.getResidentes();
+
+          let urlMatchedResident: Residente | undefined;
+          let urlMatchedRole: SystemRole | undefined;
+
+          if (targetUserParam || targetTokenParam) {
+            const cleanUser = (targetUserParam || '').toLowerCase().trim();
+            const cleanToken = (targetTokenParam || '').toLowerCase().trim();
+
+            if (cleanUser || cleanToken) {
+              urlMatchedResident = registeredResidentes.find(r => 
+                (cleanUser && (
+                  r.username?.toLowerCase() === cleanUser ||
+                  r.accessUserId?.toLowerCase() === cleanUser ||
+                  r.id?.toLowerCase() === cleanUser ||
+                  r.nombre?.toLowerCase() === cleanUser ||
+                  (r.whatsapp && r.whatsapp.replace(/\D/g, '') === cleanUser.replace(/\D/g, ''))
+                )) ||
+                (cleanToken && (
+                  r.qrcodeToken?.toLowerCase() === cleanToken ||
+                  r.id?.toLowerCase() === cleanToken
+                ))
+              );
+
+              if (!urlMatchedResident) {
+                urlMatchedRole = registeredRoles.find(r => 
+                  cleanUser && (
+                    r.username?.toLowerCase() === cleanUser ||
+                    r.uid?.toLowerCase() === cleanUser ||
+                    r.email?.toLowerCase() === cleanUser ||
+                    r.name?.toLowerCase() === cleanUser
+                  )
+                );
+              }
+            }
+          }
+
+          if (urlMatchedResident) {
+            // Found exact resident specified in URL parameters! Auto-switch active session
+            const residentUserRole: SystemRole = {
+              uid: urlMatchedResident.accessUserId || ('usr_resd_' + urlMatchedResident.id),
+              name: urlMatchedResident.nombre,
+              email: urlMatchedResident.whatsapp ? `${urlMatchedResident.username || urlMatchedResident.id}@residente.local` : `${urlMatchedResident.id}@local.casa`,
+              username: urlMatchedResident.username || urlMatchedResident.id,
+              password: urlMatchedResident.password || 'Residente_123',
+              role: SystemUserRole.RESIDENTE,
+              isActive: urlMatchedResident.isActive !== false,
+              phone: urlMatchedResident.whatsapp,
+              residenciaId: urlMatchedResident.residenciaId,
+              residenciaNombre: urlMatchedResident.residenciaNombre,
+              createdAt: urlMatchedResident.createdAt || new Date().toISOString()
+            };
+
+            setUserRole(residentUserRole);
+            setDemoRole(SystemUserRole.RESIDENTE);
+            setDemoName(urlMatchedResident.nombre);
+
+            localStorage.setItem('cnls_user_role', JSON.stringify(residentUserRole));
+            localStorage.setItem('cnls_demo_role', SystemUserRole.RESIDENTE);
+            localStorage.setItem('cnls_demo_name', urlMatchedResident.nombre);
+            localStorage.setItem('cnls_has_selected_role', 'true');
+
+            setSelectedLoginTarget({
+              role: SystemUserRole.RESIDENTE,
+              label: 'Residente Autogestión 🏡',
+              defaultTab: 'visitas',
+              residenciaId: urlMatchedResident.residenciaId,
+              residenciaNombre: urlMatchedResident.residenciaNombre
+            });
+            return;
+          } else if (urlMatchedRole) {
+            setUserRole(urlMatchedRole);
+            setDemoRole(urlMatchedRole.role);
+            setDemoName(urlMatchedRole.name);
+
+            localStorage.setItem('cnls_user_role', JSON.stringify(urlMatchedRole));
+            localStorage.setItem('cnls_demo_role', urlMatchedRole.role);
+            localStorage.setItem('cnls_demo_name', urlMatchedRole.name);
+            localStorage.setItem('cnls_has_selected_role', 'true');
+            return;
+          }
+
           // Get saved user role from localStorage
           const savedUserRoleJson = localStorage.getItem('cnls_user_role');
           let currentActiveRole: SystemRole | null = null;
@@ -1051,10 +1138,34 @@ export default function App() {
             if (!matched && currentActiveRole.email) {
               matched = registeredRoles.find(r => r.email?.toLowerCase() === currentActiveRole.email?.toLowerCase());
             }
+
+            // Fallback match on residents table if stored role was a resident
+            if (!matched && currentActiveRole.role === SystemUserRole.RESIDENTE) {
+              const matchedRes = registeredResidentes.find(r => 
+                (r.username && currentActiveRole.username && r.username.toLowerCase() === currentActiveRole.username.toLowerCase()) ||
+                (r.accessUserId && r.accessUserId === currentActiveRole.uid) ||
+                (r.nombre && currentActiveRole.name && r.nombre.toLowerCase() === currentActiveRole.name.toLowerCase())
+              );
+              if (matchedRes) {
+                matched = {
+                  uid: matchedRes.accessUserId || ('usr_resd_' + matchedRes.id),
+                  name: matchedRes.nombre,
+                  email: matchedRes.whatsapp ? `${matchedRes.username || matchedRes.id}@residente.local` : `${matchedRes.id}@local.casa`,
+                  username: matchedRes.username || matchedRes.id,
+                  password: matchedRes.password || 'Residente_123',
+                  role: SystemUserRole.RESIDENTE,
+                  isActive: matchedRes.isActive !== false,
+                  phone: matchedRes.whatsapp,
+                  residenciaId: matchedRes.residenciaId,
+                  residenciaNombre: matchedRes.residenciaNombre,
+                  createdAt: matchedRes.createdAt || new Date().toISOString()
+                };
+              }
+            }
           }
 
           if (matched) {
-            // Found matched registered custom employee! Load full db row
+            // Found matched registered custom employee/resident! Load full db row
             setUserRole(matched);
             setDemoRole(matched.role);
             setDemoName(matched.name);
@@ -1063,6 +1174,30 @@ export default function App() {
             setUserRole(currentActiveRole);
             setDemoRole(currentActiveRole.role);
             setDemoName(currentActiveRole.name || 'Usuario');
+          } else if (targetRoleParam === 'residente') {
+            // If accessing ?role=residente directly with no userParam or stored role, load first resident if available
+            if (registeredResidentes.length > 0) {
+              const firstRes = registeredResidentes[0];
+              const residentUserRole: SystemRole = {
+                uid: firstRes.accessUserId || ('usr_resd_' + firstRes.id),
+                name: firstRes.nombre,
+                email: firstRes.whatsapp ? `${firstRes.username || firstRes.id}@residente.local` : `${firstRes.id}@local.casa`,
+                username: firstRes.username || firstRes.id,
+                password: firstRes.password || 'Residente_123',
+                role: SystemUserRole.RESIDENTE,
+                isActive: firstRes.isActive !== false,
+                phone: firstRes.whatsapp,
+                residenciaId: firstRes.residenciaId,
+                residenciaNombre: firstRes.residenciaNombre,
+                createdAt: firstRes.createdAt || new Date().toISOString()
+              };
+              setUserRole(residentUserRole);
+              setDemoRole(SystemUserRole.RESIDENTE);
+              setDemoName(firstRes.nombre);
+              localStorage.setItem('cnls_user_role', JSON.stringify(residentUserRole));
+              localStorage.setItem('cnls_demo_role', SystemUserRole.RESIDENTE);
+              localStorage.setItem('cnls_demo_name', firstRes.nombre);
+            }
           } else {
             // Fallback: Seed basic/sandbox role simulated details if not logged in with custom credentials
             const mockRoleRecord: SystemRole = {
