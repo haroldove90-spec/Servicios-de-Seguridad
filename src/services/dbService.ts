@@ -2570,16 +2570,83 @@ export const dbService = {
       }
     }
 
-    // Merge remote and local evidencias seamlessly
+    // Merge remote and local evidencias seamlessly with strict deduplication
     const local = LocalDB.getEvidencias().map(normalizeEvidenciaRow);
-    const unifiedMap = new Map<string, Evidencia>();
-    local.forEach(e => unifiedMap.set(e.id, e));
-    remoteUsers.forEach(e => unifiedMap.set(e.id, e));
+    const allRecords = [...local, ...remoteUsers];
 
-    return Array.from(unifiedMap.values()).sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
+    const deduplicatedMap = new Map<string, Evidencia>();
+    const seenPhotoFingerprints = new Set<string>();
+
+    for (const item of allRecords) {
+      if (!item || !item.id) continue;
+
+      // 1. Skip if exact ID is already in map
+      if (deduplicatedMap.has(item.id)) continue;
+
+      // 2. Compute fingerprint to detect duplicate/triplicate photo captures
+      let fingerprint = '';
+      if (item.photoUrl && item.photoUrl.length > 50) {
+        const len = item.photoUrl.length;
+        const sample = item.photoUrl.slice(0, 80) + '_' + item.photoUrl.slice(Math.floor(len / 2), Math.floor(len / 2) + 80) + '_' + item.photoUrl.slice(-80);
+        fingerprint = `${item.tipo || 'placa'}_${sample}`;
+      } else {
+        fingerprint = `${item.residenciaId}_${item.guardId}_${item.timestamp?.slice(0, 16)}_${item.placas}_${item.tipo}`;
+      }
+
+      if (seenPhotoFingerprints.has(fingerprint)) {
+        continue;
+      }
+
+      seenPhotoFingerprints.add(fingerprint);
+      deduplicatedMap.set(item.id, item);
+    }
+
+    const resultList = Array.from(deduplicatedMap.values()).sort(
+      (a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime()
+    );
+
+    // Save cleaned list back to LocalDB so stored duplicates are purged
+    try {
+      LocalDB.saveEvidencias(resultList);
+    } catch {
+      // Ignore cache errors
+    }
+
+    return resultList;
   },
 
   async createEvidencia(evidencia: Omit<Evidencia, 'id'>): Promise<Evidencia> {
+    // 0. Deduplication check: verify if an identical photo or evidence was created within the last 15 seconds
+    const existingList = LocalDB.getEvidencias();
+    const nowTime = evidencia.timestamp ? new Date(evidencia.timestamp).getTime() : Date.now();
+
+    const existingDuplicate = existingList.find(item => {
+      if (!item) return false;
+
+      // Exact photo match
+      if (item.photoUrl && evidencia.photoUrl && item.photoUrl === evidencia.photoUrl) {
+        return true;
+      }
+
+      // Near-identical photo fingerprint created within 15 seconds
+      if (
+        item.photoUrl && evidencia.photoUrl &&
+        item.photoUrl.length > 50 && evidencia.photoUrl.length > 50 &&
+        item.photoUrl.slice(0, 100) === evidencia.photoUrl.slice(0, 100) &&
+        item.photoUrl.slice(-100) === evidencia.photoUrl.slice(-100) &&
+        Math.abs(new Date(item.timestamp || 0).getTime() - nowTime) < 15000
+      ) {
+        return true;
+      }
+
+      return false;
+    });
+
+    if (existingDuplicate) {
+      console.log('Duplicate evidencia capture ignored:', existingDuplicate.id);
+      return existingDuplicate;
+    }
+
     const id = 'evid_' + generateId();
     const newEvidencia: Evidencia = { ...evidencia, id };
 

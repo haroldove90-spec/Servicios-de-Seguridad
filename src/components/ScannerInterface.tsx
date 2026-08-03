@@ -110,6 +110,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
   const [platesInput, setPlatesInput] = useState<string>('');
   const [evidenceNotesInput, setEvidenceNotesInput] = useState<string>('');
   const [savingEvidence, setSavingEvidence] = useState<boolean>(false);
+  const isSavingEvidenceRef = useRef<boolean>(false);
   const [evidenceType, setEvidenceType] = useState<'placa' | 'credencial'>('placa');
   const [activeSubTab, setActiveSubTab] = useState<'scan' | 'evidencias'>('scan');
   const [selectedEvidImage, setSelectedEvidImage] = useState<Evidencia | null>(null);
@@ -1114,11 +1115,21 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
   };
 
   const handleEvidencePhotoSelected = (e: React.ChangeEvent<HTMLInputElement>, type: 'placa' | 'credencial') => {
-    const file = e.target.files?.[0];
+    const targetInput = e.target;
+    const file = targetInput.files?.[0];
     if (!file) return;
 
+    if (savingEvidence || isSavingEvidenceRef.current) {
+      if (targetInput) targetInput.value = '';
+      return;
+    }
+
+    isSavingEvidenceRef.current = true;
     setSavingEvidence(true);
     setEvidenceType(type);
+
+    // Reset target input value instantly so that it cannot be re-triggered accidentally
+    if (targetInput) targetInput.value = '';
 
     const reader = new FileReader();
     reader.onload = async () => {
@@ -1147,24 +1158,30 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
           console.error("Error al guardar evidencia:", err);
         } finally {
           setSavingEvidence(false);
-          if (e.target) e.target.value = '';
+          isSavingEvidenceRef.current = false;
         }
       } else {
         setSavingEvidence(false);
+        isSavingEvidenceRef.current = false;
       }
+    };
+    reader.onerror = () => {
+      setSavingEvidence(false);
+      isSavingEvidenceRef.current = false;
     };
     reader.readAsDataURL(file);
   };
 
   const handleSaveEvidence = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!capturedPhoto || savingEvidence) return;
+    if (!capturedPhoto || savingEvidence || isSavingEvidenceRef.current) return;
 
-    const targetResidenciaId = currentGuard?.residenciaId || currentGuard?.casetaId || 'residencia_general';
-    const targetResidenciaNombre = currentGuard?.residenciaNombre || currentGuard?.casetaNombre || 'Residencia';
-
+    isSavingEvidenceRef.current = true;
     setSavingEvidence(true);
     try {
+      const targetResidenciaId = currentGuard?.residenciaId || currentGuard?.casetaId || 'residencia_general';
+      const targetResidenciaNombre = currentGuard?.residenciaNombre || currentGuard?.casetaNombre || 'Residencia';
+
       await dbService.createEvidencia({
         residenciaId: targetResidenciaId,
         residenciaNombre: targetResidenciaNombre,
@@ -1191,6 +1208,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
       console.error("Error saving evidence:", err);
     } finally {
       setSavingEvidence(false);
+      isSavingEvidenceRef.current = false;
     }
   };
 
