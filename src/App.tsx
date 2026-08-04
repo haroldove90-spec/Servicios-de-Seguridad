@@ -575,48 +575,18 @@ export default function App() {
         if (!isUsernameOrEmailMatch) return false;
         
         const storedPasswordClean = (r.password || '').trim();
-        let isPasswordMatch = (storedPasswordClean.toLowerCase() === inputPasswordClean.toLowerCase());
+        const defaultFallbackPassword = r.role === SystemUserRole.RESIDENTE ? 'Residente_123' : (r.role === SystemUserRole.CONDOMINIOS ? 'Condominio_123' : '');
+        const expectedPassword = storedPasswordClean || defaultFallbackPassword;
 
-        if (!storedPasswordClean || storedPasswordClean === '' || storedPasswordClean === 'Admin_123' || storedPasswordClean === 'Residente_123') {
-          if (inputPasswordClean.length > 0) {
-            isPasswordMatch = true;
-          }
+        if (!expectedPassword || !inputPasswordClean) {
+          return false;
         }
 
-        if (rUsername === 'paloma2' || inputStr === 'paloma2' || rEmail.includes('paloma2')) {
-          if (inputPasswordClean.length >= 1 || inputPasswordClean.toLowerCase() === 'paloma173' || inputPasswordClean.toLowerCase() === 'paloma2') {
-            isPasswordMatch = true;
-          }
-        }
+        const isPasswordMatch = (
+          inputPasswordClean === expectedPassword ||
+          inputPasswordClean.toLowerCase() === expectedPassword.toLowerCase()
+        );
 
-        if (r.role === SystemUserRole.RESIDENTE) {
-          const cleanUserPass = rUsername.toLowerCase();
-          const cleanInputPass = inputPasswordClean.toLowerCase();
-          if (
-            cleanInputPass === 'residente_123' || 
-            cleanInputPass === 'admin_123' || 
-            cleanInputPass === storedPasswordClean.toLowerCase() ||
-            cleanInputPass === cleanUserPass ||
-            cleanInputPass === '123' ||
-            cleanInputPass === '123456' ||
-            (storedPasswordClean.length > 0 && cleanInputPass.length >= 3)
-          ) {
-            isPasswordMatch = true;
-          }
-        }
-
-        if (rEmail === 'canalesjonathan7777@gmail.com' || rUsername === 'canalesjonathan7777' || inputStr === 'canalesjonathan7777@gmail.com' || inputStr === 'canalesjonathan7777') {
-          if (inputPasswordClean === '@s5Qk4eSkPCxm0' || inputPasswordClean === 'Admin_123' || inputPasswordClean.length >= 3) {
-            isPasswordMatch = true;
-          }
-        }
-
-        if (rUsername === 'harold.anguiano' || rEmail.includes('harold.anguiano') || inputStr === 'harold.anguiano') {
-          if (inputPasswordClean === 'Chevropar#1970' || inputPasswordClean === 'Admin_123' || inputPasswordClean.length >= 3) {
-            isPasswordMatch = true;
-          }
-        }
-        
         return isPasswordMatch;
       };
 
@@ -645,15 +615,6 @@ export default function App() {
             name: matched.name || 'Harold Anguiano'
           };
         }
-      }
-
-      // Block access ONLY for standard default demo accounts without custom credentials
-      const matchedUsername = (matched.username || '').trim().toLowerCase();
-      const matchedEmail = (matched.email || '').trim().toLowerCase();
-      if ((matchedUsername === 'guardia' || matchedUsername === 'residente') && 
-          (matchedEmail === 'guardia@seguridad.local' || matchedEmail === 'residente@local.casa')) {
-        setLoginError('Acceso Demo Inhabilitado: El ingreso con las credenciales por defecto ("guardia", "residente") está desactivado temporalmente. Por favor, utilice su cuenta personalizada.');
-        return;
       }
 
       // Check if CONDOMINIOS module is disabled
@@ -1174,30 +1135,7 @@ export default function App() {
             setUserRole(currentActiveRole);
             setDemoRole(currentActiveRole.role);
             setDemoName(currentActiveRole.name || 'Usuario');
-          } else if (targetRoleParam === 'residente') {
-            // If accessing ?role=residente directly with no userParam or stored role, load first resident if available
-            if (registeredResidentes.length > 0) {
-              const firstRes = registeredResidentes[0];
-              const residentUserRole: SystemRole = {
-                uid: firstRes.accessUserId || ('usr_resd_' + firstRes.id),
-                name: firstRes.nombre,
-                email: firstRes.whatsapp ? `${firstRes.username || firstRes.id}@residente.local` : `${firstRes.id}@local.casa`,
-                username: firstRes.username || firstRes.id,
-                password: firstRes.password || 'Residente_123',
-                role: SystemUserRole.RESIDENTE,
-                isActive: firstRes.isActive !== false,
-                phone: firstRes.whatsapp,
-                residenciaId: firstRes.residenciaId,
-                residenciaNombre: firstRes.residenciaNombre,
-                createdAt: firstRes.createdAt || new Date().toISOString()
-              };
-              setUserRole(residentUserRole);
-              setDemoRole(SystemUserRole.RESIDENTE);
-              setDemoName(firstRes.nombre);
-              localStorage.setItem('cnls_user_role', JSON.stringify(residentUserRole));
-              localStorage.setItem('cnls_demo_role', SystemUserRole.RESIDENTE);
-              localStorage.setItem('cnls_demo_name', firstRes.nombre);
-            }
+
           } else {
             // Fallback: Seed basic/sandbox role simulated details if not logged in with custom credentials
             const mockRoleRecord: SystemRole = {
@@ -1941,7 +1879,7 @@ export default function App() {
                   <div className="grid grid-cols-1 gap-1.5 font-sans">
                     <button 
                       onClick={() => {
-                        handleRoleSelection(SystemUserRole.ADMIN, 'Administrador CNLS', 'metricas');
+                        setSelectedLoginTarget({ role: SystemUserRole.ADMIN, label: 'Panel Administración General', defaultTab: 'metricas' });
                         setIsDrawerOpen(false);
                       }}
                       className="w-full text-left px-4 py-3 bg-[#1A1A1E] hover:bg-[#343438] text-white rounded-xl text-xs font-bold transition flex items-center gap-3 cursor-pointer border border-[#3e3e42] hover:border-red-500/20 animate-fade-in"
@@ -1950,7 +1888,7 @@ export default function App() {
                     </button>
                     <button 
                       onClick={() => {
-                        handleRoleSelection(SystemUserRole.SUPERVISOR, 'Oficial de Seguridad', 'scan');
+                        setSelectedLoginTarget({ role: SystemUserRole.SUPERVISOR, label: 'Panel Caseta de Guardias', defaultTab: 'scan' });
                         setIsDrawerOpen(false);
                       }}
                       className="w-full text-left px-4 py-3 bg-[#1A1A1E] hover:bg-[#343438] text-white rounded-xl text-xs font-bold transition flex items-center gap-3 cursor-pointer border border-[#3e3e42] hover:border-red-500/20"
@@ -1959,7 +1897,13 @@ export default function App() {
                     </button>
                     <button 
                       onClick={() => {
-                        handleRoleSelection(SystemUserRole.RESIDENTE, 'Haroldo Residente 🏡', 'visitas', 'res-demo-1', 'Lomas de Chapultepec');
+                        setSelectedLoginTarget({ 
+                          role: SystemUserRole.RESIDENTE, 
+                          label: 'Panel Residente Autogestión 🏡', 
+                          defaultTab: 'visitas',
+                          residenciaId: 'res-demo-1',
+                          residenciaNombre: 'Lomas de Chapultepec' 
+                        });
                         setIsDrawerOpen(false);
                       }}
                       className="w-full text-left px-4 py-3 bg-[#1A1A1E] hover:bg-[#343438] text-white rounded-xl text-xs font-bold transition flex items-center gap-3 cursor-pointer border border-[#3e3e42] hover:border-blue-500/20"
