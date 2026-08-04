@@ -31,7 +31,8 @@ import {
   Residente,
   Caseta,
   Marbete,
-  Evidencia
+  Evidencia,
+  AlertaPanico
 } from '../types';
 import { supabase } from '../supabase';
 
@@ -44,6 +45,7 @@ const LS_RESIDENTES_KEY = 'qr_residentes';
 const LS_CASETAS_KEY = 'qr_casetas';
 const LS_MARBETES_KEY = 'qr_marbetes';
 const LS_EVIDENCIAS_KEY = 'qr_evidencias';
+const LS_ALERTAS_PANICO_KEY = 'qr_alertas_panico';
 
 // Simple unique string generator
 function generateId(): string {
@@ -211,6 +213,29 @@ export function normalizeResidenciaRow(raw: any): Residencia {
     panicTriggeredBy: raw.panicTriggeredBy ?? raw.panic_triggered_by ?? raw.panictriggeredby ?? null,
     panicTriggeredByRole: raw.panicTriggeredByRole ?? raw.panic_triggered_by_role ?? raw.panictriggeredbyrole ?? null,
     panicTriggeredAt: raw.panicTriggeredAt ?? raw.panic_triggered_at ?? raw.panictriggeredat ?? null
+  };
+}
+
+export function normalizeAlertaPanicoRow(raw: any): AlertaPanico {
+  if (!raw) return raw;
+  return {
+    id: raw.id,
+    residenciaId: raw.residenciaId ?? raw.residencia_id ?? raw.residenciaid,
+    residenciaNombre: raw.residenciaNombre ?? raw.residencia_nombre ?? raw.residencianombre,
+    usuarioId: raw.usuarioId ?? raw.usuario_id ?? raw.usuarioid,
+    usuarioNombre: raw.usuarioNombre ?? raw.usuario_nombre ?? raw.usuarionombre ?? 'Usuario',
+    usuarioRole: raw.usuarioRole ?? raw.usuario_role ?? raw.usuariorole ?? 'residente',
+    usuarioUsername: raw.usuarioUsername ?? raw.usuario_username ?? raw.usuariousername,
+    usuarioPhone: raw.usuarioPhone ?? raw.usuario_phone ?? raw.usuariophone,
+    usuarioEmail: raw.usuarioEmail ?? raw.usuario_email ?? raw.usuarioemail,
+    direccion: raw.direccion,
+    latitude: raw.latitude !== undefined && raw.latitude !== null ? Number(raw.latitude) : (raw.lat !== undefined && raw.lat !== null ? Number(raw.lat) : null),
+    longitude: raw.longitude !== undefined && raw.longitude !== null ? Number(raw.longitude) : (raw.lng !== undefined && raw.lng !== null ? Number(raw.lng) : null),
+    googleMapsUrl: raw.googleMapsUrl ?? raw.google_maps_url ?? raw.googlemapsurl,
+    estado: raw.estado ?? 'ACTIVA',
+    atendidaPor: raw.atendidaPor ?? raw.atendida_por ?? raw.atendidapor,
+    atendidaAt: raw.atendidaAt ?? raw.atendida_at ?? raw.atendidaat,
+    createdAt: raw.createdAt ?? raw.created_at ?? raw.createdat ?? new Date().toISOString()
   };
 }
 
@@ -1017,8 +1042,23 @@ const LocalDB = {
 
   saveEvidencias(evidencias: Evidencia[]) {
     localStorage.setItem(LS_EVIDENCIAS_KEY, JSON.stringify(evidencias));
+  },
+
+  getAlertasPanico(): AlertaPanico[] {
+    const data = localStorage.getItem(LS_ALERTAS_PANICO_KEY);
+    if (!data) return [];
+    try {
+      return JSON.parse(data);
+    } catch {
+      return [];
+    }
+  },
+
+  saveAlertasPanico(alertas: AlertaPanico[]) {
+    localStorage.setItem(LS_ALERTAS_PANICO_KEY, JSON.stringify(alertas));
   }
 };
+
 
 // ----------------------------------------------------
 // UNIFIED DB SERVICE (SUPABASE-FIRST WITH LOCAL FALLBACK)
@@ -2736,7 +2776,164 @@ export const dbService = {
     }
   },
 
+  // --------------------------------------------------
+  // Alertas de Pánico Management (SOS / Panic Alerts)
+  // --------------------------------------------------
+  async getAlertasPanico(): Promise<AlertaPanico[]> {
+    let resultList: AlertaPanico[] = [];
+
+    // 1. Fetch directly from Supabase
+    if (!supabaseRecursionBlocked) {
+      try {
+        const rawData = await robustSupabaseSelectAll('alertas_panico', 'createdAt');
+        if (rawData && rawData.length > 0) {
+          resultList = rawData.map(r => normalizeAlertaPanicoRow(r));
+        }
+      } catch (err) {
+        console.warn('Supabase getAlertasPanico exception, using fallback:', err);
+      }
+    }
+
+    // 2. LocalDB fallback / merge
+    if (resultList.length === 0) {
+      resultList = LocalDB.getAlertasPanico();
+    } else {
+      // Sync to LocalDB for instant offline availability
+      try {
+        LocalDB.saveAlertasPanico(resultList);
+      } catch {
+        // Ignore cache errors
+      }
+    }
+
+    return resultList;
+  },
+
+  async createAlertaPanico(alerta: Omit<AlertaPanico, 'id'> & { id?: string }): Promise<AlertaPanico> {
+    const id = alerta.id || ('panico_' + generateId());
+    const newAlerta: AlertaPanico = {
+      ...alerta,
+      id,
+      estado: alerta.estado || 'ACTIVA',
+      createdAt: alerta.createdAt || new Date().toISOString()
+    };
+
+    // 1. Save to LocalDB immediately
+    try {
+      const list = LocalDB.getAlertasPanico();
+      list.unshift(newAlerta);
+      LocalDB.saveAlertasPanico(list);
+    } catch (locErr) {
+      console.warn('LocalDB saveAlertasPanico error:', locErr);
+    }
+
+    // 2. Background sync to Supabase
+    const remoteSync = async () => {
+      const supabasePayload = {
+        id: newAlerta.id,
+        residencia_id: newAlerta.residenciaId || null,
+        residencia_nombre: newAlerta.residenciaNombre || null,
+        usuario_id: newAlerta.usuarioId || null,
+        usuario_nombre: newAlerta.usuarioNombre || 'Usuario',
+        usuario_role: newAlerta.usuarioRole || 'residente',
+        usuario_username: newAlerta.usuarioUsername || null,
+        usuario_phone: newAlerta.usuarioPhone || null,
+        usuario_email: newAlerta.usuarioEmail || null,
+        direccion: newAlerta.direccion || null,
+        latitude: newAlerta.latitude ?? null,
+        longitude: newAlerta.longitude ?? null,
+        google_maps_url: newAlerta.googleMapsUrl || null,
+        estado: newAlerta.estado || 'ACTIVA',
+        atendida_por: newAlerta.atendidaPor || null,
+        atendida_at: newAlerta.atendidaAt || null,
+        created_at: newAlerta.createdAt
+      };
+
+      try {
+        await robustSupabaseInsert('alertas_panico', supabasePayload);
+      } catch (err) {
+        console.warn('Supabase createAlertaPanico exception:', err);
+      }
+
+      // Sync with Firestore if configured
+      if (!IS_FIREBASE_DUMMY) {
+        try {
+          const docRef = doc(db, 'alertas_panico', newAlerta.id);
+          await setDoc(docRef, newAlerta, { merge: true });
+        } catch (fsErr) {
+          console.warn('Firestore setDoc alerta_panico error:', fsErr);
+        }
+      }
+    };
+
+    remoteSync().catch(err => console.warn('Background alerta panico sync exception:', err));
+
+    return newAlerta;
+  },
+
+  async updateAlertaPanico(id: string, updates: Partial<AlertaPanico>): Promise<void> {
+    // 1. Update in LocalDB
+    try {
+      const list = LocalDB.getAlertasPanico();
+      const updatedList = list.map(item => item.id === id ? { ...item, ...updates } : item);
+      LocalDB.saveAlertasPanico(updatedList);
+    } catch (locErr) {
+      console.warn('LocalDB updateAlertaPanico error:', locErr);
+    }
+
+    // 2. Update in Supabase
+    try {
+      const snakeUpdates: any = {};
+      if (updates.estado !== undefined) snakeUpdates.estado = updates.estado;
+      if (updates.atendidaPor !== undefined) snakeUpdates.atendida_por = updates.atendidaPor;
+      if (updates.atendidaAt !== undefined) snakeUpdates.atendida_at = updates.atendidaAt;
+
+      await robustSupabaseUpdate('alertas_panico', snakeUpdates, 'id', id);
+    } catch (err) {
+      console.warn('Supabase updateAlertaPanico exception:', err);
+    }
+
+    // 3. Update in Firestore if configured
+    if (!IS_FIREBASE_DUMMY) {
+      try {
+        const docRef = doc(db, 'alertas_panico', id);
+        await setDoc(docRef, updates, { merge: true });
+      } catch (err) {
+        console.warn('Firestore updateAlertaPanico error:', err);
+      }
+    }
+  },
+
+  async deleteAlertaPanico(id: string): Promise<void> {
+    // 1. Remove from LocalDB
+    try {
+      const list = LocalDB.getAlertasPanico();
+      const filtered = list.filter(e => e.id !== id);
+      LocalDB.saveAlertasPanico(filtered);
+    } catch (locErr) {
+      console.warn('LocalDB deleteAlertaPanico error:', locErr);
+    }
+
+    // 2. Remove from Supabase
+    try {
+      await supabase.from('alertas_panico').delete().eq('id', id);
+    } catch (err) {
+      console.warn('Supabase deleteAlertaPanico exception:', err);
+    }
+
+    // 3. Remove from Firestore
+    if (!IS_FIREBASE_DUMMY) {
+      try {
+        const docRef = doc(db, 'alertas_panico', id);
+        await deleteDoc(docRef);
+      } catch (err) {
+        console.warn('Firestore deleteAlertaPanico error:', err);
+      }
+    }
+  },
+
   clearSystemCache(): void {
+
     try {
       localStorage.clear();
       sessionStorage.clear();

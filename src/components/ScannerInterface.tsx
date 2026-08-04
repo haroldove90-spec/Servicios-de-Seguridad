@@ -10,6 +10,7 @@ import jsQR from 'jsqr';
 import { Camera, CheckCircle, XCircle, AlertTriangle, RefreshCw, Smartphone, Key, Users, HelpCircle, Search, Activity, ShieldAlert, FileText, Download, Trash2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { dbService } from '../services/dbService';
+import AlertasPanicoManager from './AlertasPanicoManager';
 import { 
   AuthorizedUser, 
   AccessLog, 
@@ -2088,6 +2089,27 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
             }
 
             if (nextState) {
+              try {
+                await dbService.createAlertaPanico({
+                  residenciaId: currentGuard?.residenciaId || undefined,
+                  residenciaNombre: currentGuard?.residenciaNombre || 'Caseta Principal',
+                  usuarioId: currentGuard?.uid || 'guard-1',
+                  usuarioNombre: currentGuard?.name || 'Vigilante de Caseta',
+                  usuarioRole: (currentGuard?.role as string) || 'guard',
+                  usuarioUsername: (currentGuard as any)?.username || 'vigilante',
+                  usuarioPhone: (currentGuard as any)?.phone || '',
+                  usuarioEmail: (currentGuard as any)?.email || '',
+                  direccion: `Caseta Control Access ${currentGuard?.residenciaNombre || ''}`,
+                  latitude: lat,
+                  longitude: lng,
+                  googleMapsUrl: lat && lng ? `https://www.google.com/maps?q=${lat},${lng}` : undefined,
+                  estado: 'ACTIVA',
+                  createdAt: new Date().toISOString()
+                });
+              } catch (err) {
+                console.warn("Failed to log panic alert:", err);
+              }
+
               setScanResult({
                 success: false,
                 message: '⚠ BLOQUEO ACTIVO: Alarma de Emergencia emitida al centro de comando regional.',

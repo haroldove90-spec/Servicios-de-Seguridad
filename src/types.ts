@@ -186,3 +186,23 @@ export interface Evidencia {
   tipo?: string;
 }
 
+export interface AlertaPanico {
+  id: string;
+  residenciaId?: string;
+  residenciaNombre?: string;
+  usuarioId?: string;
+  usuarioNombre: string;
+  usuarioRole: string; // e.g. 'residente', 'guard', 'admin', 'supervisor', 'condominios'
+  usuarioUsername?: string;
+  usuarioPhone?: string;
+  usuarioEmail?: string;
+  direccion?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  googleMapsUrl?: string;
+  estado: 'ACTIVA' | 'ATENDIDA' | 'CANCELADA';
+  atendidaPor?: string;
+  atendidaAt?: string;
+  createdAt: string; // ISO DateTime
+}
+

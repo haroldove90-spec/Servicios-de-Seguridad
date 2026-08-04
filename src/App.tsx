@@ -36,6 +36,7 @@ import ResidentDashboard from './components/ResidentDashboard';
 import VisitasDeResidentes from './components/VisitasDeResidentes';
 import MetricasDashboard from './components/MetricasDashboard';
 import CondominiosDashboard from './components/CondominiosDashboard';
+import AlertasPanicoManager from './components/AlertasPanicoManager';
 import { generateQRWithLogo } from './utils/qrWithLogo';
 import { exportMarbeteToJPG } from './utils/marbeteExporter';
 
@@ -2062,6 +2063,17 @@ export default function App() {
                         <Camera className="w-4 h-4 text-emerald-400 shrink-0" /> Evidencias de Placas 📸
                       </button>
                     )}
+                    {(isAdmin || isGuard || isSupervisor || isCondominios) && (
+                      <button
+                        id="nav-to-alertas-panico"
+                        onClick={() => { setActiveTab('alertas' as any); setIsDrawerOpen(false); }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition cursor-pointer ${
+                          activeTab === ('alertas' as any) ? 'bg-red-600 text-white shadow-lg shadow-red-600/15' : 'text-slate-300 hover:bg-[#1A1A1E] hover:text-white'
+                        }`}
+                      >
+                        <ShieldAlert className="w-4 h-4 text-red-400 shrink-0 animate-pulse" /> Registro Alertas de Pánico 🚨
+                      </button>
+                    )}
                     {isAdmin && (
                       <button
                         id="nav-to-user-manual"
@@ -2531,6 +2543,7 @@ export default function App() {
                      activeTab === 'visitas_admin' ? 'Visitas de Residentes' :
                      activeTab === 'manual' ? 'Manual del usuario' :
                      activeTab === 'evidencias' ? 'Evidencias de Placas de Entrada' :
+                     activeTab === ('alertas' as any) ? 'Registro de Alertas de Pánico 🚨' :
                      activeTab === 'perfil' ? 'Mi Perfil de Acceso' :
                      'Control de Acceso Residencial'}
                   </h1>
@@ -2725,6 +2738,12 @@ export default function App() {
                     />
                   )}
 
+                  {activeTab === ('alertas' as any) && (isAdmin || isGuard || isSupervisor || isCondominios) && computedAdminUser && (
+                    <AlertasPanicoManager 
+                      currentUser={computedAdminUser} 
+                    />
+                  )}
+
                   {activeTab === 'condominios' && (
                     !ENABLE_CONDOMINIOS_MODULE ? (
                       <div className="max-w-2xl mx-auto my-12 p-8 bg-[#18181b] border border-amber-500/40 rounded-3xl text-center space-y-4 shadow-2xl animate-fade-in font-sans">
@@ -2839,6 +2858,29 @@ export default function App() {
               });
             } catch (e) {
               console.warn("Failed to sync global panic trigger to database:", e);
+            }
+          }
+
+          if (nextState) {
+            try {
+              await dbService.createAlertaPanico({
+                residenciaId: activeResidenciaId || userRole?.residenciaId,
+                residenciaNombre: activeResidenciaNombre || userRole?.residenciaNombre || 'Residencia CNLS',
+                usuarioId: userRole?.uid || userRole?.username || 'usr-panic',
+                usuarioNombre: userRole?.name || 'Usuario',
+                usuarioRole: (userRole?.role as string) || 'residente',
+                usuarioUsername: userRole?.username || '',
+                usuarioPhone: userRole?.phone || '',
+                usuarioEmail: userRole?.email || '',
+                direccion: userRole?.residenciaNombre ? `Residencia: ${userRole.residenciaNombre}` : 'Domicilio Residencial',
+                latitude: lat,
+                longitude: lng,
+                googleMapsUrl: lat && lng ? `https://www.google.com/maps?q=${lat},${lng}` : undefined,
+                estado: 'ACTIVA',
+                createdAt: new Date().toISOString()
+              });
+            } catch (err) {
+              console.warn("Failed to create panic alert from global button:", err);
             }
           }
         }}
