@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Search, QrCode, Trash2, ShieldAlert, Sparkles, RefreshCw, 
   MapPin, Check, X, Calendar, Clock, User, Smartphone, Eye
@@ -327,9 +328,19 @@ export default function VisitasDeResidentes({ currentAdminUser, onRefresh }: Vis
       </div>
 
       {/* Admin QR view dialog overlay */}
-      {selectedVisitQR && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="w-full max-w-sm bg-[#1A1A1D] border border-[#303036] rounded-[2.5rem] p-6 shadow-2xl text-center relative flex flex-col items-center my-auto max-h-[92vh] overflow-y-auto">
+      {selectedVisitQR && createPortal(
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 z-[999999] animate-fade-in overflow-y-auto select-none">
+          {/* Prominent Floating Close Button */}
+          <button
+            type="button"
+            onClick={() => setSelectedVisitQR(null)}
+            className="fixed top-4 right-4 z-[1000000] w-11 h-11 rounded-full bg-slate-800/90 hover:bg-red-600 text-white flex items-center justify-center shadow-2xl border border-slate-700 transition-all cursor-pointer hover:scale-110 active:scale-95"
+            title="Cerrar modal"
+          >
+            <X className="w-6 h-6" />
+          </button>
+
+          <div className="w-full max-w-[340px] bg-[#1A1A1D] border border-[#303036] rounded-[2.5rem] p-5 shadow-2xl text-center relative flex flex-col items-center my-auto max-h-[90vh] overflow-y-auto animate-scale-in">
             
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-48 bg-red-650/5 blur-3xl rounded-full pointer-events-none"></div>
 
@@ -387,7 +398,8 @@ export default function VisitasDeResidentes({ currentAdminUser, onRefresh }: Vis
             </button>
 
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>

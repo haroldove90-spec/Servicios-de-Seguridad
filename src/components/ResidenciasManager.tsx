@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Plus, Search, Edit2, Trash2, CheckCircle, XCircle, Home, User, Shield, 
   Info, Check, X, ChevronDown, ChevronUp, Users, Calendar, Clock, 
@@ -733,8 +734,8 @@ export default function ResidenciasManager({ onRefresh, onVisitResidencia }: Res
       </div>
 
       {/* Residence Form Overlay Modal (Original) */}
-      {isFormOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+      {isFormOpen && createPortal(
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[999999] flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
           <div className="w-full max-w-md bg-[#18181c] border border-[#2e2e38] rounded-2.5xl shadow-2xl overflow-hidden animate-scale-in my-auto max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-4.5 bg-[#1e1e24] border-b border-[#2e2e38]">
               <h3 className="text-sm font-bold uppercase tracking-wider text-white">
@@ -874,12 +875,13 @@ export default function ResidenciasManager({ onRefresh, onVisitResidencia }: Res
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Visitor Registration Form Modal associated specifically with a subdivision residence */}
-      {isVisitorFormOpen && visitorResidencia && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+      {isVisitorFormOpen && visitorResidencia && createPortal(
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[999999] flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
           <div className="w-full max-w-md bg-[#18181c] border border-[#2e2e38] rounded-2.5xl shadow-2xl overflow-hidden animate-scale-in my-auto max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-4.5 bg-[#1e1e24] border-b border-[#2e2e38]">
               <div>
@@ -1025,11 +1027,12 @@ export default function ResidenciasManager({ onRefresh, onVisitResidencia }: Res
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Visitor QR Pass phone screen Modal */}
-      {selectedVisitorQR && (
+      {selectedVisitorQR && createPortal(
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[999999] flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-fade-in select-none">
           {/* Prominent Floating Close Button */}
           <button
@@ -1157,12 +1160,13 @@ export default function ResidenciasManager({ onRefresh, onVisitResidencia }: Res
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Success Modal: Automatically Created Credentials info */}
-      {createdCredentials && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-55 flex items-center justify-center p-4 overflow-y-auto">
+      {createdCredentials && createPortal(
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[999999] flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
           <div className="w-full max-w-lg bg-[#18181c] border border-emerald-500/30 rounded-2.5xl shadow-2xl overflow-hidden animate-scale-in my-auto max-h-[92vh] overflow-y-auto">
             <div className="flex items-center gap-3 px-6 py-4.5 bg-[#1a2e26] border-b border-emerald-500/20 text-emerald-400">
               <div className="w-9 h-9 rounded-full bg-emerald-500/10 flex items-center justify-center">
@@ -1266,7 +1270,8 @@ export default function ResidenciasManager({ onRefresh, onVisitResidencia }: Res
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

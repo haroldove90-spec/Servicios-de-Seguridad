@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Plus, Search, Edit2, Trash2, QrCode, Download, Share2, CornerDownRight,
   Printer, X, Check, Calendar, AlertCircle, RefreshCw, Car, ChevronRight, Hash, UserCheck
@@ -589,7 +590,7 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
       )}
 
       {/* --- QR PREVIEW DIGITAL MARBETE OVERLAY MODAL --- */}
-      {isQRModalOpen && selectedMarbete && (
+      {isQRModalOpen && selectedMarbete && createPortal(
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 z-[999999] animate-fade-in overflow-y-auto select-none">
           {/* Prominent Floating Close Button */}
           <button
@@ -704,12 +705,13 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
             </div>
 
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* --- CREATE / EDIT FORM OVERLAY MODAL --- */}
-      {isFormOpen && (
-        <div className="fixed inset-0 bg-black/75 flex items-center justify-center p-4 z-50 animate-fade-in overflow-y-auto">
+      {isFormOpen && createPortal(
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-[999999] flex items-center justify-center p-4 animate-fade-in overflow-y-auto">
           <div className="w-full max-w-md bg-[#1B1B1F] border border-zinc-800 rounded-2xl p-6 shadow-2xl relative font-sans my-auto max-h-[92vh] overflow-y-auto">
             
             <button
@@ -903,7 +905,8 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
             </form>
 
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>

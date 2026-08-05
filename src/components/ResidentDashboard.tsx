@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Plus, Search, QrCode, Download, Copy, Check, X, 
   MapPin, User, Calendar, Clock, RefreshCw, Send, Trash2, ShieldCheck, Smartphone, Car
@@ -631,7 +632,7 @@ export default function ResidentDashboard({ currentResidentUser, onRefresh }: Re
       )}
 
       {/* QR Details Slideover Modal */}
-      {selectedVisitQR && (
+      {selectedVisitQR && createPortal(
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 z-[999999] overflow-y-auto animate-fade-in select-none">
           {/* Prominent Floating Close Button */}
           <button
@@ -775,7 +776,8 @@ export default function ResidentDashboard({ currentResidentUser, onRefresh }: Re
             </div>
 
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>

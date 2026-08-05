@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Plus, Search, Edit2, Trash2, QrCode, Download, Copy, Check, X, 
   MapPin, User, Home, Shield, Smartphone, ExternalLink, Sparkles, RefreshCw,
@@ -601,8 +602,8 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
       </div>
 
       {/* Add / Edit Form Modal */}
-      {isFormOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+      {isFormOpen && createPortal(
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[999999] flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
           <div className="w-full max-w-md bg-[#18181c] border border-[#2e2e38] rounded-2.5xl shadow-2xl overflow-hidden animate-scale-in my-auto max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-4.5 bg-[#1e1e24] border-b border-[#2e2e38]">
               <h3 className="text-sm font-bold uppercase tracking-wider text-white">
@@ -829,13 +830,14 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* QR Passport View Modal */}
-      {selectedResidentQR && (
+      {selectedResidentQR && createPortal(
         <div 
-          className="fixed inset-0 bg-black/75 backdrop-blur-md z-[99999] flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-fade-in select-none"
+          className="fixed inset-0 bg-black/80 backdrop-blur-md z-[999999] flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-fade-in select-none"
           onClick={() => setSelectedResidentQR(null)}
         >
           {/* Prominent Floating Close Button in upper right corner */}
@@ -986,14 +988,15 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* CUSTOM CONFIRM ACTION */}
-      {deleteConfirmId && (
+      {deleteConfirmId && createPortal(
         <div 
           id="delete-resident-confirm-overlay" 
-          className="fixed inset-0 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 z-[99999] animate-fade-in overflow-y-auto"
+          className="fixed inset-0 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 z-[999999] animate-fade-in overflow-y-auto"
           onClick={() => {
             setDeleteConfirmId(null);
             setDeleteConfirmNombre('');
@@ -1030,7 +1033,8 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
