@@ -234,8 +234,8 @@ export default function ResidentDashboard({ currentResidentUser, onRefresh }: Re
       const qrToken = 'visit_qr_' + Math.random().toString(36).substring(2, 11);
       
       // Auto 24 hours validity duration parameters (Single-use pass)
-      const validFrom = new Date();
-      const validUntil = new Date(validFrom.getTime() + 24 * 60 * 60 * 1000); // Exact 24 hours from creation time
+      const validFrom = new Date(Date.now() - 10 * 60 * 1000); // 10 minutes in the past for instant activation across all devices
+      const validUntil = new Date(Date.now() + 24 * 60 * 60 * 1000); // Exact 24 hours from creation time
 
       const formattedPhone = formWhatsapp.trim().startsWith('+') ? formWhatsapp.trim() : `+52${formWhatsapp.trim().replace(/\D/g, '')}`;
 
@@ -632,8 +632,18 @@ export default function ResidentDashboard({ currentResidentUser, onRefresh }: Re
 
       {/* QR Details Slideover Modal */}
       {selectedVisitQR && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="w-full max-w-sm bg-[#1A1A1D] border border-[#303036] rounded-[2.5rem] p-6 shadow-2xl relative overflow-hidden text-center flex flex-col items-center my-auto max-h-[92vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 z-[999999] overflow-y-auto animate-fade-in select-none">
+          {/* Prominent Floating Close Button */}
+          <button
+            type="button"
+            onClick={() => setSelectedVisitQR(null)}
+            className="fixed top-4 right-4 z-[1000000] w-11 h-11 rounded-full bg-slate-800/90 hover:bg-red-600 text-white flex items-center justify-center shadow-2xl border border-slate-700 transition-all cursor-pointer hover:scale-110 active:scale-95"
+            title="Cerrar modal"
+          >
+            <X className="w-6 h-6" />
+          </button>
+
+          <div className="w-full max-w-[340px] bg-[#1A1A1D] border border-[#303036] rounded-[2.5rem] p-5 shadow-2xl relative overflow-hidden text-center flex flex-col items-center my-auto max-h-[90vh] overflow-y-auto animate-scale-in">
             
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-48 bg-blue-500/10 blur-3xl rounded-full pointer-events-none"></div>
 

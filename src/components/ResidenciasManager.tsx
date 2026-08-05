@@ -344,8 +344,8 @@ export default function ResidenciasManager({ onRefresh, onVisitResidencia }: Res
     setVisitorDocumento('');
     setVisitorTelefono('');
     setVisitorOneTime(true);
-    // Refresh datetime-local bounds dynamically at modal popup
-    const d = new Date();
+    // Refresh datetime-local bounds dynamically at modal popup (10 minutes in the past for instant activation)
+    const d = new Date(Date.now() - 10 * 60 * 1000);
     setVisitorValidFrom(new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16));
     
     const tomorrow = new Date();
@@ -1030,8 +1030,18 @@ export default function ResidenciasManager({ onRefresh, onVisitResidencia }: Res
 
       {/* Visitor QR Pass phone screen Modal */}
       {selectedVisitorQR && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="w-full max-w-[340px] bg-slate-900 border-4 border-slate-800 rounded-[2.5rem] shadow-2xl relative overflow-hidden flex flex-col items-center p-5 pt-10 pb-6 border-b-8 animate-scale-in select-none my-auto max-h-[92vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[999999] flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-fade-in select-none">
+          {/* Prominent Floating Close Button */}
+          <button
+            type="button"
+            onClick={() => setSelectedVisitorQR(null)}
+            className="fixed top-4 right-4 z-[1000000] w-11 h-11 rounded-full bg-slate-800/90 hover:bg-red-600 text-white flex items-center justify-center shadow-2xl border border-slate-700 transition-all cursor-pointer hover:scale-110 active:scale-95"
+            title="Cerrar modal"
+          >
+            <X className="w-6 h-6" />
+          </button>
+
+          <div className="w-full max-w-[340px] bg-slate-900 border-4 border-slate-800 rounded-[2.5rem] shadow-2xl relative flex flex-col items-center p-4 pt-7 pb-5 border-b-8 animate-scale-in select-none my-auto max-h-[90vh] overflow-y-auto">
             {/* Bezel Notch */}
             <div className="absolute top-3 left-1/2 -translate-x-1/2 w-24 h-4.5 bg-slate-950 rounded-full flex items-center justify-center">
               <div className="w-1.5 h-1.5 rounded-full bg-slate-800 mr-2"></div>

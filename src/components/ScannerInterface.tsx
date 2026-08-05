@@ -893,11 +893,12 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
       // 3. Temporal Expiration Check (Dates)
       const now = new Date();
 
-      // Check validFrom if present and valid
+      // Check validFrom if present and valid (with 10-minute clock-skew grace buffer for instant activation)
       if (matchedUser.validFrom) {
         const validFromDate = new Date(matchedUser.validFrom);
         if (!isNaN(validFromDate.getTime()) && validFromDate.getFullYear() > 1970) {
-          if (now < validFromDate) {
+          // Allow 10 minute grace buffer for clock drift / instant activation
+          if (now.getTime() + 10 * 60 * 1000 < validFromDate.getTime()) {
             const result = {
               success: false,
               message: `Acceso Denegado: El pase de ${matchedUser.name} no está activo aún (Válido desde: ${validFromDate.toLocaleDateString()}).`,

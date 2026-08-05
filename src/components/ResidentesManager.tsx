@@ -223,6 +223,14 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
     const cleanUsername = formUsername.trim().toLowerCase() || ('residente_' + Math.floor(1000 + Math.random() * 9000));
     const cleanPassword = formPassword.trim() || 'Residente_123';
 
+    // Duplicate username check across system roles & residents
+    const existingResidentWithUsername = residentes.find(r => r.id !== editingId && r.username && r.username.toLowerCase() === cleanUsername);
+    const existingRoleWithUsername = systemRoles.find(r => r.uid !== editingId && r.username && r.username.toLowerCase() === cleanUsername);
+    if (existingResidentWithUsername || existingRoleWithUsername) {
+      alert(`El nombre de usuario "${cleanUsername}" ya está en uso por otro residente u operador. Por favor elija un nombre de usuario distinto.`);
+      return;
+    }
+
     // Generate or use existing QR token
     let qrToken = '';
     let accessUserId = '';
@@ -238,7 +246,7 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
       }
 
       // Synchronously record/update in authorized_users (so Guard scans are valid instantly!)
-      const startOfYear = new Date();
+      const startOfYear = new Date(Date.now() - 24 * 60 * 60 * 1000); // 1 day in the past for instant activation
       let endOfYear = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
       if (formValidUntil) {
         if (formValidUntil.length === 10 && formValidUntil.includes('-')) {

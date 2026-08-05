@@ -617,8 +617,18 @@ export default function AdminDashboard({ onUsersUpdated, currentUser }: AdminDas
 
       {/* QR MODAL PREVIEW OVERLAY */}
       {selectedQRUser && createPortal(
-        <div id="overlay-qr-display" className="fixed inset-0 bg-black/85 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in overflow-y-auto">
-          <div id="qr-display-body" className="bg-[#2A2A2E] rounded-2xl border border-[#3e3e42] shadow-2xl max-w-sm w-full p-6 text-center text-xs text-slate-200 my-auto max-h-[92vh] overflow-y-auto">
+        <div id="overlay-qr-display" className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 z-[999999] animate-fade-in overflow-y-auto select-none">
+          {/* Prominent Floating Close Button */}
+          <button
+            type="button"
+            onClick={() => setSelectedQRUser(null)}
+            className="fixed top-4 right-4 z-[1000000] w-11 h-11 rounded-full bg-slate-800/90 hover:bg-red-600 text-white flex items-center justify-center shadow-2xl border border-slate-700 transition-all cursor-pointer hover:scale-110 active:scale-95"
+            title="Cerrar modal"
+          >
+            <X className="w-6 h-6" />
+          </button>
+
+          <div id="qr-display-body" className="bg-[#2A2A2E] rounded-3xl border border-[#3e3e42] shadow-2xl max-w-[340px] w-full p-5 text-center text-xs text-slate-200 my-auto max-h-[90vh] overflow-y-auto animate-scale-in">
             <div className="flex justify-between items-center pb-3 border-b border-[#3e3e42] mb-6">
               <h3 className="font-bold text-slate-200 uppercase tracking-wider">Premises Entry Pass (QR)</h3>
               <button 

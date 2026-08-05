@@ -590,8 +590,21 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
 
       {/* --- QR PREVIEW DIGITAL MARBETE OVERLAY MODAL --- */}
       {isQRModalOpen && selectedMarbete && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 animate-fade-in overflow-y-auto">
-          <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-[2rem] p-6 shadow-2xl relative flex flex-col items-center my-auto max-h-[92vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 z-[999999] animate-fade-in overflow-y-auto select-none">
+          {/* Prominent Floating Close Button */}
+          <button
+            type="button"
+            onClick={() => {
+              setIsQRModalOpen(false);
+              setSelectedMarbete(null);
+            }}
+            className="fixed top-4 right-4 z-[1000000] w-11 h-11 rounded-full bg-slate-800/90 hover:bg-red-600 text-white flex items-center justify-center shadow-2xl border border-slate-700 transition-all cursor-pointer hover:scale-110 active:scale-95"
+            title="Cerrar modal"
+          >
+            <X className="w-6 h-6" />
+          </button>
+
+          <div className="w-full max-w-[340px] bg-slate-900 border border-slate-800 rounded-[2rem] p-5 shadow-2xl relative flex flex-col items-center my-auto max-h-[90vh] overflow-y-auto animate-scale-in">
             
             <button
               onClick={() => {
