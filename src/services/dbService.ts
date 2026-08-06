@@ -371,7 +371,7 @@ export async function robustSupabaseInsert(tableName: string, camelPayload: any)
         } else {
           // Nullify common foreign key fields if specific field was not extracted
           let nullifiedAny = false;
-          ['residenciaId', 'residencia_id', 'residenteId', 'residente_id', 'accessUserId', 'access_user_id'].forEach(fkKey => {
+          ['user_id', 'userId', 'residenciaId', 'residencia_id', 'residenteId', 'residente_id', 'accessUserId', 'access_user_id', 'guard_id', 'guardId', 'caseta_id', 'casetaId'].forEach(fkKey => {
             if (payload[fkKey] !== null && payload[fkKey] !== undefined) {
               payload[fkKey] = null;
               nullifiedAny = true;
@@ -1786,40 +1786,22 @@ export const dbService = {
       console.warn('LocalDB saveLogs cache error:', locErr);
     }
 
-    // 2. Perform background remote sync with multi-casing payload for Supabase
+    // 2. Perform background remote sync with standard clean payload for Supabase
     const remoteSync = async () => {
       const supabasePayload = {
         id: newLog.id,
-        userId: newLog.userId,
-        user_id: newLog.userId,
-        userid: newLog.userId,
-        userName: newLog.userName,
-        user_name: newLog.userName,
-        username: newLog.userName,
-        documentId: newLog.documentId || 'N/A',
+        user_id: newLog.userId || 'unregistered',
+        user_name: newLog.userName || 'Usuario',
         document_id: newLog.documentId || 'N/A',
-        documentid: newLog.documentId || 'N/A',
         timestamp: newLog.timestamp,
         type: newLog.type,
         status: newLog.status,
-        guardId: newLog.guardId,
-        guard_id: newLog.guardId,
-        guardid: newLog.guardId,
-        guardName: newLog.guardName,
-        guard_name: newLog.guardName,
-        guardname: newLog.guardName,
-        residenciaId: newLog.residenciaId || null,
+        guard_id: newLog.guardId || 'anonymous-guard',
+        guard_name: newLog.guardName || 'Guardia de Seguridad',
         residencia_id: newLog.residenciaId || null,
-        residenciaid: newLog.residenciaId || null,
-        residenciaNombre: newLog.residenciaNombre || null,
         residencia_nombre: newLog.residenciaNombre || null,
-        residencianombre: newLog.residenciaNombre || null,
-        casetaId: newLog.casetaId || null,
         caseta_id: newLog.casetaId || null,
-        casetaid: newLog.casetaId || null,
-        casetaNombre: newLog.casetaNombre || null,
-        caseta_nombre: newLog.casetaNombre || null,
-        casetanombre: newLog.casetaNombre || null
+        caseta_nombre: newLog.casetaNombre || null
       };
 
       try {
@@ -1849,6 +1831,14 @@ export const dbService = {
 
   async deleteAccessLog(id: string): Promise<void> {
     try {
+      const logs = LocalDB.getLogs();
+      const filtered = logs.filter(l => l.id !== id);
+      LocalDB.saveLogs(filtered);
+    } catch (locErr) {
+      console.warn('LocalDB delete log error:', locErr);
+    }
+
+    try {
       const { error } = await supabase
         .from('access_logs')
         .delete()
@@ -1862,18 +1852,13 @@ export const dbService = {
       console.warn('Supabase deleteAccessLog exception, using fallback:', err);
     }
 
-    if (IS_FIREBASE_DUMMY) {
-      const logs = LocalDB.getLogs();
-      const filtered = logs.filter(l => l.id !== id);
-      LocalDB.saveLogs(filtered);
-      return;
-    }
-
-    try {
-      const docRef = doc(db, 'access_logs', id);
-      await deleteDoc(docRef);
-    } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, `access_logs/${id}`);
+    if (!IS_FIREBASE_DUMMY) {
+      try {
+        const docRef = doc(db, 'access_logs', id);
+        await deleteDoc(docRef);
+      } catch (err) {
+        handleFirestoreError(err, OperationType.DELETE, `access_logs/${id}`);
+      }
     }
   },
 
