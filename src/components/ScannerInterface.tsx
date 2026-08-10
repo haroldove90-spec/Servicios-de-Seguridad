@@ -946,30 +946,16 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
       // 4. Access Schedule constraints (Time & Days)
       // Weekday check: JavaScript 0 is Sunday, 1 is Monday ... 6 is Saturday
       const currentDay = now.getDay();
-      if (matchedUser.days && matchedUser.days.length > 0 && !matchedUser.days.includes(currentDay)) {
-        const daysTranslation: { [key: number]: string } = {
-          0: 'Domingos', 1: 'Lunes', 2: 'Martes', 3: 'Miércoles', 4: 'Jueves', 5: 'Viernes', 6: 'Sábados'
-        };
-        const allowedDaysStr = matchedUser.days.map(d => daysTranslation[d]).join(', ');
-        const result = {
-          success: false,
-          message: `Acceso Denegado: Día no autorizado. Días permitidos: ${allowedDaysStr}.`,
-          user: matchedUser,
-          status: LogStatus.OUTSIDE_SCHEDULE
-        };
-        setScanResult(result);
-        logScan(matchedUser, LogStatus.OUTSIDE_SCHEDULE, detectedType);
-        playUnauthorizedAudio();
-        return false;
-      }
-
-      // Daily Hour check (startTime - endTime)
-      if (matchedUser.startTime && matchedUser.endTime) {
-        const currentHrsMins = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }); // e.g. "14:35"
-        if (currentHrsMins < matchedUser.startTime || currentHrsMins > matchedUser.endTime) {
+      if (matchedUser.days && matchedUser.days.length > 0) {
+        const daysAsNumbers = matchedUser.days.map(d => Number(d));
+        if (!daysAsNumbers.includes(currentDay)) {
+          const daysTranslation: { [key: number]: string } = {
+            0: 'Domingos', 1: 'Lunes', 2: 'Martes', 3: 'Miércoles', 4: 'Jueves', 5: 'Viernes', 6: 'Sábados'
+          };
+          const allowedDaysStr = daysAsNumbers.map(d => daysTranslation[d] || d).join(', ');
           const result = {
             success: false,
-            message: `Acceso Denegado: Horario restringido. Permitido únicamente entre ${matchedUser.startTime} y ${matchedUser.endTime}.`,
+            message: `Acceso Denegado: Día no autorizado. Días permitidos: ${allowedDaysStr}.`,
             user: matchedUser,
             status: LogStatus.OUTSIDE_SCHEDULE
           };
@@ -977,6 +963,47 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
           logScan(matchedUser, LogStatus.OUTSIDE_SCHEDULE, detectedType);
           playUnauthorizedAudio();
           return false;
+        }
+      }
+
+      // Daily Hour check (startTime - endTime)
+      if (matchedUser.startTime && matchedUser.endTime) {
+        const parseTimeToMinutes = (timeStr?: string): number | null => {
+          if (!timeStr) return null;
+          const parts = String(timeStr).trim().split(':');
+          if (parts.length < 2) return null;
+          const h = parseInt(parts[0], 10);
+          const m = parseInt(parts[1], 10);
+          if (isNaN(h) || isNaN(m)) return null;
+          return h * 60 + m;
+        };
+
+        const currentMins = now.getHours() * 60 + now.getMinutes();
+        const startMins = parseTimeToMinutes(matchedUser.startTime);
+        const endMins = parseTimeToMinutes(matchedUser.endTime);
+
+        if (startMins !== null && endMins !== null) {
+          let isWithinSchedule = false;
+          if (startMins <= endMins) {
+            // Standard range (e.g. 08:00 to 18:00 or 00:00 to 23:59)
+            isWithinSchedule = currentMins >= startMins && currentMins <= endMins;
+          } else {
+            // Overnight range across midnight (e.g. 22:00 to 06:00)
+            isWithinSchedule = currentMins >= startMins || currentMins <= endMins;
+          }
+
+          if (!isWithinSchedule) {
+            const result = {
+              success: false,
+              message: `Acceso Denegado: Horario restringido. Permitido únicamente entre ${matchedUser.startTime} y ${matchedUser.endTime}.`,
+              user: matchedUser,
+              status: LogStatus.OUTSIDE_SCHEDULE
+            };
+            setScanResult(result);
+            logScan(matchedUser, LogStatus.OUTSIDE_SCHEDULE, detectedType);
+            playUnauthorizedAudio();
+            return false;
+          }
         }
       }
 

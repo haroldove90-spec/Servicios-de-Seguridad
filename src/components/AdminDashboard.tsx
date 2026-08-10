@@ -36,8 +36,8 @@ export default function AdminDashboard({ onUsersUpdated, currentUser }: AdminDas
   const [formValidFrom, setFormValidFrom] = useState<string>(new Date().toISOString().slice(0, 16)); // YYYY-MM-DDTHH:mm
   const [formValidUntil, setFormValidUntil] = useState<string>(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16)); // +30 days
   const [formDays, setFormDays] = useState<number[]>([]); // Empty = All days
-  const [formStartTime, setFormStartTime] = useState<string>('08:00');
-  const [formEndTime, setFormEndTime] = useState<string>('18:00');
+  const [formStartTime, setFormStartTime] = useState<string>('00:00');
+  const [formEndTime, setFormEndTime] = useState<string>('23:59');
   const [formResidenciaId, setFormResidenciaId] = useState<string>('');
 
   // QR Modal Overlay
@@ -108,8 +108,8 @@ export default function AdminDashboard({ onUsersUpdated, currentUser }: AdminDas
     setFormValidFrom(new Date(user.validFrom).toISOString().slice(0, 16));
     setFormValidUntil(new Date(user.validUntil).toISOString().slice(0, 16));
     setFormDays(user.days || []);
-    setFormStartTime(user.startTime || '08:00');
-    setFormEndTime(user.endTime || '18:00');
+    setFormStartTime(user.startTime || '00:00');
+    setFormEndTime(user.endTime || '23:59');
     setFormResidenciaId(user.residenciaId || '');
     setIsFormOpen(true);
   };

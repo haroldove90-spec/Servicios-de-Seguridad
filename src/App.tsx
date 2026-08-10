@@ -1389,8 +1389,8 @@ export default function App() {
         status: 'active',
         oneTime: false,
         used: false,
-        startTime: '08:00',
-        endTime: '18:00',
+        startTime: '00:00',
+        endTime: '23:59',
         days: []
       };
 
