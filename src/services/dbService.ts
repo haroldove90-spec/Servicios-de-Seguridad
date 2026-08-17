@@ -1764,18 +1764,98 @@ export const dbService = {
       }
     }
 
-    // Merge remote and local access logs seamlessly
+    // Merge remote and local access logs seamlessly and deduplicate triplicates
     const local = LocalDB.getLogs().map(normalizeLogRow);
-    const unifiedMap = new Map<string, AccessLog>();
-    local.forEach(l => unifiedMap.set(l.id, l));
-    remoteLogs.forEach(r => unifiedMap.set(r.id, r));
+    const combined = [...remoteLogs, ...local];
+    
+    // Sort descending by timestamp
+    combined.sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
+    
+    const deduplicatedList: AccessLog[] = [];
+    const seenIds = new Set<string>();
+    const seenSignatures = new Set<string>();
 
-    return Array.from(unifiedMap.values()).sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
+    for (const item of combined) {
+      if (!item || !item.id) continue;
+      if (seenIds.has(item.id)) continue;
+      seenIds.add(item.id);
+
+      // Deduplicate near-identical records created within 3.5 seconds of each other
+      const timeBucket = Math.floor(new Date(item.timestamp || 0).getTime() / 3500);
+      const userKey = item.userId || item.documentId || 'unknown';
+      const signature = `${userKey}_${item.type}_${item.status}_${timeBucket}`;
+      
+      if (seenSignatures.has(signature)) {
+        continue;
+      }
+      seenSignatures.add(signature);
+      deduplicatedList.push(item);
+    }
+
+    return deduplicatedList.sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
   },
 
   async createAccessLog(log: Omit<AccessLog, 'id'>): Promise<AccessLog> {
+    // 1. Debounce / Deduplication guard: Prevent duplicate/triplicate entries created within 4.5 seconds
+    const recentCutoff = Date.now() - 4500;
+    const existingLogs = LocalDB.getLogs();
+    const isDuplicate = existingLogs.some(existing => {
+      const isSameUser = (existing.userId && log.userId && existing.userId === log.userId) || 
+                         (existing.documentId && log.documentId && existing.documentId === log.documentId);
+      const isSameAction = existing.type === log.type && existing.status === log.status;
+      const logTime = new Date(existing.timestamp || 0).getTime();
+      return isSameUser && isSameAction && logTime > recentCutoff;
+    });
+
+    if (isDuplicate && existingLogs.length > 0) {
+      console.log('Debounce/Deduplication: Ignored duplicate access log insertion within 4.5s window.');
+      return existingLogs[0];
+    }
+
+    // Resolve missing residenciaId / residenciaNombre from related records if absent
+    let resolvedResId = log.residenciaId;
+    let resolvedResNombre = log.residenciaNombre;
+
+    if (!resolvedResId || !resolvedResNombre) {
+      try {
+        const users = LocalDB.getUsers();
+        const matched = users.find(u => u.id === log.userId || u.documentId === log.documentId);
+        if (matched) {
+          resolvedResId = resolvedResId || matched.residenciaId;
+          resolvedResNombre = resolvedResNombre || matched.residenciaNombre;
+        }
+      } catch (e) {}
+
+      if (!resolvedResId || !resolvedResNombre) {
+        try {
+          const marbetes = LocalDB.getMarbetes();
+          const mMatched = marbetes.find(m => m.vehiculoPlacas === log.documentId || ('MARBETE-' + m.consecutivo) === log.documentId);
+          if (mMatched) {
+            resolvedResId = resolvedResId || mMatched.residenciaId;
+            resolvedResNombre = resolvedResNombre || mMatched.residenciaNombre;
+          }
+        } catch (e) {}
+      }
+
+      if (!resolvedResId || !resolvedResNombre) {
+        try {
+          const residents = LocalDB.getResidentes();
+          const rMatched = residents.find(r => r.id === log.userId || r.accessUserId === log.userId);
+          if (rMatched) {
+            resolvedResId = resolvedResId || rMatched.residenciaId;
+            resolvedResNombre = resolvedResNombre || rMatched.residenciaNombre;
+          }
+        } catch (e) {}
+      }
+    }
+
     const id = 'log_' + generateId();
-    const newLog: AccessLog = { ...log, id };
+    const newLog: AccessLog = {
+      ...log,
+      id,
+      residenciaId: resolvedResId || undefined,
+      residenciaNombre: resolvedResNombre || undefined
+    };
 
     // 1. Save to LocalDB immediately for instant responsiveness
     try {

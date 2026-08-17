@@ -50,9 +50,11 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const fileScannerRef = useRef<Html5Qrcode | null>(null);
 
-  // Throttling refs to prevent double-scanning within 3 seconds
+  // Throttling refs to prevent double-scanning and race conditions
   const lastScannedTokenRef = useRef<string>('');
   const lastScanTimeRef = useRef<number>(0);
+  const isVerifyingRef = useRef<boolean>(false);
+  const recentScannedTokensMapRef = useRef<Map<string, number>>(new Map());
 
   // Refs to prevent closure stale states
   const validationTypeRef = useRef<LogType>(LogType.CHECK_IN);
@@ -178,12 +180,19 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
     }
   };
 
-  // Pull onsite visitors
+  // Pull onsite visitors for this specific fraccionamiento
   const reloadOnsitePeople = async () => {
     try {
       const logs = await dbService.getAccessLogs();
+      const guardResId = currentGuardRef.current?.residenciaId || currentGuard?.residenciaId;
+      
+      // Filter by fraccionamiento if guard/caseta belongs to one
+      const relevantLogs = guardResId 
+        ? logs.filter(l => !l.residenciaId || l.residenciaId === guardResId)
+        : logs;
+
       const latestLogsMap: { [userId: string]: AccessLog } = {};
-      for (const log of logs) {
+      for (const log of relevantLogs) {
         if (log.status === LogStatus.SUCCESS && !latestLogsMap[log.userId]) {
           latestLogsMap[log.userId] = log;
         }
@@ -203,17 +212,18 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
   };
 
   const handleForceCheckout = async (userId: string, userName: string, documentId: string) => {
-    const guardName = currentGuard?.name || 'Guardia de Guardia';
-    const guardId = currentGuard?.uid || 'anonymous-guard';
+    const activeGuard = currentGuardRef.current || currentGuard;
+    const guardName = activeGuard?.name || 'Guardia de Guardia';
+    const guardId = activeGuard?.uid || 'anonymous-guard';
     
-    let userResId: string | undefined = undefined;
-    let userResNombre: string | undefined = undefined;
+    let userResId: string | undefined = activeGuard?.residenciaId;
+    let userResNombre: string | undefined = activeGuard?.residenciaNombre;
     try {
       const allUsers = await dbService.getAuthorizedUsers();
       const userObj = allUsers.find(u => u.id === userId);
       if (userObj) {
-        userResId = userObj.residenciaId;
-        userResNombre = userObj.residenciaNombre;
+        userResId = userObj.residenciaId || userResId;
+        userResNombre = userObj.residenciaNombre || userResNombre;
       }
     } catch (e) {}
 
@@ -229,8 +239,8 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
       guardName,
       residenciaId: userResId,
       residenciaNombre: userResNombre,
-      casetaId: currentGuard?.casetaId || undefined,
-      casetaNombre: currentGuard?.casetaNombre || undefined
+      casetaId: activeGuard?.casetaId || undefined,
+      casetaNombre: activeGuard?.casetaNombre || undefined
     });
     
     reloadOnsitePeople();
@@ -240,7 +250,14 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
   const reloadRecentLogs = async () => {
     try {
       const logs = await dbService.getAccessLogs();
-      const sorted = logs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      const guardResId = currentGuardRef.current?.residenciaId || currentGuard?.residenciaId;
+      
+      // Filter by fraccionamiento if guard/caseta belongs to one
+      const relevantLogs = guardResId 
+        ? logs.filter(l => !l.residenciaId || l.residenciaId === guardResId)
+        : logs;
+
+      const sorted = relevantLogs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
       setRecentLogs(sorted);
     } catch (err) {
       console.warn('Error loading recent logs:', err);
@@ -540,8 +557,26 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
 
   const handleVerifyToken = async (token: string): Promise<boolean> => {
     if (!token) return false;
+
+    // Mutex lock to prevent race conditions and duplicate verify executions
+    if (isVerifyingRef.current) {
+      console.log('Verification already in progress, debouncing parallel trigger');
+      return false;
+    }
+
+    const tokenClean = token.trim().replace(/^["']|["']$/g, '');
+    const nowTimestamp = Date.now();
+    const lastSeenTime = recentScannedTokensMapRef.current.get(tokenClean);
+    if (lastSeenTime && nowTimestamp - lastSeenTime < 3500) {
+      console.log('Debounced duplicate token scan within 3.5s cooldown');
+      return false;
+    }
+    recentScannedTokensMapRef.current.set(tokenClean, nowTimestamp);
+
+    isVerifyingRef.current = true;
     setPermissionError(null);
     setScanResult(null);
+
     try {
       if (panicActiveRef.current) {
         setScanResult({
@@ -553,7 +588,6 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
         return false;
       }
       
-      const tokenClean = token.trim().replace(/^["']|["']$/g, '');
       let tokenToQuery = tokenClean;
 
       // Extract from JSON payload if QR code contains a JSON object
@@ -1085,6 +1119,10 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
       });
       playUnauthorizedAudio();
       return false;
+    } finally {
+      setTimeout(() => {
+        isVerifyingRef.current = false;
+      }, 1000);
     }
   };
 
@@ -1919,10 +1957,10 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            📖 Bitácora en Vivo de Accesos ({currentGuard?.casetaNombre || 'Caseta General'})
+            📖 Bitácora en Vivo de Accesos • {currentGuard?.residenciaNombre || 'Fraccionamiento General'} ({currentGuard?.casetaNombre || 'Caseta General'})
           </h3>
           <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-            Muestra el registro cronológico en tiempo real de residentes y visitantes autorizados que cruzan el punto de acceso.
+            Muestra el registro cronológico en tiempo real de residentes y visitantes de este fraccionamiento que cruzan el punto de acceso.
           </p>
         </div>
 
@@ -1957,6 +1995,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
             <tr>
               <th className="py-3 px-4">Hora</th>
               <th className="py-3 px-4">Residente / Visitante</th>
+              <th className="py-3 px-4">Fraccionamiento</th>
               <th className="py-3 px-4">DNI / Identificación</th>
               <th className="py-3 px-4">Tipo Movimiento</th>
               <th className="py-3 px-4">Estado</th>
@@ -1969,7 +2008,8 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
               .filter(log => {
                 if (!recentSearch) return true;
                 return log.userName.toLowerCase().includes(recentSearch.toLowerCase()) || 
-                       log.documentId.toLowerCase().includes(recentSearch.toLowerCase());
+                       log.documentId.toLowerCase().includes(recentSearch.toLowerCase()) ||
+                       (log.residenciaNombre && log.residenciaNombre.toLowerCase().includes(recentSearch.toLowerCase()));
               })
               .map((log) => {
                 const isRes = log.userName.includes('(Residente)') || log.userId.startsWith('usr_resd_');
@@ -1982,6 +2022,11 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
                       <div className="font-extrabold text-slate-200 flex items-center gap-1.5">
                         {isRes ? '🏡' : '🎫'} {log.userName}
                       </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-800 text-slate-300 border border-slate-700">
+                        {log.residenciaNombre || 'General'}
+                      </span>
                     </td>
                     <td className="py-3 px-4 font-mono text-red-400/90 font-semibold">{log.documentId}</td>
                     <td className="py-3 px-4">

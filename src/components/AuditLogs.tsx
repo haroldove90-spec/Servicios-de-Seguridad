@@ -3,9 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
-import { Download, Search, RefreshCw, Filter, ShieldCheck, Check, X, Clock, HelpCircle, Activity } from 'lucide-react';
-import { AccessLog, LogType, LogStatus } from '../types';
+import React, { useState, useEffect } from 'react';
+import { Download, Search, RefreshCw, Filter, ShieldCheck, Check, X, Clock, HelpCircle, Activity, Building2 } from 'lucide-react';
+import { AccessLog, LogType, LogStatus, Residencia } from '../types';
+import { dbService } from '../services/dbService';
 
 interface AuditLogsProps {
   logs: AccessLog[];
@@ -17,18 +18,35 @@ export default function AuditLogs({ logs: rawLogs, onRefresh, currentUser }: Aud
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [selectedFraccionamiento, setSelectedFraccionamiento] = useState<string>(currentUser?.residenciaId || 'all');
+  const [residencias, setResidencias] = useState<Residencia[]>([]);
 
-  // Filter rawLogs based on residence boundary if applicable
-  const logs = currentUser?.residenciaId 
-    ? rawLogs.filter(l => l.residenciaId === currentUser.residenciaId)
-    : rawLogs;
+  useEffect(() => {
+    const fetchResidencias = async () => {
+      try {
+        const list = await dbService.getResidencias();
+        setResidencias(list);
+      } catch (e) {
+        console.warn('Error fetching residencias for audit logs filter:', e);
+      }
+    };
+    fetchResidencias();
+  }, []);
+
+  // Filter rawLogs based on fraccionamiento boundary
+  const logs = rawLogs.filter(l => {
+    if (selectedFraccionamiento === 'all') return true;
+    return l.residenciaId === selectedFraccionamiento || 
+           (l.residenciaNombre && l.residenciaNombre.toLowerCase() === selectedFraccionamiento.toLowerCase());
+  });
 
   // Multi-criteria filtering logic
   const filteredLogs = logs.filter((log) => {
     const matchesSearch = 
       log.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       log.documentId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.guardName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (log.guardName && log.guardName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (log.residenciaNombre && log.residenciaNombre.toLowerCase().includes(searchTerm.toLowerCase())) ||
       log.userId.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesType = filterType === 'all' || log.type === filterType;
@@ -37,7 +55,7 @@ export default function AuditLogs({ logs: rawLogs, onRefresh, currentUser }: Aud
     return matchesSearch && matchesType && matchesStatus;
   });
 
-  // Calculate analytical metrics
+  // Calculate analytical metrics for the active fraccionamiento
   const totalScans = logs.length;
   const successfulScans = logs.filter(l => l.status === LogStatus.SUCCESS).length;
   const failedScans = totalScans - successfulScans;
@@ -55,19 +73,21 @@ export default function AuditLogs({ logs: rawLogs, onRefresh, currentUser }: Aud
     }
 
     // CSV Headers
-    const headers = ['ID Registro', 'ID Usuario', 'Nombre Visitante', 'Cédula/Documento', 'Fecha/Hora ISO', 'Tipo Acción', 'Resultado Escaneo', 'ID Guardia', 'Nombre Guardia'];
+    const headers = ['ID Registro', 'ID Usuario', 'Nombre Visitante', 'Fraccionamiento', 'Cédula/Documento', 'Fecha/Hora ISO', 'Tipo Acción', 'Resultado Escaneo', 'ID Guardia', 'Nombre Guardia', 'Caseta'];
     
     // Process rows escaping quotes for RFC safety
     const rows = filteredLogs.map(log => [
       log.id,
       log.userId,
-      `"${log.userName.replace(/"/g, '""')}"`,
-      `"${log.documentId.replace(/"/g, '""')}"`,
+      `"${(log.userName || '').replace(/"/g, '""')}"`,
+      `"${(log.residenciaNombre || 'General').replace(/"/g, '""')}"`,
+      `"${(log.documentId || '').replace(/"/g, '""')}"`,
       log.timestamp,
       log.type,
       log.status,
       log.guardId,
-      `"${log.guardName.replace(/"/g, '""')}"`
+      `"${(log.guardName || '').replace(/"/g, '""')}"`,
+      `"${((log as any).casetaNombre || '').replace(/"/g, '""')}"`
     ]);
 
     const csvContent = [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
@@ -79,7 +99,7 @@ export default function AuditLogs({ logs: rawLogs, onRefresh, currentUser }: Aud
     // Temporary anchor execution for download
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `auditoria_accesos_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `bitacora_${selectedFraccionamiento !== 'all' ? selectedFraccionamiento : 'global'}_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -123,7 +143,9 @@ export default function AuditLogs({ logs: rawLogs, onRefresh, currentUser }: Aud
             <span className="p-1.5 bg-[#1A1A1E] rounded-lg text-slate-400 border border-[#3e3e42]"><Activity className="w-3.5 h-3.5" /></span>
           </div>
           <p className="text-2xl font-bold text-white mt-2 font-mono">{totalScans}</p>
-          <p className="text-[10px] text-slate-500 mt-0.5">Historial acumulado</p>
+          <p className="text-[10px] text-slate-500 mt-0.5">
+            {selectedFraccionamiento !== 'all' ? 'En este fraccionamiento' : 'Historial acumulado global'}
+          </p>
         </div>
 
         <div id="metric-tile-success" className="bg-[#2A2A2E] border border-[#3e3e42] p-5 rounded-2xl shadow-2xl">
@@ -158,7 +180,7 @@ export default function AuditLogs({ logs: rawLogs, onRefresh, currentUser }: Aud
       <div id="logs-list-cabinet" className="bg-[#2A2A2E] rounded-2xl border border-[#3e3e42] shadow-2xl overflow-hidden font-sans">
         
         {/* Table Filters Top Bar */}
-        <div id="logs-filters-hub" className="p-5 border-b border-[#3e3e42] space-y-4 md:space-y-0 md:flex md:items-center md:justify-between">
+        <div id="logs-filters-hub" className="p-5 border-b border-[#3e3e42] space-y-4 lg:space-y-0 lg:flex lg:items-center lg:justify-between gap-4">
           <div className="relative flex-1 max-w-sm">
             <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
               <Search className="w-4 h-4" />
@@ -166,7 +188,7 @@ export default function AuditLogs({ logs: rawLogs, onRefresh, currentUser }: Aud
             <input
               id="search-audit-input"
               type="text"
-              placeholder="Buscar por visitante, lote o residente..."
+              placeholder="Buscar por visitante, documento o guardia..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-3 py-2 text-xs bg-[#1A1A1E] border border-[#3e3e42] rounded-xl text-slate-100 placeholder-slate-500 focus:border-red-500 focus:outline-hidden"
@@ -174,6 +196,30 @@ export default function AuditLogs({ logs: rawLogs, onRefresh, currentUser }: Aud
           </div>
 
           <div id="logs-filtering-controls" className="flex flex-wrap items-center gap-2">
+            {/* Fraccionamiento Selector */}
+            <div className="flex items-center gap-1.5 bg-[#1A1A1E] px-2.5 py-1.5 rounded-lg border border-[#3e3e42]">
+              <Building2 className="w-3.5 h-3.5 text-red-400" />
+              {currentUser?.residenciaId ? (
+                <span className="text-[11px] font-bold text-red-400">
+                  {currentUser.residenciaNombre || 'Mi Fraccionamiento'}
+                </span>
+              ) : (
+                <select
+                  id="select-filter-fraccionamiento"
+                  value={selectedFraccionamiento}
+                  onChange={(e) => setSelectedFraccionamiento(e.target.value)}
+                  className="text-[11px] bg-transparent font-semibold text-slate-200 focus:outline-hidden cursor-pointer"
+                >
+                  <option value="all" className="bg-[#1A1A1E]">🏢 Todos los Fraccionamientos</option>
+                  {residencias.map((res) => (
+                    <option key={res.id} value={res.id} className="bg-[#1A1A1E]">
+                      🏡 {res.nombre}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
             <div className="flex items-center gap-1 bg-[#1A1A1E] px-2.5 py-1.5 rounded-lg border border-[#3e3e42]">
               <Filter className="w-3 h-3 text-slate-400" />
               <select
@@ -231,7 +277,8 @@ export default function AuditLogs({ logs: rawLogs, onRefresh, currentUser }: Aud
               <thead>
                 <tr className="bg-[#1A1A1E] border-b border-[#3e3e42] text-[10px] font-bold text-slate-400 uppercase tracking-wider font-sans">
                   <th className="py-3.5 px-5">Fecha / Hora</th>
-                  <th className="py-3.5 px-4">Visitante</th>
+                  <th className="py-3.5 px-4">Visitante / Residente</th>
+                  <th className="py-3.5 px-4">Fraccionamiento</th>
                   <th className="py-3.5 px-4 font-mono">Documento</th>
                   <th className="py-3.5 px-4 text-center">Tipo</th>
                   <th className="py-3.5 px-4">Resultado de Acceso</th>
@@ -246,6 +293,11 @@ export default function AuditLogs({ logs: rawLogs, onRefresh, currentUser }: Aud
                     </td>
                     <td className="py-3.5 px-4 font-semibold text-white whitespace-nowrap">
                       {log.userName}
+                    </td>
+                    <td className="py-3.5 px-4 whitespace-nowrap">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-semibold bg-slate-800 text-slate-300 border border-slate-700">
+                        🏡 {log.residenciaNombre || 'General'}
+                      </span>
                     </td>
                     <td className="py-3.5 px-4 text-red-400 font-mono whitespace-nowrap">
                       {log.documentId}
@@ -281,7 +333,7 @@ export default function AuditLogs({ logs: rawLogs, onRefresh, currentUser }: Aud
               <HelpCircle className="w-10 h-10 text-slate-600 mx-auto mb-3 animate-pulse" />
               <h3 className="text-sm font-semibold text-slate-200">No se encontraron registros</h3>
               <p className="text-xs text-slate-400 max-w-sm mx-auto mt-1 leading-relaxed">
-                Ajusta las keywords de búsqueda, los selectores de tipo o de resultado de aprobación para encontrar logs en el sistema.
+                Ajusta las keywords de búsqueda, los selectores de fraccionamiento, tipo o de resultado de aprobación para encontrar logs en el sistema.
               </p>
             </div>
           )}
@@ -289,8 +341,8 @@ export default function AuditLogs({ logs: rawLogs, onRefresh, currentUser }: Aud
 
         {/* List Pagination / Row Counts Summary */}
         <div id="logs-footer-summary" className="p-4 bg-[#1A1A1E] border-t border-[#3e3e42] flex items-center justify-between text-[11px] text-slate-400 font-sans">
-          <p>Mostrando <span className="font-semibold font-mono text-red-500">{filteredLogs.length}</span> registros de auditoría filtrados</p>
-          <p className="font-mono">FCE82F95-B126-4211-BF43-3CEA902348FA</p>
+          <p>Mostrando <span className="font-semibold font-mono text-red-500">{filteredLogs.length}</span> registros de auditoría de este fraccionamiento</p>
+          <p className="font-mono">BITÁCORA SEGURA</p>
         </div>
       </div>
     </div>
