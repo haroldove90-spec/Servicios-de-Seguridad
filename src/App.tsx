@@ -1226,14 +1226,19 @@ export default function App() {
       setIsRegistering(false);
     }
 
-    let token = params.get('pass') || params.get('token');
+    const isResidentPortalRequest = params.get('role') === 'residente' || 
+                                    Boolean(params.get('user')) || 
+                                    Boolean(params.get('username')) || 
+                                    params.get('portal') === 'residente';
+
+    let token = params.get('pass') || (!isResidentPortalRequest ? params.get('token') : null);
     if (!token && hash.startsWith('#pass=')) {
       token = hash.replace('#pass=', '');
-    } else if (!token && hash.startsWith('#token=')) {
+    } else if (!token && hash.startsWith('#token=') && !isResidentPortalRequest) {
       token = hash.replace('#token=', '');
     }
 
-    if (token) {
+    if (token && !isResidentPortalRequest) {
       let cleanToken = token.trim();
       if (cleanToken.includes('pass=')) {
         cleanToken = cleanToken.split('pass=')[1].split('&')[0].trim();
@@ -1779,6 +1784,25 @@ export default function App() {
               <p className="text-xs text-slate-400 leading-relaxed max-w-xs mt-6">
                 Presenta este código QR frente al lector o cámara frontal para verificar tu autorización de acceso en portería.
               </p>
+
+              {/* Direct Portal App Access Button if user is a resident or visitor */}
+              <button
+                type="button"
+                onClick={() => {
+                  setVisitorPassToken(null);
+                  window.history.replaceState({}, document.title, window.location.pathname + '?role=residente');
+                  setSelectedLoginTarget({
+                    role: SystemUserRole.RESIDENTE,
+                    label: 'Residente Autogestión 🏡',
+                    defaultTab: 'visitas',
+                    residenciaId: visitorPassUser.residenciaId || 'res-demo-1',
+                    residenciaNombre: visitorPassUser.residenciaNombre || 'Lomas de Chapultepec'
+                  });
+                }}
+                className="mt-5 w-full flex items-center justify-center gap-2 py-3 px-4 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/40 rounded-2xl text-xs font-bold transition-all cursor-pointer shadow-lg hover:scale-[1.01]"
+              >
+                <Smartphone className="w-4 h-4" /> Ingresar a la App Móvil / Mi Perfil
+              </button>
             </>
           ) : (
             <div className="py-8">

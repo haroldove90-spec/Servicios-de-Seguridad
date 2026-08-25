@@ -20,6 +20,19 @@ interface ResidentesManagerProps {
   currentUser?: any;
 }
 
+interface CreatedResidentCreds {
+  nombre: string;
+  usuario: string;
+  contrasena: string;
+  residencia: string;
+  direccion: string;
+  whatsapp: string;
+  portalUrl: string;
+  passUrl: string;
+  whatsappUrl: string;
+  fullMessage: string;
+}
+
 export default function ResidentesManager({ onRefresh, currentUser }: ResidentesManagerProps) {
   const [residentes, setResidentes] = useState<Residente[]>([]);
   const [residencias, setResidencias] = useState<Residencia[]>([]);
@@ -48,6 +61,8 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
   const [selectedResidentQR, setSelectedResidentQR] = useState<Residente | null>(null);
   const [generatedQRUrl, setGeneratedQRUrl] = useState<string>('');
   const [copiedToken, setCopiedToken] = useState<boolean>(false);
+  const [copiedCredsMsg, setCopiedCredsMsg] = useState<boolean>(false);
+  const [createdResidentCreds, setCreatedResidentCreds] = useState<CreatedResidentCreds | null>(null);
   const [formIsVisitor, setFormIsVisitor] = useState<boolean>(false);
   const [formIsActive, setFormIsActive] = useState<boolean>(true);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -338,6 +353,37 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
           ...payload,
           createdAt: new Date().toISOString()
         });
+
+        // Generate direct access credentials and links for the newly created resident
+        const baseAppUrl = `${window.location.origin}${window.location.pathname}`;
+        const portalUrl = `${baseAppUrl}?role=residente&user=${encodeURIComponent(cleanUsername)}`;
+        const passUrl = `${baseAppUrl}?pass=${encodeURIComponent(qrToken)}`;
+        const cleanPhone = formWhatsapp.trim().replace(/\D/g, '');
+        
+        const fullMessage = `¡Hola *${cleanName}*!\n\nTe comparto tus datos de acceso al sistema y aplicación móvil de *${matchedComplex.nombre}* (Domicilio: *${formDireccion.trim()}*):\n\n📲 *LINK PARA ENTRAR A TU APLICACIÓN MÓVIL Y PERFIL:*\n${portalUrl}\n\n🔐 *TUS CREDENCIALES DE ACCESO EN LA APP:*\n• *Usuario:* ${cleanUsername}\n• *Contraseña:* ${cleanPassword}\n• *Fraccionamiento:* ${matchedComplex.nombre}\n\n🪪 *TU PASE QR PERMANENTE PARA CASETA:*\n${passUrl}\n\nDesde la app móvil podrás registrar tus visitas autorizadas, vehículos y recibir notificaciones de accesos.`;
+        
+        const whatsappUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(fullMessage)}` : '';
+
+        setCreatedResidentCreds({
+          nombre: cleanName,
+          usuario: cleanUsername,
+          contrasena: cleanPassword,
+          residencia: matchedComplex.nombre,
+          direccion: formDireccion.trim(),
+          whatsapp: formWhatsapp.trim(),
+          portalUrl,
+          passUrl,
+          whatsappUrl,
+          fullMessage
+        });
+
+        if (whatsappUrl) {
+          try {
+            window.open(whatsappUrl, '_blank');
+          } catch (waErr) {
+            console.warn('Auto-opening WhatsApp was blocked by browser:', waErr);
+          }
+        }
       }
       setIsFormOpen(false);
       loadData();
@@ -397,9 +443,9 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
     const usr = linkedRole?.username || item.username || 'condominio';
     const pwd = linkedRole?.password || item.password || 'Condominio_123';
 
-    const portalUrl = `${window.location.origin}${window.location.pathname}?role=residente&user=${encodeURIComponent(usr)}&token=${encodeURIComponent(item.qrcodeToken || '')}`;
+    const portalUrl = `${window.location.origin}${window.location.pathname}?role=residente&user=${encodeURIComponent(usr)}`;
 
-    const text = `¡Hola *${item.nombre || 'Residente'}*!\n\nTe comparto tus datos de acceso al portal de *${item.residenciaNombre || ''}* (Domicilio: *${item.direccion || ''}*):\n\n🌐 *LINK DE ACCESO A TU ROL RESIDENTE AUTOGESTIÓN:*\n${portalUrl}\n\n🔑 *TUS CREDENCIALES DE ACCESO EN LA APP:*\n• *Nombre de Usuario:* ${usr}\n• *Contraseña Segura:* ${pwd}\n\n🪪 *ENLACE DIRECTO Y PASE QR PERMANENTE:*\n${passUrl}`;
+    const text = `¡Hola *${item.nombre || 'Residente'}*!\n\nTe comparto tus datos de acceso al sistema y aplicación móvil de *${item.residenciaNombre || 'tu Fraccionamiento'}* (Domicilio: *${item.direccion || ''}*):\n\n📲 *LINK PARA ENTRAR A TU APLICACIÓN MÓVIL Y PERFIL:*\n${portalUrl}\n\n🔐 *TUS CREDENCIALES DE ACCESO EN LA APP:*\n• *Usuario:* ${usr}\n• *Contraseña:* ${pwd}\n• *Fraccionamiento:* ${item.residenciaNombre || ''}\n\n🪪 *TU PASE QR PERMANENTE PARA CASETA:*\n${passUrl}\n\nDesde la app móvil podrás registrar tus visitas autorizadas, vehículos y recibir notificaciones de accesos.`;
     return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
   };
 
@@ -1030,6 +1076,141 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
                 className="px-4 py-2.5 bg-red-650 hover:bg-red-550 text-white font-semibold rounded-xl transition cursor-pointer"
               >
                 Sí, eliminar
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* NEW RESIDENT CREATED SUCCESS & CREDENTIALS MODAL */}
+      {createdResidentCreds && createPortal(
+        <div 
+          id="created-resident-credentials-overlay"
+          className="fixed inset-0 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 z-[999999] animate-fade-in overflow-y-auto"
+          onClick={() => setCreatedResidentCreds(null)}
+        >
+          <div 
+            className="bg-[#151518] rounded-3xl border border-emerald-500/30 shadow-2xl max-w-lg w-full p-6 text-slate-200 my-auto max-h-[92vh] overflow-y-auto font-sans relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setCreatedResidentCreds(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-full hover:bg-slate-800 transition cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-2xl flex items-center justify-center shrink-0">
+                <Sparkles className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white tracking-tight">¡Residente Registrado con Éxito!</h3>
+                <p className="text-xs text-emerald-400 font-medium">Credenciales de autogestión y link de aplicación generados</p>
+              </div>
+            </div>
+
+            <div className="bg-[#1a1a20] border border-slate-800 rounded-2xl p-4 space-y-3 mb-5 text-xs">
+              <div className="flex justify-between items-center border-b border-slate-800/80 pb-2">
+                <span className="text-slate-400">Residente:</span>
+                <span className="font-bold text-white text-sm">{createdResidentCreds.nombre}</span>
+              </div>
+              <div className="flex justify-between items-center border-b border-slate-800/80 pb-2">
+                <span className="text-slate-400">Fraccionamiento:</span>
+                <span className="font-semibold text-slate-200">{createdResidentCreds.residencia}</span>
+              </div>
+              <div className="flex justify-between items-center border-b border-slate-800/80 pb-2">
+                <span className="text-slate-400">Dirección / Casa:</span>
+                <span className="font-semibold text-slate-200">{createdResidentCreds.direccion}</span>
+              </div>
+              
+              <div className="bg-[#0e0e12] p-3 rounded-xl border border-amber-500/30 space-y-2 mt-2">
+                <div className="flex items-center gap-1.5 text-[11px] font-bold text-amber-400 uppercase tracking-wider">
+                  <Key className="w-3.5 h-3.5 text-amber-400" /> Credenciales para App Móvil
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+                  <div>
+                    <span className="text-slate-500 block text-[9px] uppercase">Usuario:</span>
+                    <span className="text-amber-300 font-bold">{createdResidentCreds.usuario}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[9px] uppercase">Contraseña:</span>
+                    <span className="text-slate-200 font-bold">{createdResidentCreds.contrasena}</span>
+                  </div>
+                </div>
+                <div className="pt-2 border-t border-slate-800 text-[10px] text-slate-400 break-all font-mono">
+                  <span className="text-slate-500 block text-[9px] font-sans uppercase">Link Directo a la App Móvil:</span>
+                  <span className="text-blue-400">{createdResidentCreds.portalUrl}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="space-y-2.5">
+              {createdResidentCreds.whatsappUrl ? (
+                <a
+                  href={createdResidentCreds.whatsappUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-4 rounded-xl transition cursor-pointer shadow-lg hover:scale-[1.01] text-xs uppercase tracking-wider"
+                >
+                  <MessageSquare className="w-4 h-4" /> Enviar Credenciales por WhatsApp ({createdResidentCreds.whatsapp})
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const phone = prompt('Ingrese el número de WhatsApp del residente (ej. 521XXXXXXXXXX):');
+                    if (phone) {
+                      const cleanP = phone.replace(/\D/g, '');
+                      const url = `https://wa.me/${cleanP}?text=${encodeURIComponent(createdResidentCreds.fullMessage)}`;
+                      window.open(url, '_blank');
+                    }
+                  }}
+                  className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-4 rounded-xl transition cursor-pointer shadow-lg text-xs uppercase tracking-wider"
+                >
+                  <MessageSquare className="w-4 h-4" /> Ingresar WhatsApp y Enviar Credenciales
+                </button>
+              )}
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(createdResidentCreds.fullMessage);
+                    setCopiedCredsMsg(true);
+                    setTimeout(() => setCopiedCredsMsg(false), 2500);
+                  }}
+                  className="flex items-center justify-center gap-1.5 py-2.5 px-3 bg-[#24242c] hover:bg-[#2e2e38] text-slate-200 border border-slate-700 rounded-xl transition font-semibold text-xs cursor-pointer"
+                >
+                  {copiedCredsMsg ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-400" /> ¡Copiado al Portapapeles!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5 text-slate-400" /> Copiar Datos y Link
+                    </>
+                  )}
+                </button>
+
+                <a
+                  href={createdResidentCreds.portalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-1.5 py-2.5 px-3 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/40 rounded-xl transition font-semibold text-xs cursor-pointer"
+                >
+                  <ExternalLink className="w-3.5 h-3.5 text-blue-400" /> Probar App Móvil
+                </a>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setCreatedResidentCreds(null)}
+                className="w-full py-2.5 bg-transparent hover:bg-slate-800/50 text-slate-400 hover:text-white rounded-xl transition text-xs font-semibold cursor-pointer text-center"
+              >
+                Cerrar Ventana
               </button>
             </div>
           </div>

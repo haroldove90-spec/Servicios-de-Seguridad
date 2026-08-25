@@ -219,9 +219,12 @@ export default function RolesManager({
     loadRoles();
     onRolesUpdated();
     
-    // If a new employee is registered, trigger the exclusive credentials dialog
+    // If a new employee or resident is registered, trigger the exclusive credentials dialog
     if (!editingUid) {
-      const appUrl = window.location.origin || 'https://servicios-de-seguridad.vercel.app/';
+      const baseAppUrl = `${window.location.origin}${window.location.pathname}`;
+      const roleParam = payload.role === SystemUserRole.RESIDENTE ? 'residente' : payload.role.toLowerCase();
+      const userParam = payload.username || payload.email || '';
+      const appUrl = `${baseAppUrl}?role=${encodeURIComponent(roleParam)}&user=${encodeURIComponent(userParam)}`;
       const cleanPhone = payload.phone ? payload.phone.replace(/[^0-9]/g, '') : '';
       
       const assignedTarget = [
@@ -229,7 +232,11 @@ export default function RolesManager({
         payload.casetaNombre ? `Caseta: ${payload.casetaNombre}` : null
       ].filter(Boolean).join(' | ') || 'Administración / Caseta General 🏢';
 
-      const templateMsg = `🔐 *SISTEMA DE SEGURIDAD DIGITAL - CONTROL DE ACCESOS*\n\nHola *${payload.name}*,\nTe damos la bienvenida al panel oficial de control de accesos. Tus credenciales de ingreso son:\n\n👤 *Usuario*: ${payload.username || '(Utilizar Correo)'}\n✉️ *Correo*: ${payload.email}\n🔑 *Contraseña asignada*: ${payload.password || '(Sin contraseña)'}\n🏠 *Asignación*: ${assignedTarget}\n\n🔗 *Link de acceso directo al Panel*:\n${appUrl}\n\nFavor de resguardar esta información de forma confidencial.`;
+      const isResd = payload.role === SystemUserRole.RESIDENTE;
+      const templateMsg = isResd
+        ? `🏠 *CREDENCIALES DE ACCESO RESIDENCIAL*\n\nHola *${payload.name}*,\nTe damos la bienvenida a la aplicación de residentes. Tus credenciales de autogestión son:\n\n👤 *Usuario*: ${payload.username || payload.email}\n🔑 *Contraseña*: ${payload.password || '(Sin contraseña)'}\n🏡 *Fraccionamiento*: ${assignedTarget}\n\n📲 *Link de acceso a la App Móvil / Perfil*:\n${appUrl}\n\nFavor de resguardar esta información.`
+        : `🔐 *SISTEMA DE SEGURIDAD DIGITAL - CONTROL DE ACCESOS*\n\nHola *${payload.name}*,\nTe damos la bienvenida al panel oficial de control de accesos. Tus credenciales de ingreso son:\n\n👤 *Usuario*: ${payload.username || '(Utilizar Correo)'}\n✉️ *Correo*: ${payload.email}\n🔑 *Contraseña asignada*: ${payload.password || '(Sin contraseña)'}\n🏠 *Asignación*: ${assignedTarget}\n\n🔗 *Link de acceso directo al Panel*:\n${appUrl}\n\nFavor de resguardar esta información de forma confidencial.`;
+      
       const whatsappUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(templateMsg)}` : '';
 
       setNewCreatedCreds({
@@ -237,7 +244,7 @@ export default function RolesManager({
         usuario: payload.username || '(Utilizar Correo)',
         correo: payload.email,
         contrasena: payload.password || '(Sin contraseña)',
-        rol: payload.role === SystemUserRole.ADMIN ? 'Director Administrador 🛡️' : 'Oficial de Seguridad / Caseta 👮',
+        rol: payload.role === SystemUserRole.ADMIN ? 'Director Administrador 🛡️' : payload.role === SystemUserRole.RESIDENTE ? 'Residente Autogestión 🏡' : 'Oficial de Seguridad / Caseta 👮',
         residencia: assignedTarget,
         url: appUrl,
         whatsappUrl: whatsappUrl,

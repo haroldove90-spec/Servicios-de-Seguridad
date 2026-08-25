@@ -22,6 +22,12 @@ export default function AuditLogs({ logs: rawLogs, onRefresh, currentUser }: Aud
   const [residencias, setResidencias] = useState<Residencia[]>([]);
 
   useEffect(() => {
+    if (currentUser?.residenciaId) {
+      setSelectedFraccionamiento(currentUser.residenciaId);
+    }
+  }, [currentUser?.residenciaId]);
+
+  useEffect(() => {
     const fetchResidencias = async () => {
       try {
         const list = await dbService.getResidencias();

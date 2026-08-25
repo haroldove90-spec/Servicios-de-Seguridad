@@ -103,6 +103,9 @@ export function normalizeResidentRow(raw: any): Residente {
 
 export function normalizeLogRow(raw: any): AccessLog {
   if (!raw) return raw;
+  const resId = raw.residenciaId ?? raw.residencia_id ?? raw.residenciaid;
+  const resNombre = raw.residenciaNombre ?? raw.residencia_nombre ?? raw.residencianombre;
+
   return {
     id: raw.id,
     userId: raw.userId ?? raw.user_id ?? raw.userid,
@@ -113,8 +116,8 @@ export function normalizeLogRow(raw: any): AccessLog {
     status: raw.status,
     guardId: raw.guardId ?? raw.guard_id ?? raw.guardid,
     guardName: raw.guardName ?? raw.guard_name ?? raw.guardname,
-    residenciaId: raw.residenciaId ?? raw.residencia_id ?? raw.residenciaid,
-    residenciaNombre: raw.residenciaNombre ?? raw.residencia_nombre ?? raw.residencianombre,
+    residenciaId: resId || undefined,
+    residenciaNombre: resNombre || undefined,
     casetaId: raw.casetaId ?? raw.caseta_id ?? raw.casetaid,
     casetaNombre: raw.casetaNombre ?? raw.caseta_nombre ?? raw.casetanombre
   };
@@ -730,6 +733,10 @@ const LocalDB = {
           status: LogStatus.SUCCESS,
           guardId: 'guard-demo-uid',
           guardName: 'Guardia Pérez',
+          residenciaId: 'res-demo-1',
+          residenciaNombre: 'Lomas de Chapultepec',
+          casetaId: 'cas-demo-1',
+          casetaNombre: 'Caseta Principal Norte'
         },
         {
           id: 'log-demo-2',
@@ -741,6 +748,10 @@ const LocalDB = {
           status: LogStatus.EXPIRED_TOKEN,
           guardId: 'guard-demo-uid',
           guardName: 'Guardia Pérez',
+          residenciaId: 'res-demo-1',
+          residenciaNombre: 'Lomas de Chapultepec',
+          casetaId: 'cas-demo-1',
+          casetaNombre: 'Caseta Principal Norte'
         },
         {
           id: 'log-demo-3',
@@ -752,6 +763,10 @@ const LocalDB = {
           status: LogStatus.SUCCESS,
           guardId: 'guard-demo-uid',
           guardName: 'Guardia Pérez',
+          residenciaId: 'res-demo-1',
+          residenciaNombre: 'Lomas de Chapultepec',
+          casetaId: 'cas-demo-1',
+          casetaNombre: 'Caseta Principal Norte'
         },
         {
           id: 'log-demo-4',
@@ -763,6 +778,10 @@ const LocalDB = {
           status: LogStatus.SUCCESS,
           guardId: 'guard-demo-uid',
           guardName: 'Guardia Pérez',
+          residenciaId: 'res-demo-1',
+          residenciaNombre: 'Lomas de Chapultepec',
+          casetaId: 'cas-demo-1',
+          casetaNombre: 'Caseta Principal Norte'
         },
         {
           id: 'log-demo-5',
@@ -774,6 +793,10 @@ const LocalDB = {
           status: LogStatus.ALREADY_USED,
           guardId: 'supervisor-demo-uid',
           guardName: 'Elena Rostova',
+          residenciaId: 'res-demo-1',
+          residenciaNombre: 'Lomas de Chapultepec',
+          casetaId: 'cas-demo-1',
+          casetaNombre: 'Caseta Principal Norte'
         },
         {
           id: 'log-demo-6',
@@ -785,6 +808,10 @@ const LocalDB = {
           status: LogStatus.OUTSIDE_SCHEDULE,
           guardId: 'guard-demo-uid',
           guardName: 'Guardia Pérez',
+          residenciaId: 'res-demo-1',
+          residenciaNombre: 'Lomas de Chapultepec',
+          casetaId: 'cas-demo-1',
+          casetaNombre: 'Caseta Principal Norte'
         }
       ];
       localStorage.setItem(LS_LOGS_KEY, JSON.stringify(demoLogs));
