@@ -39,11 +39,14 @@ export default function AuditLogs({ logs: rawLogs, onRefresh, currentUser }: Aud
     fetchResidencias();
   }, []);
 
-  // Filter rawLogs based on fraccionamiento boundary
+  // Filter rawLogs based on fraccionamiento boundary strictly
+  const effectiveFraccionamiento = currentUser?.residenciaId || selectedFraccionamiento;
+
   const logs = rawLogs.filter(l => {
-    if (selectedFraccionamiento === 'all') return true;
-    return l.residenciaId === selectedFraccionamiento || 
-           (l.residenciaNombre && l.residenciaNombre.toLowerCase() === selectedFraccionamiento.toLowerCase());
+    if (effectiveFraccionamiento === 'all') return true;
+    const matchId = l.residenciaId && l.residenciaId === effectiveFraccionamiento;
+    const matchName = l.residenciaNombre && l.residenciaNombre.toLowerCase() === effectiveFraccionamiento.toLowerCase();
+    return matchId || matchName;
   });
 
   // Multi-criteria filtering logic
@@ -105,7 +108,7 @@ export default function AuditLogs({ logs: rawLogs, onRefresh, currentUser }: Aud
     // Temporary anchor execution for download
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `bitacora_${selectedFraccionamiento !== 'all' ? selectedFraccionamiento : 'global'}_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `bitacora_${effectiveFraccionamiento !== 'all' ? effectiveFraccionamiento : 'global'}_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -150,7 +153,7 @@ export default function AuditLogs({ logs: rawLogs, onRefresh, currentUser }: Aud
           </div>
           <p className="text-2xl font-bold text-white mt-2 font-mono">{totalScans}</p>
           <p className="text-[10px] text-slate-500 mt-0.5">
-            {selectedFraccionamiento !== 'all' ? 'En este fraccionamiento' : 'Historial acumulado global'}
+            {effectiveFraccionamiento !== 'all' ? 'En este fraccionamiento' : 'Historial acumulado global'}
           </p>
         </div>
 

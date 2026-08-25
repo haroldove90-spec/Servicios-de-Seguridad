@@ -185,10 +185,11 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
     try {
       const logs = await dbService.getAccessLogs();
       const guardResId = currentGuardRef.current?.residenciaId || currentGuard?.residenciaId;
+      const guardResNombre = currentGuardRef.current?.residenciaNombre || currentGuard?.residenciaNombre;
       
-      // Filter by fraccionamiento if guard/caseta belongs to one
+      // Filter strictly by fraccionamiento if guard/caseta belongs to one
       const relevantLogs = guardResId 
-        ? logs.filter(l => !l.residenciaId || l.residenciaId === guardResId)
+        ? logs.filter(l => l.residenciaId === guardResId || (guardResNombre && l.residenciaNombre && l.residenciaNombre.toLowerCase() === guardResNombre.toLowerCase()))
         : logs;
 
       const latestLogsMap: { [userId: string]: AccessLog } = {};
@@ -222,8 +223,8 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
       const allUsers = await dbService.getAuthorizedUsers();
       const userObj = allUsers.find(u => u.id === userId);
       if (userObj) {
-        userResId = userObj.residenciaId || userResId;
-        userResNombre = userObj.residenciaNombre || userResNombre;
+        userResId = activeGuard?.residenciaId || userObj.residenciaId || userResId;
+        userResNombre = activeGuard?.residenciaNombre || userObj.residenciaNombre || userResNombre;
       }
     } catch (e) {}
 
@@ -251,10 +252,11 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
     try {
       const logs = await dbService.getAccessLogs();
       const guardResId = currentGuardRef.current?.residenciaId || currentGuard?.residenciaId;
+      const guardResNombre = currentGuardRef.current?.residenciaNombre || currentGuard?.residenciaNombre;
       
-      // Filter by fraccionamiento if guard/caseta belongs to one
+      // Filter strictly by fraccionamiento if guard/caseta belongs to one
       const relevantLogs = guardResId 
-        ? logs.filter(l => !l.residenciaId || l.residenciaId === guardResId)
+        ? logs.filter(l => l.residenciaId === guardResId || (guardResNombre && l.residenciaNombre && l.residenciaNombre.toLowerCase() === guardResNombre.toLowerCase()))
         : logs;
 
       const sorted = relevantLogs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());

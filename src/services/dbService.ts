@@ -1874,6 +1874,28 @@ export const dbService = {
           }
         } catch (e) {}
       }
+
+      if (!resolvedResId || !resolvedResNombre) {
+        try {
+          const roles = LocalDB.getRoles();
+          const gMatched = roles.find(r => r.uid === log.guardId || (log.guardName && r.name === log.guardName));
+          if (gMatched && gMatched.residenciaId) {
+            resolvedResId = resolvedResId || gMatched.residenciaId;
+            resolvedResNombre = resolvedResNombre || gMatched.residenciaNombre;
+          }
+        } catch (e) {}
+      }
+
+      if (!resolvedResId || !resolvedResNombre) {
+        try {
+          const casetas = LocalDB.getCasetas();
+          const cMatched = casetas.find(c => c.id === log.casetaId || c.nombre === log.casetaNombre);
+          if (cMatched && cMatched.residenciaId) {
+            resolvedResId = resolvedResId || cMatched.residenciaId;
+            resolvedResNombre = resolvedResNombre || cMatched.residenciaNombre;
+          }
+        } catch (e) {}
+      }
     }
 
     const id = 'log_' + generateId();

@@ -1002,23 +1002,49 @@ export default function CondominiosDashboard({ currentUser, onSignOut, initialSu
   const [readBulletins, setReadBulletins] = useState<Record<string, boolean>>({});
 
   // 11. Guardia Bitácora & Visitas Pendientes del Día
-  const [bitacoraGuardia, setBitacoraGuardia] = useState<BitacoraGuardia[]>([
-    { id: 'bit-1', guardiaNombre: 'Oficial Roberto Sánchez', tipo: 'Cambio de Turno', descripcion: 'Recibe turno sin novedades en caseta. Equipos de cómputo e interfón operando 100%.', fechaHora: '2026-07-26 08:00' },
-    { id: 'bit-2', guardiaNombre: 'Oficial Roberto Sánchez', tipo: 'Rondín de Seguridad', descripcion: 'Rondín en perímetro norte y alberca. Puertas cerradas, bombas operando.', fechaHora: '2026-07-26 10:30' },
-    { id: 'bit-3', guardiaNombre: 'Oficial Roberto Sánchez', tipo: 'Novedad', descripcion: 'Ingresa proveedor de internet en camioneta placas ABC-123. Se verifica INE.', fechaHora: '2026-07-26 11:45' },
-  ]);
+  const condoStorageScope = currentUser?.residenciaId || 'general';
+
+  const [bitacoraGuardia, setBitacoraGuardia] = useState<BitacoraGuardia[]>(() => {
+    try {
+      const saved = localStorage.getItem(`cnls_bitacora_${currentUser?.residenciaId || 'general'}`);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return [
+      { id: 'bit-1', guardiaNombre: 'Oficial Roberto Sánchez', tipo: 'Cambio de Turno', descripcion: 'Recibe turno sin novedades en caseta. Equipos de cómputo e interfón operando 100%.', fechaHora: '2026-07-26 08:00' },
+      { id: 'bit-2', guardiaNombre: 'Oficial Roberto Sánchez', tipo: 'Rondín de Seguridad', descripcion: 'Rondín en perímetro norte y alberca. Puertas cerradas, bombas operando.', fechaHora: '2026-07-26 10:30' },
+      { id: 'bit-3', guardiaNombre: 'Oficial Roberto Sánchez', tipo: 'Novedad', descripcion: 'Ingresa proveedor de internet en camioneta placas ABC-123. Se verifica INE.', fechaHora: '2026-07-26 11:45' },
+    ];
+  });
   const [newBitTipo, setNewBitTipo] = useState<'Novedad' | 'Rondín de Seguridad' | 'Cambio de Turno' | 'Incidencia'>('Novedad');
   const [newBitDesc, setNewBitDesc] = useState('');
 
-  const [visitasPendientes, setVisitasPendientes] = useState<VisitaPendiente[]>([
-    { id: 'vis-1', visitanteNombre: 'Carlos Ortiz', condoDestino: 'Torre A - Depto 102', tipoVisita: 'Invitado', placas: 'GTO-901-B', estatus: 'en_espera', tieneRestriccionMoroso: false },
-    { id: 'vis-2', visitanteNombre: 'Técnico de Izzi Telecom', condoDestino: 'Torre B - Depto 201', tipoVisita: 'Proveedor', placas: 'MEX-112-C', estatus: 'en_espera', tieneRestriccionMoroso: true },
-    { id: 'vis-3', visitanteNombre: 'Lucía Fernández', condoDestino: 'Cluster Lote 12', tipoVisita: 'Invitado', placas: 'JAL-445-A', estatus: 'ingresado', tieneRestriccionMoroso: false },
-  ]);
+  const [visitasPendientes, setVisitasPendientes] = useState<VisitaPendiente[]>(() => {
+    try {
+      const saved = localStorage.getItem(`cnls_visitas_${currentUser?.residenciaId || 'general'}`);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return [
+      { id: 'vis-1', visitanteNombre: 'Carlos Ortiz', condoDestino: 'Torre A - Depto 102', tipoVisita: 'Invitado', placas: 'GTO-901-B', estatus: 'en_espera', tieneRestriccionMoroso: false },
+      { id: 'vis-2', visitanteNombre: 'Técnico de Izzi Telecom', condoDestino: 'Torre B - Depto 201', tipoVisita: 'Proveedor', placas: 'MEX-112-C', estatus: 'en_espera', tieneRestriccionMoroso: true },
+      { id: 'vis-3', visitanteNombre: 'Lucía Fernández', condoDestino: 'Cluster Lote 12', tipoVisita: 'Invitado', placas: 'JAL-445-A', estatus: 'ingresado', tieneRestriccionMoroso: false },
+    ];
+  });
   const [searchVisitaQuery, setSearchVisitaQuery] = useState('');
   const [newVisNombre, setNewVisNombre] = useState('');
   const [newVisDestino, setNewVisDestino] = useState('');
   const [newVisPlacas, setNewVisPlacas] = useState('');
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(`cnls_bitacora_${condoStorageScope}`, JSON.stringify(bitacoraGuardia));
+    } catch (e) {}
+  }, [bitacoraGuardia, condoStorageScope]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(`cnls_visitas_${condoStorageScope}`, JSON.stringify(visitasPendientes));
+    } catch (e) {}
+  }, [visitasPendientes, condoStorageScope]);
 
   // Handlers for new modules
   const handleAddEstructura = (e: React.FormEvent) => {
