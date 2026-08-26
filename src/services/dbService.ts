@@ -270,6 +270,20 @@ export function toSnakeCaseKeys(obj: any): any {
   return newObj;
 }
 
+function pruneKeyAllVariants(obj: any, keyName: string): boolean {
+  if (!keyName || !obj) return false;
+  let modified = false;
+  const cleanKey = keyName.toLowerCase().replace(/[^a-z0-9]/g, '');
+  for (const k of Object.keys(obj)) {
+    const normK = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (k === keyName || normK === cleanKey) {
+      delete obj[k];
+      modified = true;
+    }
+  }
+  return modified;
+}
+
 export function extractMissingColumn(code: string, message: string): string | null {
   if (!message) return null;
   
@@ -340,7 +354,7 @@ export async function robustSupabaseInsert(tableName: string, camelPayload: any)
     }
   }
 
-  const maxAttempts = 10;
+  const maxAttempts = 6;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       // 1. Try writing directly
@@ -357,8 +371,19 @@ export async function robustSupabaseInsert(tableName: string, camelPayload: any)
         return { data: null, error };
       }
 
-      console.warn(`[Supabase Insert Attempt ${attempt}] failed on ${tableName}. Code: ${error.code}, Message: ${error.message}`);
+      console.warn(`[Supabase Insert Attempt ${attempt}] on ${tableName}. Code: ${error.code}, Message: ${error.message}`);
       
+      // If record already exists (duplicate key error 23505), try upserting
+      if (error.code === '23505' || (error.message && error.message.toLowerCase().includes('duplicate key'))) {
+        const { data: upsertData, error: upsertErr } = await supabase
+          .from(tableName)
+          .upsert(payload)
+          .select();
+        if (!upsertErr) {
+          return { data: upsertData, error: null };
+        }
+      }
+
       // Foreign Key Constraint Error (e.g. 23503 or foreign key constraint violation)
       if (error.code === '23503' || (error.message && error.message.toLowerCase().includes('foreign key constraint'))) {
         const fkMatch = error.message.match(/Key \(([^)]+)\)=\(([^)]+)\)/i) || error.message.match(/constraint "([^"]+)"/i);
@@ -367,41 +392,38 @@ export async function robustSupabaseInsert(tableName: string, camelPayload: any)
           fkCol = fkMatch[1];
         }
         
-        if (fkCol && fkCol in payload) {
-          console.log(`Self-healing insert: Nullifying invalid foreign key "${fkCol}" from ${tableName} payload.`);
-          payload[fkCol] = null;
-          continue;
-        } else {
-          // Nullify common foreign key fields if specific field was not extracted
-          let nullifiedAny = false;
+        let nullified = false;
+        if (fkCol) {
+          nullified = pruneKeyAllVariants(payload, fkCol);
+        }
+        if (!nullified) {
           ['user_id', 'userId', 'residenciaId', 'residencia_id', 'residenteId', 'residente_id', 'accessUserId', 'access_user_id', 'guard_id', 'guardId', 'caseta_id', 'casetaId'].forEach(fkKey => {
             if (payload[fkKey] !== null && payload[fkKey] !== undefined) {
               payload[fkKey] = null;
-              nullifiedAny = true;
+              nullified = true;
             }
           });
-          if (nullifiedAny) continue;
         }
+        if (nullified) continue;
       }
 
       // If code is 42703 (undefined_column) or code is PGRST204 (column missing from cache) or message specifies a missing column
       if (error.code === '42703' || error.code === 'PGRST204' || (error.message && error.message.toLowerCase().includes('column'))) {
         const badCol = extractMissingColumn(error.code, error.message);
         if (badCol) {
-          console.log(`Self-healing insert: Pruning missing column "${badCol}" from ${tableName} payload.`);
-          delete payload[badCol];
-          continue;
-        } else {
-          // Fallback to lowercased keys or snake_cased keys as retry options if first failed
-          if (attempt === 1) {
-            console.log(`Retrying insertion using snake_case keys conversion...`);
-            payload = toSnakeCaseKeys(camelPayload);
-            continue;
-          } else if (attempt === 2) {
-            console.log(`Retrying insertion using lowercase keys conversion...`);
-            payload = toLowercaseKeys(camelPayload);
+          const removed = pruneKeyAllVariants(payload, badCol);
+          if (removed) {
+            console.log(`Self-healing insert: Pruned column "${badCol}" variants from ${tableName} payload.`);
             continue;
           }
+        }
+        
+        if (attempt === 1) {
+          payload = toSnakeCaseKeys(camelPayload);
+          continue;
+        } else if (attempt === 2) {
+          payload = toLowercaseKeys(camelPayload);
+          continue;
         }
       }
       
@@ -414,7 +436,7 @@ export async function robustSupabaseInsert(tableName: string, camelPayload: any)
       return { data: null, error: err };
     }
   }
-  return { data: null, error: { message: 'Max self-healing database insert attempts reached' } };
+  return { data: null, error: { message: `No se pudo insertar en ${tableName} tras varios intentos` } };
 }
 
 export async function robustSupabaseUpdate(tableName: string, camelUpdates: any, idKey: string, idVal: string) {
@@ -1854,13 +1876,13 @@ export const dbService = {
       for (const item of missingInSupabase) {
         const payload = {
           id: item.id,
-          user_id: item.userId || 'unregistered',
+          user_id: item.userId || null,
           user_name: item.userName || 'Usuario',
           document_id: item.documentId || 'N/A',
-          timestamp: item.timestamp,
-          type: item.type,
-          status: item.status,
-          guard_id: item.guardId || 'anonymous-guard',
+          timestamp: item.timestamp || new Date().toISOString(),
+          type: item.type || 'check-in',
+          status: item.status || 'success',
+          guard_id: item.guardId || null,
           guard_name: item.guardName || 'Guardia de Seguridad',
           residencia_id: item.residenciaId || null,
           residencia_nombre: item.residenciaNombre || null,
@@ -1868,10 +1890,11 @@ export const dbService = {
           caseta_nombre: item.casetaNombre || null
         };
 
-        const res = await robustSupabaseInsert('access_logs', payload);
+        const res = await robustSupabaseUpsert('access_logs', payload);
         if (res.error) {
           errorCount++;
-          if (errors.length < 3) errors.push(res.error.message || 'Error desconocido');
+          const msg = res.error.message || 'Error al guardar registro';
+          if (!errors.includes(msg) && errors.length < 3) errors.push(msg);
         } else {
           syncedCount++;
         }

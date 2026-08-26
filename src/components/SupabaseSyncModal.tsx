@@ -60,6 +60,8 @@ export const SupabaseSyncModal: React.FC<SupabaseSyncModalProps> = ({
     message: ''
   });
 
+  const [testNotice, setTestNotice] = useState<{ isSuccess: boolean; text: string } | null>(null);
+
   useEffect(() => {
     if (isOpen) {
       runHealthCheck();
@@ -68,6 +70,7 @@ export const SupabaseSyncModal: React.FC<SupabaseSyncModalProps> = ({
 
   const runHealthCheck = async () => {
     setIsTesting(true);
+    setTestNotice(null);
     try {
       const res = await dbService.testSupabaseConnection();
       const localLogs = (dbService as any).getLocalLogsCount ? (dbService as any).getLocalLogsCount() : 0;
@@ -80,6 +83,18 @@ export const SupabaseSyncModal: React.FC<SupabaseSyncModalProps> = ({
         error: res.error,
         lastChecked: new Date().toLocaleTimeString()
       });
+
+      if (res.isConnected) {
+        setTestNotice({
+          isSuccess: true,
+          text: `🟢 Diagnóstico exitoso: Supabase en línea (${res.latencyMs}ms). ${res.totalAccessLogsInSupabase || 0} registros en tabla access_logs.`
+        });
+      } else {
+        setTestNotice({
+          isSuccess: false,
+          text: `🔴 Diagnóstico: No se pudo contactar Supabase. ${res.error || 'Verifica tu red o credenciales.'}`
+        });
+      }
     } catch (e: any) {
       setHealthStatus(prev => ({
         ...prev,
@@ -87,6 +102,10 @@ export const SupabaseSyncModal: React.FC<SupabaseSyncModalProps> = ({
         error: e?.message || 'Error al conectar con Supabase',
         lastChecked: new Date().toLocaleTimeString()
       }));
+      setTestNotice({
+        isSuccess: false,
+        text: `🔴 Diagnóstico: ${e?.message || 'Error de conexión'}`
+      });
     } finally {
       setIsTesting(false);
     }
@@ -435,6 +454,30 @@ CREATE POLICY "Permitir eliminación de alertas" ON public.alertas_panico FOR DE
                     <p className="font-bold">{syncResult.message}</p>
                     {syncResult.details && <p className="opacity-90 leading-relaxed">{syncResult.details}</p>}
                   </div>
+                </div>
+              )}
+
+              {/* Instant Test Connection Notice Banner */}
+              {testNotice && (
+                <div
+                  className={`p-3.5 rounded-xl border flex items-center gap-2.5 text-xs font-semibold animate-in fade-in duration-200 ${
+                    testNotice.isSuccess
+                      ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
+                      : 'bg-red-500/10 border-red-500/20 text-red-300'
+                  }`}
+                >
+                  {testNotice.isSuccess ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                  )}
+                  <span className="flex-1">{testNotice.text}</span>
+                  <button
+                    onClick={() => setTestNotice(null)}
+                    className="text-slate-400 hover:text-white p-1 rounded transition"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               )}
 
