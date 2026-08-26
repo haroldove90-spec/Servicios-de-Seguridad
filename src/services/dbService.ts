@@ -1753,6 +1753,167 @@ export const dbService = {
   // --------------------------------------------------
   // Access Logs Management (Check-in / Check-out Audits)
   // --------------------------------------------------
+  getLocalLogsCount(): number {
+    try {
+      return LocalDB.getLogs().length;
+    } catch (e) {
+      return 0;
+    }
+  },
+
+  async testSupabaseConnection(): Promise<{
+    isConnected: boolean;
+    latencyMs: number;
+    canWriteAccessLogs: boolean;
+    totalAccessLogsInSupabase: number;
+    error?: string;
+  }> {
+    supabaseRecursionBlocked = false;
+    const startTime = performance.now();
+    try {
+      // 1. Try reading access_logs from Supabase
+      const { data, error } = await supabase
+        .from('access_logs')
+        .select('id')
+        .limit(1);
+
+      const latencyMs = Math.round(performance.now() - startTime);
+
+      if (error) {
+        return {
+          isConnected: false,
+          latencyMs,
+          canWriteAccessLogs: false,
+          totalAccessLogsInSupabase: 0,
+          error: `Error de Supabase [${error.code || 'ERR'}]: ${error.message}`
+        };
+      }
+
+      // 2. Count total records
+      const { data: allRows } = await supabase
+        .from('access_logs')
+        .select('id');
+
+      return {
+        isConnected: true,
+        latencyMs,
+        canWriteAccessLogs: true,
+        totalAccessLogsInSupabase: allRows ? allRows.length : (data ? data.length : 0)
+      };
+    } catch (err: any) {
+      const latencyMs = Math.round(performance.now() - startTime);
+      return {
+        isConnected: false,
+        latencyMs,
+        canWriteAccessLogs: false,
+        totalAccessLogsInSupabase: 0,
+        error: `Excepción de red o conexión: ${err?.message || String(err)}`
+      };
+    }
+  },
+
+  async syncAccessLogsToSupabase(): Promise<{
+    success: boolean;
+    totalInSupabase: number;
+    syncedCount: number;
+    errorCount: number;
+    errorMsg?: string;
+    details: string;
+    latencyMs: number;
+  }> {
+    supabaseRecursionBlocked = false;
+    const startTime = performance.now();
+    try {
+      // 1. Fetch all local logs
+      const localLogs = LocalDB.getLogs();
+
+      // 2. Query existing IDs from Supabase
+      const { data: remoteData, error: readErr } = await supabase
+        .from('access_logs')
+        .select('id');
+
+      if (readErr) {
+        return {
+          success: false,
+          totalInSupabase: 0,
+          syncedCount: 0,
+          errorCount: localLogs.length,
+          errorMsg: `No se pudo conectar a la tabla access_logs en Supabase: ${readErr.message} (Código: ${readErr.code})`,
+          details: 'Asegúrate de haber creado la tabla y configurado las políticas RLS en Supabase.',
+          latencyMs: Math.round(performance.now() - startTime)
+        };
+      }
+
+      const existingRemoteIds = new Set<string>((remoteData || []).map((r: any) => r.id));
+      const missingInSupabase = localLogs.filter(l => l.id && !existingRemoteIds.has(l.id));
+
+      let syncedCount = 0;
+      let errorCount = 0;
+      const errors: string[] = [];
+
+      for (const item of missingInSupabase) {
+        const payload = {
+          id: item.id,
+          user_id: item.userId || 'unregistered',
+          user_name: item.userName || 'Usuario',
+          document_id: item.documentId || 'N/A',
+          timestamp: item.timestamp,
+          type: item.type,
+          status: item.status,
+          guard_id: item.guardId || 'anonymous-guard',
+          guard_name: item.guardName || 'Guardia de Seguridad',
+          residencia_id: item.residenciaId || null,
+          residencia_nombre: item.residenciaNombre || null,
+          caseta_id: item.casetaId || null,
+          caseta_nombre: item.casetaNombre || null
+        };
+
+        const res = await robustSupabaseInsert('access_logs', payload);
+        if (res.error) {
+          errorCount++;
+          if (errors.length < 3) errors.push(res.error.message || 'Error desconocido');
+        } else {
+          syncedCount++;
+        }
+      }
+
+      // 3. Fetch latest full remote dataset and refresh LocalDB
+      const { data: freshRemote } = await supabase
+        .from('access_logs')
+        .select('*')
+        .order('timestamp', { ascending: false });
+
+      if (freshRemote && freshRemote.length > 0) {
+        const normalized = freshRemote.map(normalizeLogRow);
+        LocalDB.saveLogs(normalized);
+      }
+
+      const latencyMs = Math.round(performance.now() - startTime);
+      const totalInSupabase = (freshRemote ? freshRemote.length : (remoteData ? remoteData.length + syncedCount : 0));
+
+      return {
+        success: errorCount === 0,
+        totalInSupabase,
+        syncedCount,
+        errorCount,
+        errorMsg: errorCount > 0 ? `Se presentaron ${errorCount} advertencias: ${errors.join(', ')}` : undefined,
+        details: `Sincronización finalizada. ${syncedCount} registros subidos a Supabase. Total en la nube: ${totalInSupabase}.`,
+        latencyMs
+      };
+    } catch (err: any) {
+      const latencyMs = Math.round(performance.now() - startTime);
+      return {
+        success: false,
+        totalInSupabase: 0,
+        syncedCount: 0,
+        errorCount: 1,
+        errorMsg: `Excepción inesperada al sincronizar: ${err?.message || String(err)}`,
+        details: 'Ocurrió un error al contactar el servidor de Supabase.',
+        latencyMs
+      };
+    }
+  },
+
   async getAccessLogs(): Promise<AccessLog[]> {
     let remoteLogs: AccessLog[] = [];
     if (!supabaseRecursionBlocked) {
@@ -1807,8 +1968,8 @@ export const dbService = {
       if (seenIds.has(item.id)) continue;
       seenIds.add(item.id);
 
-      // Deduplicate near-identical records created within 3.5 seconds of each other
-      const timeBucket = Math.floor(new Date(item.timestamp || 0).getTime() / 3500);
+      // Deduplicate near-identical records created within 1.5 seconds of each other
+      const timeBucket = Math.floor(new Date(item.timestamp || 0).getTime() / 1500);
       const userKey = item.userId || item.documentId || 'unknown';
       const signature = `${userKey}_${item.type}_${item.status}_${timeBucket}`;
       
@@ -1823,8 +1984,8 @@ export const dbService = {
   },
 
   async createAccessLog(log: Omit<AccessLog, 'id'>): Promise<AccessLog> {
-    // 1. Debounce / Deduplication guard: Prevent duplicate/triplicate entries created within 4.5 seconds
-    const recentCutoff = Date.now() - 4500;
+    // 1. Debounce / Deduplication guard: Prevent duplicate/triplicate entries within 1.2 seconds
+    const recentCutoff = Date.now() - 1200;
     const existingLogs = LocalDB.getLogs();
     const isDuplicate = existingLogs.some(existing => {
       const isSameUser = (existing.userId && log.userId && existing.userId === log.userId) || 
@@ -1835,7 +1996,7 @@ export const dbService = {
     });
 
     if (isDuplicate && existingLogs.length > 0) {
-      console.log('Debounce/Deduplication: Ignored duplicate access log insertion within 4.5s window.');
+      console.log('Debounce/Deduplication: Ignored duplicate access log insertion within 1.2s window.');
       return existingLogs[0];
     }
 
@@ -1906,7 +2067,7 @@ export const dbService = {
       residenciaNombre: resolvedResNombre || undefined
     };
 
-    // 1. Save to LocalDB immediately for instant responsiveness
+    // 1. Save to LocalDB immediately for instant UI feedback
     try {
       const logs = LocalDB.getLogs();
       logs.unshift(newLog);
@@ -1915,45 +2076,42 @@ export const dbService = {
       console.warn('LocalDB saveLogs cache error:', locErr);
     }
 
-    // 2. Perform background remote sync with standard clean payload for Supabase
-    const remoteSync = async () => {
-      const supabasePayload = {
-        id: newLog.id,
-        user_id: newLog.userId || 'unregistered',
-        user_name: newLog.userName || 'Usuario',
-        document_id: newLog.documentId || 'N/A',
-        timestamp: newLog.timestamp,
-        type: newLog.type,
-        status: newLog.status,
-        guard_id: newLog.guardId || 'anonymous-guard',
-        guard_name: newLog.guardName || 'Guardia de Seguridad',
-        residencia_id: newLog.residenciaId || null,
-        residencia_nombre: newLog.residenciaNombre || null,
-        caseta_id: newLog.casetaId || null,
-        caseta_nombre: newLog.casetaNombre || null
-      };
-
-      try {
-        await robustSupabaseInsert('access_logs', supabasePayload);
-      } catch (err) {
-        console.warn('Supabase createAccessLog exception:', err);
-      }
-
-      if (!IS_FIREBASE_DUMMY) {
-        try {
-          const docRef = doc(db, 'access_logs', id);
-          await setDoc(docRef, newLog);
-        } catch (err) {
-          console.warn('Firestore setDoc access_log warning:', err);
-        }
-      }
+    // 2. Perform direct remote sync into Supabase Cloud
+    const supabasePayload = {
+      id: newLog.id,
+      user_id: newLog.userId || 'unregistered',
+      user_name: newLog.userName || 'Usuario',
+      document_id: newLog.documentId || 'N/A',
+      timestamp: newLog.timestamp,
+      type: newLog.type,
+      status: newLog.status,
+      guard_id: newLog.guardId || 'anonymous-guard',
+      guard_name: newLog.guardName || 'Guardia de Seguridad',
+      residencia_id: newLog.residenciaId || null,
+      residencia_nombre: newLog.residenciaNombre || null,
+      caseta_id: newLog.casetaId || null,
+      caseta_nombre: newLog.casetaNombre || null
     };
 
-    // Race remote sync with 1200ms timeout
-    await Promise.race([
-      remoteSync(),
-      new Promise((res) => setTimeout(res, 1200))
-    ]);
+    try {
+      const res = await robustSupabaseInsert('access_logs', supabasePayload);
+      if (res.error) {
+        console.warn('⚠️ Supabase createAccessLog insert notice:', res.error);
+      } else {
+        console.log('✓ Successfully recorded access log into Supabase Cloud table: access_logs');
+      }
+    } catch (err) {
+      console.warn('Supabase createAccessLog exception:', err);
+    }
+
+    if (!IS_FIREBASE_DUMMY) {
+      try {
+        const docRef = doc(db, 'access_logs', id);
+        await setDoc(docRef, newLog);
+      } catch (err) {
+        console.warn('Firestore setDoc access_log warning:', err);
+      }
+    }
 
     return newLog;
   },

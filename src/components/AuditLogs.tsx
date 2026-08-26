@@ -4,9 +4,10 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Download, Search, RefreshCw, Filter, ShieldCheck, Check, X, Clock, HelpCircle, Activity, Building2 } from 'lucide-react';
+import { Download, Search, RefreshCw, Filter, ShieldCheck, Check, X, Clock, HelpCircle, Activity, Building2, Database, AlertTriangle } from 'lucide-react';
 import { AccessLog, LogType, LogStatus, Residencia } from '../types';
 import { dbService } from '../services/dbService';
+import { SupabaseSyncModal } from './SupabaseSyncModal';
 
 interface AuditLogsProps {
   logs: AccessLog[];
@@ -20,6 +21,19 @@ export default function AuditLogs({ logs: rawLogs, onRefresh, currentUser }: Aud
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [selectedFraccionamiento, setSelectedFraccionamiento] = useState<string>(currentUser?.residenciaId || 'all');
   const [residencias, setResidencias] = useState<Residencia[]>([]);
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+  const [supabaseHealth, setSupabaseHealth] = useState<{ isConnected: boolean; latencyMs: number; error?: string } | null>(null);
+
+  useEffect(() => {
+    // Quick background health probe
+    const checkHealth = async () => {
+      try {
+        const res = await dbService.testSupabaseConnection();
+        setSupabaseHealth(res);
+      } catch (e) {}
+    };
+    checkHealth();
+  }, []);
 
   useEffect(() => {
     if (currentUser?.residenciaId) {
@@ -261,6 +275,19 @@ export default function AuditLogs({ logs: rawLogs, onRefresh, currentUser }: Aud
             </div>
 
             <button
+              id="btn-supabase-smart-sync"
+              onClick={() => setIsSyncModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl border transition shadow-xs cursor-pointer bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-300 border-emerald-500/30"
+              title="Panel inteligente de sincronización y estado con Supabase Cloud"
+            >
+              <Database className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Sincronizar Supabase</span>
+              {supabaseHealth && (
+                <span className={`w-2 h-2 rounded-full ${supabaseHealth.isConnected ? 'bg-emerald-400' : 'bg-red-400'}`} />
+              )}
+            </button>
+
+            <button
               id="btn-refresh-audit-trail"
               onClick={onRefresh}
               className="p-2 text-slate-400 bg-[#1A1A1E] hover:bg-zinc-800 border border-[#3e3e42] rounded-lg transition cursor-pointer"
@@ -354,6 +381,13 @@ export default function AuditLogs({ logs: rawLogs, onRefresh, currentUser }: Aud
           <p className="font-mono">BITÁCORA SEGURA</p>
         </div>
       </div>
+
+      {/* Intelligent Supabase Synchronization Modal */}
+      <SupabaseSyncModal
+        isOpen={isSyncModalOpen}
+        onClose={() => setIsSyncModalOpen(false)}
+        onSyncCompleted={onRefresh}
+      />
     </div>
   );
 }

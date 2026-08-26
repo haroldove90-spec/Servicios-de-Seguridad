@@ -7,10 +7,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { motion, AnimatePresence } from 'motion/react';
 import jsQR from 'jsqr';
-import { Camera, CheckCircle, XCircle, AlertTriangle, RefreshCw, Smartphone, Key, Users, HelpCircle, Search, Activity, ShieldAlert, FileText, Download, Trash2 } from 'lucide-react';
+import { Camera, CheckCircle, XCircle, AlertTriangle, RefreshCw, Smartphone, Key, Users, HelpCircle, Search, Activity, ShieldAlert, FileText, Download, Trash2, Database } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { dbService } from '../services/dbService';
 import AlertasPanicoManager from './AlertasPanicoManager';
+import { SupabaseSyncModal } from './SupabaseSyncModal';
 import { 
   AuthorizedUser, 
   AccessLog, 
@@ -38,6 +39,8 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
   // States for scanner
   const [useCamera, setUseCamera] = useState<boolean>(false);
   const [manualToken, setManualToken] = useState<string>('');
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState<boolean>(false);
+  const [supabaseHealth, setSupabaseHealth] = useState<{ isConnected: boolean; latencyMs: number } | null>(null);
   const [scanResult, setScanResult] = useState<{
     success: boolean;
     message: string;
@@ -908,7 +911,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
           status: LogStatus.REVOKED_USER
         };
         setScanResult(result);
-        logScan(matchedUser, LogStatus.REVOKED_USER, detectedType);
+        await logScan(matchedUser, LogStatus.REVOKED_USER, detectedType);
         playUnauthorizedAudio();
         return false;
       }
@@ -921,7 +924,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
           status: LogStatus.EXPIRED_TOKEN
         };
         setScanResult(result);
-        logScan(matchedUser, LogStatus.EXPIRED_TOKEN, detectedType);
+        await logScan(matchedUser, LogStatus.EXPIRED_TOKEN, detectedType);
         playUnauthorizedAudio();
         return false;
       }
@@ -942,7 +945,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
               status: LogStatus.OUTSIDE_SCHEDULE
             };
             setScanResult(result);
-            logScan(matchedUser, LogStatus.OUTSIDE_SCHEDULE, detectedType);
+            await logScan(matchedUser, LogStatus.OUTSIDE_SCHEDULE, detectedType);
             playUnauthorizedAudio();
             return false;
           }
@@ -972,7 +975,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
               status: LogStatus.EXPIRED_TOKEN
             };
             setScanResult(result);
-            logScan(matchedUser, LogStatus.EXPIRED_TOKEN, detectedType);
+            await logScan(matchedUser, LogStatus.EXPIRED_TOKEN, detectedType);
             playUnauthorizedAudio();
             return false;
           }
@@ -996,7 +999,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
             status: LogStatus.OUTSIDE_SCHEDULE
           };
           setScanResult(result);
-          logScan(matchedUser, LogStatus.OUTSIDE_SCHEDULE, detectedType);
+          await logScan(matchedUser, LogStatus.OUTSIDE_SCHEDULE, detectedType);
           playUnauthorizedAudio();
           return false;
         }
@@ -1036,7 +1039,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
               status: LogStatus.OUTSIDE_SCHEDULE
             };
             setScanResult(result);
-            logScan(matchedUser, LogStatus.OUTSIDE_SCHEDULE, detectedType);
+            await logScan(matchedUser, LogStatus.OUTSIDE_SCHEDULE, detectedType);
             playUnauthorizedAudio();
             return false;
           }
@@ -1061,7 +1064,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
           status: LogStatus.ALREADY_USED
         };
         setScanResult(result);
-        logScan(matchedUser, LogStatus.ALREADY_USED, detectedType);
+        await logScan(matchedUser, LogStatus.ALREADY_USED, detectedType);
         playUnauthorizedAudio();
         return false;
       }
@@ -1457,29 +1460,42 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
               </button>
               Interfaz de Validación (Escaneo)
             </h2>
-            <div className="flex bg-[#020617] p-0.5 rounded-lg border border-[#1e293b]">
+            <div className="flex items-center gap-2">
               <button
-                id="toggle-checkin-mode"
-                onClick={() => setValidationType(LogType.CHECK_IN)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
-                  validationType === LogType.CHECK_IN
-                    ? 'bg-slate-800 text-white shadow-xs'
-                    : 'text-slate-400 hover:text-white'
-                }`}
+                id="btn-scanner-supabase-sync"
+                onClick={() => setIsSyncModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg border transition shadow-xs cursor-pointer bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-400 border-emerald-500/30"
+                title="Sincronizar bitácoras y registros con Supabase Cloud"
               >
-                E/Entrada
+                <Database className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="hidden sm:inline">Supabase</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               </button>
-              <button
-                id="toggle-checkout-mode"
-                onClick={() => setValidationType(LogType.CHECK_OUT)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
-                  validationType === LogType.CHECK_OUT
-                    ? 'bg-slate-800 text-white shadow-xs'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                S/Salida
-              </button>
+
+              <div className="flex bg-[#020617] p-0.5 rounded-lg border border-[#1e293b]">
+                <button
+                  id="toggle-checkin-mode"
+                  onClick={() => setValidationType(LogType.CHECK_IN)}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                    validationType === LogType.CHECK_IN
+                      ? 'bg-slate-800 text-white shadow-xs'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  E/Entrada
+                </button>
+                <button
+                  id="toggle-checkout-mode"
+                  onClick={() => setValidationType(LogType.CHECK_OUT)}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                    validationType === LogType.CHECK_OUT
+                      ? 'bg-slate-800 text-white shadow-xs'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  S/Salida
+                </button>
+              </div>
             </div>
           </div>
 
@@ -2352,6 +2368,17 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
           </div>
         </div>
       )}
+
+      {/* Intelligent Supabase Cloud Sync Modal */}
+      <SupabaseSyncModal
+        isOpen={isSyncModalOpen}
+        onClose={() => setIsSyncModalOpen(false)}
+        onSyncCompleted={async () => {
+          await reloadRecentLogs();
+          await reloadOnsitePeople();
+          if (onScanLogged) onScanLogged();
+        }}
+      />
 
       {/* ENLARGED EVIDENCE IMAGE ZOOM LIGHTBOX MODAL */}
       {selectedEvidImage && (
