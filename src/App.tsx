@@ -37,6 +37,7 @@ import VisitasDeResidentes from './components/VisitasDeResidentes';
 import MetricasDashboard from './components/MetricasDashboard';
 import CondominiosDashboard from './components/CondominiosDashboard';
 import AlertasPanicoManager from './components/AlertasPanicoManager';
+import { SupabaseSyncModal } from './components/SupabaseSyncModal';
 import { generateQRWithLogo } from './utils/qrWithLogo';
 import { exportMarbeteToJPG } from './utils/marbeteExporter';
 
@@ -249,6 +250,45 @@ export default function App() {
       window.removeEventListener('offline', handleOffline);
       clearInterval(interval);
     };
+  }, []);
+
+  // Supabase Cloud Real-time Health and Sync Modal State
+  const [isSupabaseSyncModalOpen, setIsSupabaseSyncModalOpen] = useState<boolean>(false);
+  const [supabaseHealth, setSupabaseHealth] = useState<{
+    isConnected: boolean;
+    latencyMs: number;
+    totalAccessLogsInSupabase?: number;
+    error?: string;
+    lastChecked?: string;
+  } | null>(null);
+  const [isCheckingSupabase, setIsCheckingSupabase] = useState<boolean>(false);
+
+  const refreshSupabaseHealth = async () => {
+    setIsCheckingSupabase(true);
+    try {
+      const res = await dbService.testSupabaseConnection();
+      setSupabaseHealth({
+        ...res,
+        lastChecked: new Date().toLocaleTimeString()
+      });
+    } catch (e: any) {
+      setSupabaseHealth({
+        isConnected: false,
+        latencyMs: 0,
+        error: e?.message || 'Error al contactar Supabase Cloud',
+        lastChecked: new Date().toLocaleTimeString()
+      });
+    } finally {
+      setIsCheckingSupabase(false);
+    }
+  };
+
+  useEffect(() => {
+    // Initial probe on startup
+    refreshSupabaseHealth();
+    // Periodic live health check every 25 seconds
+    const healthInterval = setInterval(refreshSupabaseHealth, 25000);
+    return () => clearInterval(healthInterval);
   }, []);
 
   const handleClearSystemCache = () => {
@@ -2184,7 +2224,54 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 font-sans">
+              <div className="flex items-center gap-2.5 font-sans">
+                {/* Semáforo en vivo y Botón Inteligente Supabase (Activado para todos los roles excepto residente/inquilino) */}
+                {!isResidente && (
+                  <button
+                    id="btn-global-supabase-smart-indicator"
+                    onClick={() => setIsSupabaseSyncModalOpen(true)}
+                    className={`group inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition shadow-xs cursor-pointer ${
+                      supabaseHealth?.isConnected
+                        ? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                        : 'bg-red-500/10 hover:bg-red-500/20 text-red-300 border-red-500/30 animate-pulse'
+                    }`}
+                    title={
+                      supabaseHealth?.isConnected
+                        ? `🟢 Base de Datos Supabase Conectada (${supabaseHealth.latencyMs}ms) - Haz clic para sincronizar y ver bitácora`
+                        : `🔴 Base de Datos Supabase Desconectada (${supabaseHealth?.error || 'Error de conexión'}) - Haz clic para ver diagnóstico y solución`
+                    }
+                  >
+                    <div className="flex items-center gap-1.5">
+                      {/* Semáforo en vivo con animación de pulso */}
+                      <span className="relative flex h-2.5 w-2.5">
+                        {supabaseHealth?.isConnected ? (
+                          <>
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+                          </>
+                        )}
+                      </span>
+                      <Database className={`w-3.5 h-3.5 ${supabaseHealth?.isConnected ? 'text-emerald-400' : 'text-red-400'}`} />
+                    </div>
+
+                    <div className="flex flex-col text-left leading-tight hidden xs:flex sm:flex">
+                      <span className="text-[10.5px] font-black uppercase tracking-wider font-mono">
+                        Supabase DB
+                      </span>
+                      <span className="text-[9px] opacity-85 font-normal">
+                        {supabaseHealth?.isConnected 
+                          ? `🟢 En Línea (${supabaseHealth.latencyMs}ms)` 
+                          : '🔴 Desconectado (Clic)'}
+                      </span>
+                    </div>
+                  </button>
+                )}
+
                 {/* Red-colored button for installing the app */}
                 <button
                   id="pwa-header-install-btn"
@@ -3086,6 +3173,16 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* Intelligent Supabase Cloud Database & Sync Diagnosis Modal */}
+      <SupabaseSyncModal
+        isOpen={isSupabaseSyncModalOpen}
+        onClose={() => setIsSupabaseSyncModalOpen(false)}
+        onSyncCompleted={async () => {
+          await refreshSupabaseHealth();
+          reloadAccessLogs();
+        }}
+      />
 
       {/* Offline Internet Connectivity Blocker Overlay */}
       {!isOnline && (

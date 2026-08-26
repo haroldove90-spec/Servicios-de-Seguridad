@@ -277,13 +277,38 @@ export default function AuditLogs({ logs: rawLogs, onRefresh, currentUser }: Aud
             <button
               id="btn-supabase-smart-sync"
               onClick={() => setIsSyncModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl border transition shadow-xs cursor-pointer bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-300 border-emerald-500/30"
-              title="Panel inteligente de sincronización y estado con Supabase Cloud"
+              className={`inline-flex items-center gap-2 px-3 py-2 text-xs font-bold rounded-xl border transition shadow-xs cursor-pointer ${
+                supabaseHealth?.isConnected
+                  ? 'bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-300 border-emerald-500/30'
+                  : 'bg-red-600/15 hover:bg-red-600/25 text-red-300 border-red-500/30 animate-pulse'
+              }`}
+              title={
+                supabaseHealth?.isConnected
+                  ? `🟢 Base de Datos Supabase En Línea (${supabaseHealth.latencyMs}ms) - Clic para sincronizar y ver diagnóstico`
+                  : '🔴 Base de Datos Supabase Desconectada - Clic para ver diagnóstico y solución'
+              }
             >
-              <Database className="w-3.5 h-3.5 text-emerald-400" />
+              <div className="flex items-center gap-1.5">
+                <span className="relative flex h-2 w-2">
+                  {supabaseHealth?.isConnected ? (
+                    <>
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                    </>
+                  )}
+                </span>
+                <Database className={`w-3.5 h-3.5 ${supabaseHealth?.isConnected ? 'text-emerald-400' : 'text-red-400'}`} />
+              </div>
               <span>Sincronizar Supabase</span>
               {supabaseHealth && (
-                <span className={`w-2 h-2 rounded-full ${supabaseHealth.isConnected ? 'bg-emerald-400' : 'bg-red-400'}`} />
+                <span className="text-[10px] opacity-80 font-mono">
+                  {supabaseHealth.isConnected ? `${supabaseHealth.latencyMs}ms` : 'Offline'}
+                </span>
               )}
             </button>
 

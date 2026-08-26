@@ -6,9 +6,11 @@ import {
   Activity, ArrowUpRight, ArrowDownRight, Upload, Globe, RefreshCw, Send, Trash2,
   LogOut, Plus, Search, Filter, Lock, Unlock, Home, Crown, Building2, UserCheck, Smartphone, BadgeCheck,
   CheckCircle2, PackageCheck, Terminal, HelpCircle, LifeBuoy, PieChart, ShieldAlert, FileSpreadsheet, RefreshCcw, Layers,
-  Server, UserX, Menu, X, FileCheck, Wrench, Vote, CheckSquare
+  Server, UserX, Menu, X, FileCheck, Wrench, Vote, CheckSquare, Database
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { dbService } from '../services/dbService';
+import { SupabaseSyncModal } from './SupabaseSyncModal';
 
 interface Payment {
   id: string;
@@ -255,6 +257,32 @@ export default function CondominiosDashboard({ currentUser, onSignOut, initialSu
   const [guardiaTab, setGuardiaTab] = useState<'accesos' | 'paqueteria' | 'bitacora'>('accesos');
   const [superAdminTab, setSuperAdminTab] = useState<'clientes' | 'finanzas' | 'soporte'>('clientes');
   const [isNavOpen, setIsNavOpen] = useState<boolean>(false);
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState<boolean>(false);
+  const [supabaseHealth, setSupabaseHealth] = useState<{
+    isConnected: boolean;
+    latencyMs: number;
+    totalAccessLogsInSupabase?: number;
+    error?: string;
+  } | null>(null);
+
+  const refreshSupabaseHealth = async () => {
+    try {
+      const res = await dbService.testSupabaseConnection();
+      setSupabaseHealth(res);
+    } catch (e: any) {
+      setSupabaseHealth({
+        isConnected: false,
+        latencyMs: 0,
+        error: e?.message || 'Error al contactar Supabase'
+      });
+    }
+  };
+
+  useEffect(() => {
+    refreshSupabaseHealth();
+    const interval = setInterval(refreshSupabaseHealth, 25000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Administrator check for Condominios module
   const isUserAdmin = !currentUser || 
@@ -1581,6 +1609,44 @@ export default function CondominiosDashboard({ currentUser, onSignOut, initialSu
             <span className="text-[11px] font-bold text-purple-400 bg-purple-500/10 px-3 py-1.5 rounded-xl border border-purple-500/20">
               Selección de Roles
             </span>
+          )}
+
+          {/* Semáforo en vivo y Botón Inteligente Supabase (Visible para todos los roles de condominios excepto residente) */}
+          {activeSubSection !== 'residente' && (
+            <button
+              id="btn-condominios-supabase-smart-indicator"
+              onClick={() => setIsSyncModalOpen(true)}
+              className={`group inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition shadow-xs cursor-pointer ${
+                supabaseHealth?.isConnected
+                  ? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                  : 'bg-red-500/10 hover:bg-red-500/20 text-red-300 border-red-500/30 animate-pulse'
+              }`}
+              title={
+                supabaseHealth?.isConnected
+                  ? `🟢 Base de Datos Supabase Conectada (${supabaseHealth.latencyMs}ms) - Haz clic para sincronizar`
+                  : `🔴 Base de Datos Supabase Desconectada (${supabaseHealth?.error || 'Error de conexión'}) - Haz clic para ver diagnóstico`
+              }
+            >
+              <div className="flex items-center gap-1">
+                <span className="relative flex h-2 w-2">
+                  {supabaseHealth?.isConnected ? (
+                    <>
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                    </>
+                  )}
+                </span>
+                <Database className={`w-3.5 h-3.5 ${supabaseHealth?.isConnected ? 'text-emerald-400' : 'text-red-400'}`} />
+              </div>
+              <span className="text-[10px] font-black uppercase tracking-wider font-mono hidden md:inline">
+                {supabaseHealth?.isConnected ? 'Supabase DB' : 'Supabase Error'}
+              </span>
+            </button>
           )}
 
           {activeSubSection !== 'inicio' && isUserAdmin && (
@@ -5462,6 +5528,13 @@ export default function CondominiosDashboard({ currentUser, onSignOut, initialSu
           </div>
         </div>
       )}
+
+      {/* Supabase Cloud Database & Sync Diagnosis Modal */}
+      <SupabaseSyncModal
+        isOpen={isSyncModalOpen}
+        onClose={() => setIsSyncModalOpen(false)}
+        onSyncCompleted={refreshSupabaseHealth}
+      />
 
     </div>
   );

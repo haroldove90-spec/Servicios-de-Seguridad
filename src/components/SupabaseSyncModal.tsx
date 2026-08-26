@@ -238,7 +238,44 @@ CREATE TABLE IF NOT EXISTS public.marbetes (
 );
 
 ALTER TABLE public.marbetes ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Acceso total marbetes" ON public.marbetes FOR ALL TO public USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Acceso total marbetes" ON public.marbetes;
+CREATE POLICY "Acceso total marbetes" ON public.marbetes FOR ALL TO public USING (true) WITH CHECK (true);
+
+-- 6. TABLA DE ALERTAS DE PÁNICO SOS (alertas_panico)
+CREATE TABLE IF NOT EXISTS public.alertas_panico (
+    id TEXT PRIMARY KEY,
+    residencia_id TEXT,
+    residencia_nombre TEXT,
+    usuario_id TEXT,
+    usuario_nombre TEXT NOT NULL DEFAULT 'Usuario',
+    usuario_role TEXT NOT NULL DEFAULT 'residente',
+    usuario_username TEXT,
+    usuario_phone TEXT,
+    usuario_email TEXT,
+    direccion TEXT,
+    latitude DOUBLE PRECISION,
+    longitude DOUBLE PRECISION,
+    google_maps_url TEXT,
+    estado TEXT NOT NULL DEFAULT 'ACTIVA',
+    atendida_por TEXT,
+    atendida_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_alertas_panico_created_at ON public.alertas_panico(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_alertas_panico_estado ON public.alertas_panico(estado);
+CREATE INDEX IF NOT EXISTS idx_alertas_panico_residencia ON public.alertas_panico(residencia_id);
+
+ALTER TABLE public.alertas_panico ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Permitir lectura general de alertas" ON public.alertas_panico;
+DROP POLICY IF EXISTS "Permitir registro de alertas" ON public.alertas_panico;
+DROP POLICY IF EXISTS "Permitir actualización de alertas" ON public.alertas_panico;
+DROP POLICY IF EXISTS "Permitir eliminación de alertas" ON public.alertas_panico;
+
+CREATE POLICY "Permitir lectura general de alertas" ON public.alertas_panico FOR SELECT USING (true);
+CREATE POLICY "Permitir registro de alertas" ON public.alertas_panico FOR INSERT WITH CHECK (true);
+CREATE POLICY "Permitir actualización de alertas" ON public.alertas_panico FOR UPDATE USING (true);
+CREATE POLICY "Permitir eliminación de alertas" ON public.alertas_panico FOR DELETE USING (true);
 `;
 
   const copyToClipboard = () => {

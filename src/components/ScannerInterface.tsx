@@ -98,6 +98,20 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
     return () => clearInterval(interval);
   }, [panicActive]);
 
+  useEffect(() => {
+    const probe = async () => {
+      try {
+        const res = await dbService.testSupabaseConnection();
+        setSupabaseHealth(res);
+      } catch (e) {
+        setSupabaseHealth({ isConnected: false, latencyMs: 0 });
+      }
+    };
+    probe();
+    const interval = setInterval(probe, 25000);
+    return () => clearInterval(interval);
+  }, []);
+
   // States for live bitácora logs and testing filters
   const [recentLogs, setRecentLogs] = useState<AccessLog[]>([]);
   const [recentSearch, setRecentSearch] = useState<string>('');
@@ -1464,12 +1478,25 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
               <button
                 id="btn-scanner-supabase-sync"
                 onClick={() => setIsSyncModalOpen(true)}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg border transition shadow-xs cursor-pointer bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-400 border-emerald-500/30"
-                title="Sincronizar bitácoras y registros con Supabase Cloud"
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg border transition shadow-xs cursor-pointer ${
+                  supabaseHealth?.isConnected
+                    ? 'bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-400 border-emerald-500/30'
+                    : 'bg-red-600/15 hover:bg-red-600/25 text-red-400 border-red-500/30 animate-pulse'
+                }`}
+                title={
+                  supabaseHealth?.isConnected
+                    ? `🟢 Base de Datos Supabase En Línea (${supabaseHealth.latencyMs}ms) - Clic para sincronizar y ver diagnóstico`
+                    : '🔴 Base de Datos Supabase Desconectada - Clic para ver diagnóstico y solución'
+                }
               >
-                <Database className="w-3.5 h-3.5 text-emerald-400" />
+                <Database className={`w-3.5 h-3.5 ${supabaseHealth?.isConnected ? 'text-emerald-400' : 'text-red-400'}`} />
                 <span className="hidden sm:inline">Supabase</span>
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className={`w-2 h-2 rounded-full ${supabaseHealth?.isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-red-500 animate-ping'}`} />
+                {supabaseHealth && (
+                  <span className="text-[10px] opacity-80 hidden md:inline font-mono">
+                    {supabaseHealth.isConnected ? `${supabaseHealth.latencyMs}ms` : 'Offline'}
+                  </span>
+                )}
               </button>
 
               <div className="flex bg-[#020617] p-0.5 rounded-lg border border-[#1e293b]">
