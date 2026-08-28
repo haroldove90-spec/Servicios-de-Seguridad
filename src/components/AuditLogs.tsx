@@ -58,8 +58,11 @@ export default function AuditLogs({ logs: rawLogs, onRefresh, currentUser }: Aud
 
   const logs = rawLogs.filter(l => {
     if (effectiveFraccionamiento === 'all') return true;
-    const matchId = l.residenciaId && l.residenciaId === effectiveFraccionamiento;
-    const matchName = l.residenciaNombre && l.residenciaNombre.toLowerCase() === effectiveFraccionamiento.toLowerCase();
+    const matchId = l.residenciaId && (l.residenciaId === effectiveFraccionamiento || l.residenciaId === currentUser?.residenciaId);
+    const matchName = l.residenciaNombre && (
+      l.residenciaNombre.toLowerCase() === effectiveFraccionamiento.toLowerCase() ||
+      (currentUser?.residenciaNombre && l.residenciaNombre.toLowerCase() === currentUser.residenciaNombre.toLowerCase())
+    );
     return matchId || matchName;
   });
 

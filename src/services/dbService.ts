@@ -1641,7 +1641,7 @@ export const dbService = {
         consecutivo: Math.floor(100000 + Math.random() * 899999),
         residenteId: null,
         residenteNombre: visitorNameOnly,
-        residenciaId: null,
+        residenciaId: newUser.residenciaId || null,
         residenciaNombre: newUser.residenciaNombre || 'Residencia',
         vehiculoPlacas: newUser.documentId || 'VISITA',
         vehiculoInfo: `VISIT_SYNC|${visitorNameOnly}|${newUser.oneTime ? '1' : '0'}|${newUser.used ? '1' : '0'}|${newUser.phone || ''}|${newUser.email || ''}|[RESIDENT:${residentAuthorizer}]`,
@@ -1652,7 +1652,7 @@ export const dbService = {
         createdAt: newUser.createdAt || new Date().toISOString(),
         updatedAt: newUser.updatedAt || new Date().toISOString()
       };
-      await robustSupabaseInsert('marbetes', mirrorMarbete);
+      await robustSupabaseUpsert('marbetes', mirrorMarbete);
       console.log('Successfully created mirror marbete in Supabase for cross-device visitor pass lookup!');
     } catch (mErr) {
       console.warn('Mirror marbete creation exception:', mErr);
@@ -1984,22 +1984,11 @@ export const dbService = {
     
     const deduplicatedList: AccessLog[] = [];
     const seenIds = new Set<string>();
-    const seenSignatures = new Set<string>();
 
     for (const item of combined) {
       if (!item || !item.id) continue;
       if (seenIds.has(item.id)) continue;
       seenIds.add(item.id);
-
-      // Deduplicate near-identical records created within 1.5 seconds of each other
-      const timeBucket = Math.floor(new Date(item.timestamp || 0).getTime() / 1500);
-      const userKey = item.userId || item.documentId || 'unknown';
-      const signature = `${userKey}_${item.type}_${item.status}_${timeBucket}`;
-      
-      if (seenSignatures.has(signature)) {
-        continue;
-      }
-      seenSignatures.add(signature);
       deduplicatedList.push(item);
     }
 
@@ -2007,8 +1996,8 @@ export const dbService = {
   },
 
   async createAccessLog(log: Omit<AccessLog, 'id'>): Promise<AccessLog> {
-    // 1. Debounce / Deduplication guard: Prevent duplicate/triplicate entries within 1.2 seconds
-    const recentCutoff = Date.now() - 1200;
+    // 1. Debounce guard: Prevent fast accidental double-clicks within 250ms with identical document and action
+    const recentCutoff = Date.now() - 250;
     const existingLogs = LocalDB.getLogs();
     const isDuplicate = existingLogs.some(existing => {
       const isSameUser = (existing.userId && log.userId && existing.userId === log.userId) || 
@@ -2019,7 +2008,7 @@ export const dbService = {
     });
 
     if (isDuplicate && existingLogs.length > 0) {
-      console.log('Debounce/Deduplication: Ignored duplicate access log insertion within 1.2s window.');
+      console.log('Debounce: Ignored immediate sub-250ms identical click duplicate.');
       return existingLogs[0];
     }
 
@@ -2117,9 +2106,9 @@ export const dbService = {
     };
 
     try {
-      const res = await robustSupabaseInsert('access_logs', supabasePayload);
+      const res = await robustSupabaseUpsert('access_logs', supabasePayload);
       if (res.error) {
-        console.warn('⚠️ Supabase createAccessLog insert notice:', res.error);
+        console.warn('⚠️ Supabase createAccessLog upsert notice:', res.error);
       } else {
         console.log('✓ Successfully recorded access log into Supabase Cloud table: access_logs');
       }

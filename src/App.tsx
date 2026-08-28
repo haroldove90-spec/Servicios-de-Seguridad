@@ -392,8 +392,8 @@ export default function App() {
 
         const panicRes = residencias.find(r => {
           if (!r.panicActive) return false;
-          if (isGlobalAdmin) return true; // Global admin sees all
-          return r.id === myResId; // Assigned admin/guard/resident sees their own residence
+          if (isGlobalAdmin) return true; // Global super-admin sees all emergencies
+          return r.id === myResId || (userRole?.residenciaNombre && r.nombre && r.nombre.toLowerCase() === userRole.residenciaNombre.toLowerCase());
         });
 
         if (panicRes) {
@@ -415,7 +415,7 @@ export default function App() {
     };
 
     pollPanicStatus();
-    const intervalId = setInterval(pollPanicStatus, 3500);
+    const intervalId = setInterval(pollPanicStatus, 3000);
 
     return () => {
       isMounted = false;
@@ -2957,9 +2957,24 @@ export default function App() {
           if ((window as any).onGlobalPanicChange) {
             (window as any).onGlobalPanicChange(nextState);
           }
-          if (activeResidenciaId) {
+
+          // Resolve target residence precisely
+          let targetResId = activeResidenciaId || userRole?.residenciaId;
+          let targetResNombre = activeResidenciaNombre || userRole?.residenciaNombre;
+
+          if (!targetResId) {
             try {
-              await dbService.updateResidencia(activeResidenciaId, { 
+              const allRes = await dbService.getResidencias();
+              if (allRes.length > 0) {
+                targetResId = allRes[0].id;
+                targetResNombre = allRes[0].nombre;
+              }
+            } catch (e) {}
+          }
+
+          if (targetResId) {
+            try {
+              await dbService.updateResidencia(targetResId, { 
                 panicActive: nextState,
                 panicLatitude: nextState ? lat : null,
                 panicLongitude: nextState ? lng : null,
@@ -2975,15 +2990,15 @@ export default function App() {
           if (nextState) {
             try {
               await dbService.createAlertaPanico({
-                residenciaId: activeResidenciaId || userRole?.residenciaId,
-                residenciaNombre: activeResidenciaNombre || userRole?.residenciaNombre || 'Residencia CNLS',
+                residenciaId: targetResId || undefined,
+                residenciaNombre: targetResNombre || 'Residencia CNLS',
                 usuarioId: userRole?.uid || userRole?.username || 'usr-panic',
                 usuarioNombre: userRole?.name || 'Usuario',
                 usuarioRole: (userRole?.role as string) || 'residente',
                 usuarioUsername: userRole?.username || '',
                 usuarioPhone: userRole?.phone || '',
                 usuarioEmail: userRole?.email || '',
-                direccion: userRole?.residenciaNombre ? `Residencia: ${userRole.residenciaNombre}` : 'Domicilio Residencial',
+                direccion: targetResNombre ? `Fraccionamiento: ${targetResNombre}` : 'Domicilio Residencial',
                 latitude: lat,
                 longitude: lng,
                 googleMapsUrl: lat && lng ? `https://www.google.com/maps?q=${lat},${lng}` : undefined,
@@ -3024,7 +3039,7 @@ export default function App() {
 
           <div 
             id="panic-emergency-alert-card" 
-            className="bg-[#1a1212] border-4 border-rose-600 rounded-3xl p-6 md:p-8 max-w-lg w-full text-white shadow-2xl relative z-10 space-y-6"
+            className="bg-[#1a1212] border-4 border-rose-600 rounded-3xl p-6 md:p-8 max-w-lg w-full text-white shadow-2xl relative z-10 space-y-5"
           >
             {/* Header Alarm Siren Symbol */}
             <div className="flex flex-col items-center justify-center text-center space-y-2">
@@ -3039,15 +3054,26 @@ export default function App() {
               </p>
             </div>
 
-            {/* Emergency Info Grid */}
-            <div className="bg-[#120a0a] border border-red-900/40 rounded-2xl p-4 space-y-3.5">
-              <div className="flex items-start justify-between border-b border-red-950/50 pb-2.5">
-                <span className="text-[10px] uppercase text-rose-400 font-bold tracking-wider block">Fraccionamiento:</span>
-                <span className="text-sm font-black text-white text-right">
-                  {activePanicResidencia.nombre}
-                </span>
+            {/* Prominent Highlighted Fraccionamiento Banner */}
+            <div className="bg-rose-950/70 border-2 border-rose-500/50 rounded-2xl p-4 flex items-center justify-between shadow-inner">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-600/30 border border-rose-500/40 flex items-center justify-center shrink-0">
+                  <Building2 className="w-5 h-5 text-rose-400" />
+                </div>
+                <div>
+                  <span className="text-[9.5px] uppercase font-bold text-rose-400 tracking-widest block font-mono">FRACCIONAMIENTO AFECTADO</span>
+                  <span className="text-base font-black text-white tracking-wide block uppercase">
+                    {activePanicResidencia.nombre}
+                  </span>
+                </div>
               </div>
+              <span className="px-2.5 py-1 bg-red-600 text-white font-mono text-[10px] font-extrabold rounded-lg uppercase tracking-wider animate-pulse shrink-0">
+                EN VIVO
+              </span>
+            </div>
 
+            {/* Emergency Info Grid */}
+            <div className="bg-[#120a0a] border border-red-900/40 rounded-2xl p-4 space-y-3">
               <div className="flex items-start justify-between border-b border-red-950/50 pb-2.5">
                 <span className="text-[10px] uppercase text-rose-400 font-bold tracking-wider block">Activado Por:</span>
                 <span className="text-sm font-black text-slate-100 text-right">

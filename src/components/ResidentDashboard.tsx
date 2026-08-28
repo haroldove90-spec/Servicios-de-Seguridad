@@ -7,7 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   Plus, Search, QrCode, Download, Copy, Check, X, 
-  MapPin, User, Calendar, Clock, RefreshCw, Send, Trash2, ShieldCheck, Smartphone, Car
+  MapPin, User, Calendar, Clock, RefreshCw, Send, Trash2, ShieldCheck, Smartphone, Car, AlertTriangle
 } from 'lucide-react';
 import { dbService } from '../services/dbService';
 import { AuthorizedUser, SystemRole, UserStatus, Marbete } from '../types';
@@ -369,13 +369,81 @@ export default function ResidentDashboard({ currentResidentUser, onRefresh }: Re
             </p>
           </div>
           
-          <button
-            id="btn-register-new-resident-visit"
-            onClick={handleOpenForm}
-            className="flex items-center justify-center gap-2 px-5 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold text-xs transition shadow-lg shadow-blue-600/10 active:scale-95 cursor-pointer shrink-0"
-          >
-            <Plus className="w-4 h-4" /> Registrar Nueva Visita
-          </button>
+          <div className="flex items-center gap-3 shrink-0">
+            <button
+              id="btn-resident-sos-panic"
+              onClick={async () => {
+                const confirmed = window.confirm(`🚨 ¿DESEA ACTIVAR LA ALERTA DE PÁNICO DE EMERGENCIA PARA ${currentResidentUser.residenciaNombre || 'SU FRACCIONAMIENTO'}?\n\nEsto enviará una señal inmediata de emergencia y geolocalización a la caseta de seguridad y administración.`);
+                if (!confirmed) return;
+
+                let lat: number | null = null;
+                let lng: number | null = null;
+
+                if (navigator.geolocation) {
+                  try {
+                    const pos = await new Promise<GeolocationPosition | null>((resolve) => {
+                      navigator.geolocation.getCurrentPosition(
+                        (p) => resolve(p),
+                        () => resolve(null),
+                        { enableHighAccuracy: true, timeout: 5000 }
+                      );
+                    });
+                    if (pos) {
+                      lat = pos.coords.latitude;
+                      lng = pos.coords.longitude;
+                    }
+                  } catch (e) {}
+                }
+
+                try {
+                  const targetResId = currentResidentUser.residenciaId;
+                  if (targetResId) {
+                    await dbService.updateResidencia(targetResId, {
+                      panicActive: true,
+                      panicLatitude: lat,
+                      panicLongitude: lng,
+                      panicTriggeredBy: currentResidentUser.name,
+                      panicTriggeredByRole: 'residente',
+                      panicTriggeredAt: new Date().toISOString()
+                    });
+                  }
+
+                  await dbService.createAlertaPanico({
+                    residenciaId: currentResidentUser.residenciaId,
+                    residenciaNombre: currentResidentUser.residenciaNombre || 'Fraccionamiento Residencial',
+                    usuarioId: currentResidentUser.uid || currentResidentUser.username,
+                    usuarioNombre: currentResidentUser.name,
+                    usuarioRole: 'residente',
+                    usuarioUsername: currentResidentUser.username,
+                    usuarioPhone: currentResidentUser.phone || '',
+                    usuarioEmail: currentResidentUser.email || '',
+                    direccion: currentResidentUser.residenciaNombre ? `Fraccionamiento: ${currentResidentUser.residenciaNombre}` : 'Domicilio Residencial',
+                    latitude: lat,
+                    longitude: lng,
+                    googleMapsUrl: lat && lng ? `https://www.google.com/maps?q=${lat},${lng}` : undefined,
+                    estado: 'ACTIVA',
+                    createdAt: new Date().toISOString()
+                  });
+
+                  alert(`🚨 ALERTA DE PÁNICO ENVIADA CON ÉXITO para ${currentResidentUser.residenciaNombre || 'su fraccionamiento'}. La caseta y administradores han sido notificados.`);
+                } catch (err) {
+                  console.error('Error triggering panic from resident dashboard:', err);
+                }
+              }}
+              className="flex items-center justify-center gap-2 px-4 py-3 bg-red-700 hover:bg-red-600 text-white rounded-2xl font-bold text-xs transition shadow-lg shadow-red-700/20 active:scale-95 cursor-pointer"
+              title="Activar Botón de Pánico SOS para mi Fraccionamiento"
+            >
+              <AlertTriangle className="w-4 h-4 text-red-200 animate-pulse" /> Botón de Pánico SOS
+            </button>
+
+            <button
+              id="btn-register-new-resident-visit"
+              onClick={handleOpenForm}
+              className="flex items-center justify-center gap-2 px-5 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold text-xs transition shadow-lg shadow-blue-600/10 active:scale-95 cursor-pointer shrink-0"
+            >
+              <Plus className="w-4 h-4" /> Registrar Nueva Visita
+            </button>
+          </div>
         </div>
 
         {/* Quick metrics */}
