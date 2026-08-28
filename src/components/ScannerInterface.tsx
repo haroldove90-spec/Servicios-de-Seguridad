@@ -528,7 +528,7 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
           }
         } catch (err: any) {
           console.warn('QR file scanning failed on both decoders:', err);
-          setPermissionError('No se pudo decodificar el Código QR de la imagen. Asegúrate de que el archivo sea un código QR válido, nítido y bien enfocado o usa el panel de simulación rápida.');
+          setPermissionError('No se pudo decodificar el Código QR de la imagen. Asegúrate de que el archivo sea un código QR válido, nítido y bien enfocado.');
         } finally {
           setIsScanningFile(false);
         }
