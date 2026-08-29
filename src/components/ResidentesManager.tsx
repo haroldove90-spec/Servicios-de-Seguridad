@@ -42,6 +42,7 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
   
   // Form State
   const [isFormOpen, setIsFormOpen] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formNombre, setFormNombre] = useState<string>('');
   const [formResidenciaId, setFormResidenciaId] = useState<string>('');
@@ -224,6 +225,8 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
 
   const handleSaveResident = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return; // Strict lock against duplicate submission
+
     if (!formNombre.trim() || !formResidenciaId || !formDireccion.trim()) {
       alert('Por favor complete todos los campos obligatorios.');
       return;
@@ -238,8 +241,25 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
     const cleanName = formNombre.replace(/\s*\(Visita\)/g, '').replace(/\s*\(Residente\)/g, '').trim();
     const cleanUsername = formUsername.trim().toLowerCase() || ('residente_' + Math.floor(1000 + Math.random() * 9000));
     const cleanPassword = formPassword.trim() || 'Residente_123';
+    const cleanAddress = formDireccion.trim();
 
-    // Duplicate username check across system roles & residents
+    // 1. Validation: Prevent duplicate residents with same name and address in this complex
+    if (!editingId) {
+      const isDuplicateResident = residentes.some(r => {
+        const sameComplex = r.residenciaId === formResidenciaId || 
+                            (r.residenciaNombre && r.residenciaNombre.toLowerCase().trim() === matchedComplex.nombre.toLowerCase().trim());
+        const sameName = r.nombre.replace(/\s*\(Visita\)/g, '').replace(/\s*\(Residente\)/g, '').trim().toLowerCase() === cleanName.toLowerCase();
+        const sameDir = (r.direccion || '').toLowerCase().trim() === cleanAddress.toLowerCase();
+        return sameComplex && sameName && (sameDir || !cleanAddress);
+      });
+
+      if (isDuplicateResident) {
+        alert(`⚠️ Ya existe un residente registrado con el nombre "${cleanName}" en ${matchedComplex.nombre}. Si desea modificar sus datos o cambiar su pase, edite el registro existente en la lista.`);
+        return;
+      }
+    }
+
+    // 2. Duplicate username check across system roles & residents
     const existingResidentWithUsername = residentes.find(r => r.id !== editingId && r.username && r.username.toLowerCase() === cleanUsername);
     const existingRoleWithUsername = systemRoles.find(r => r.uid !== editingId && r.username && r.username.toLowerCase() === cleanUsername);
     if (existingResidentWithUsername || existingRoleWithUsername) {
@@ -247,105 +267,99 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
       return;
     }
 
-    // Generate or use existing QR token
-    let qrToken = '';
-    let accessUserId = '';
+    // Set lock
+    setIsSubmitting(true);
 
-    if (formCreateQR) {
-      if (editingId) {
-        const found = residentes.find(r => r.id === editingId);
-        qrToken = found?.qrcodeToken || 'resd_qr_' + Math.random().toString(36).substring(2, 11);
-        accessUserId = found?.accessUserId || 'usr_resd_' + Math.random().toString(36).substring(2, 11);
-      } else {
-        qrToken = 'resd_qr_' + Math.random().toString(36).substring(2, 11);
-        accessUserId = 'usr_resd_' + Math.random().toString(36).substring(2, 11);
-      }
+    try {
+      // Generate or use existing QR token
+      let qrToken = '';
+      let accessUserId = '';
 
-      // Synchronously record/update in authorized_users (so Guard scans are valid instantly!)
-      const startOfYear = new Date(Date.now() - 24 * 60 * 60 * 1000); // 1 day in the past for instant activation
-      let endOfYear = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
-      if (formValidUntil) {
-        if (formValidUntil.length === 10 && formValidUntil.includes('-')) {
-          const parts = formValidUntil.split('-').map(Number);
-          endOfYear = new Date(parts[0], parts[1] - 1, parts[2], 23, 59, 59, 999);
+      if (formCreateQR) {
+        if (editingId) {
+          const found = residentes.find(r => r.id === editingId);
+          qrToken = found?.qrcodeToken || 'resd_qr_' + Math.random().toString(36).substring(2, 11);
+          accessUserId = found?.accessUserId || 'usr_resd_' + Math.random().toString(36).substring(2, 11);
         } else {
-          endOfYear = new Date(formValidUntil);
+          qrToken = 'resd_qr_' + Math.random().toString(36).substring(2, 11);
+          accessUserId = 'usr_resd_' + Math.random().toString(36).substring(2, 11);
         }
-      }
 
-      const authUserPayload: Omit<AuthorizedUser, 'id'> = {
-        name: cleanName + (formIsVisitor ? ' (Visita)' : ' (Residente)'),
-        documentId: 'RESID-' + matchedComplex.nombre.substring(0, 3).toUpperCase() + '-' + formDireccion.trim().replace(/\s+/g, '-').toUpperCase(),
-        email: formIsVisitor ? 'visita@local.casa' : `${cleanUsername}@residente.local`,
-        phone: formWhatsapp.trim(),
-        status: formIsActive ? UserStatus.ACTIVE : UserStatus.SUSPENDED,
-        qrcodeToken: qrToken,
-        oneTime: false,
-        used: false,
-        validFrom: startOfYear.toISOString(),
-        validUntil: endOfYear.toISOString(),
-        days: [], // all days
-        startTime: '00:00',
-        endTime: '23:59',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        createdBy: 'admin-auto',
-        residenciaId: matchedComplex.id,
-        residenciaNombre: matchedComplex.nombre
-      };
+        // Synchronously prepare authorized_users payload (so Guard scans are valid instantly!)
+        const startOfYear = new Date(Date.now() - 24 * 60 * 60 * 1000); // 1 day in the past for instant activation
+        let endOfYear = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+        if (formValidUntil) {
+          if (formValidUntil.length === 10 && formValidUntil.includes('-')) {
+            const parts = formValidUntil.split('-').map(Number);
+            endOfYear = new Date(parts[0], parts[1] - 1, parts[2], 23, 59, 59, 999);
+          } else {
+            endOfYear = new Date(formValidUntil);
+          }
+        }
 
-      try {
+        const authUserPayload: Omit<AuthorizedUser, 'id'> = {
+          name: cleanName + (formIsVisitor ? ' (Visita)' : ' (Residente)'),
+          documentId: 'RESID-' + matchedComplex.nombre.substring(0, 3).toUpperCase() + '-' + cleanAddress.replace(/\s+/g, '-').toUpperCase(),
+          email: formIsVisitor ? 'visita@local.casa' : `${cleanUsername}@residente.local`,
+          phone: formWhatsapp.trim(),
+          status: formIsActive ? UserStatus.ACTIVE : UserStatus.SUSPENDED,
+          qrcodeToken: qrToken,
+          oneTime: false,
+          used: false,
+          validFrom: startOfYear.toISOString(),
+          validUntil: endOfYear.toISOString(),
+          days: [], // all days
+          startTime: '00:00',
+          endTime: '23:59',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          createdBy: 'admin-auto',
+          residenciaId: matchedComplex.id,
+          residenciaNombre: matchedComplex.nombre
+        };
+
         const existingAuthUser = authorizedUsers.find(u => u.id === accessUserId || (qrToken && u.qrcodeToken === qrToken));
         if (existingAuthUser) {
           accessUserId = existingAuthUser.id;
           await dbService.updateAuthorizedUser(accessUserId, authUserPayload);
         } else {
-          // Create new record
           const createdUser = await dbService.createAuthorizedUser(authUserPayload);
           accessUserId = createdUser.id;
         }
-      } catch (err) {
-        console.error('Failed to register access profile:', err);
       }
-    }
 
-    // Save/Update SystemRole credential for resident app login
-    const systemRolePayload: SystemRole = {
-      uid: accessUserId || ('usr_resd_' + Math.random().toString(36).substring(2, 11)),
-      name: cleanName,
-      email: formWhatsapp.trim() ? `${cleanUsername}@residente.local` : 'residente@local.casa',
-      username: cleanUsername,
-      password: cleanPassword,
-      role: SystemUserRole.RESIDENTE,
-      isActive: formIsActive,
-      phone: formWhatsapp.trim(),
-      residenciaId: matchedComplex.id,
-      residenciaNombre: matchedComplex.nombre,
-      createdAt: new Date().toISOString()
-    };
+      // Save/Update SystemRole credential for resident app login
+      const systemRolePayload: SystemRole = {
+        uid: accessUserId || ('usr_resd_' + Math.random().toString(36).substring(2, 11)),
+        name: cleanName,
+        email: formWhatsapp.trim() ? `${cleanUsername}@residente.local` : 'residente@local.casa',
+        username: cleanUsername,
+        password: cleanPassword,
+        role: SystemUserRole.RESIDENTE,
+        isActive: formIsActive,
+        phone: formWhatsapp.trim(),
+        residenciaId: matchedComplex.id,
+        residenciaNombre: matchedComplex.nombre,
+        createdAt: new Date().toISOString()
+      };
 
-    try {
       await dbService.saveSystemRole(systemRolePayload);
-    } catch (roleErr) {
-      console.warn('Error saving resident system role credentials:', roleErr);
-    }
 
-    const payload = {
-      nombre: cleanName + (formIsVisitor ? ' (Visita)' : ''),
-      residenciaId: formResidenciaId,
-      residenciaNombre: matchedComplex.nombre,
-      direccion: formDireccion.trim(),
-      qrcodeToken: qrToken,
-      whatsapp: formWhatsapp.trim(),
-      accessUserId: accessUserId,
-      validUntil: new Date(formValidUntil).toISOString(),
-      username: cleanUsername,
-      password: cleanPassword,
-      isActive: formIsActive,
-      updatedAt: new Date().toISOString()
-    };
+      const payload = {
+        nombre: cleanName + (formIsVisitor ? ' (Visita)' : ''),
+        residenciaId: formResidenciaId,
+        residenciaNombre: matchedComplex.nombre,
+        direccion: cleanAddress,
+        qrcodeToken: qrToken,
+        whatsapp: formWhatsapp.trim(),
+        accessUserId: accessUserId,
+        validUntil: new Date(formValidUntil).toISOString(),
+        username: cleanUsername,
+        password: cleanPassword,
+        isActive: formIsActive,
+        updatedAt: new Date().toISOString()
+      };
 
-    try {
       if (editingId) {
         await dbService.updateResidente(editingId, payload);
       } else {
@@ -360,7 +374,7 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
         const passUrl = `${baseAppUrl}?pass=${encodeURIComponent(qrToken)}`;
         const cleanPhone = formWhatsapp.trim().replace(/\D/g, '');
         
-        const fullMessage = `¡Hola *${cleanName}*!\n\nTe comparto tus datos de acceso al sistema y aplicación móvil de *${matchedComplex.nombre}* (Domicilio: *${formDireccion.trim()}*):\n\n📲 *LINK PARA ENTRAR A TU APLICACIÓN MÓVIL Y PERFIL:*\n${portalUrl}\n\n🔐 *TUS CREDENCIALES DE ACCESO EN LA APP:*\n• *Usuario:* ${cleanUsername}\n• *Contraseña:* ${cleanPassword}\n• *Fraccionamiento:* ${matchedComplex.nombre}\n\n🪪 *TU PASE QR PERMANENTE PARA CASETA:*\n${passUrl}\n\nDesde la app móvil podrás registrar tus visitas autorizadas, vehículos y recibir notificaciones de accesos.`;
+        const fullMessage = `¡Hola *${cleanName}*!\n\nTe comparto tus datos de acceso al sistema y aplicación móvil de *${matchedComplex.nombre}* (Domicilio: *${cleanAddress}*):\n\n📲 *LINK PARA ENTRAR A TU APLICACIÓN MÓVIL Y PERFIL:*\n${portalUrl}\n\n🔐 *TUS CREDENCIALES DE ACCESO EN LA APP:*\n• *Usuario:* ${cleanUsername}\n• *Contraseña:* ${cleanPassword}\n• *Fraccionamiento:* ${matchedComplex.nombre}\n\n🪪 *TU PASE QR PERMANENTE PARA CASETA:*\n${passUrl}\n\nDesde la app móvil podrás registrar tus visitas autorizadas, vehículos y recibir notificaciones de accesos.`;
         
         const whatsappUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(fullMessage)}` : '';
 
@@ -369,7 +383,7 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
           usuario: cleanUsername,
           contrasena: cleanPassword,
           residencia: matchedComplex.nombre,
-          direccion: formDireccion.trim(),
+          direccion: cleanAddress,
           whatsapp: formWhatsapp.trim(),
           portalUrl,
           passUrl,
@@ -385,11 +399,15 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
           }
         }
       }
+
       setIsFormOpen(false);
-      loadData();
+      await loadData();
       if (onRefresh) onRefresh();
     } catch (error) {
       console.error('Error saving resident:', error);
+      alert('Ocurrió un problema al guardar el residente. Por favor intente nuevamente.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -857,21 +875,28 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#2e2e38]">
                 <button
                   type="button"
+                  disabled={isSubmitting}
                   onClick={() => setIsFormOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition-all"
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition-all disabled:opacity-50"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  disabled={residencias.length === 0}
-                  className={`font-semibold text-xs px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-red-600/10 cursor-pointer ${
-                    residencias.length === 0
-                      ? 'bg-slate-700/50 text-slate-500 cursor-not-allowed shadow-none'
+                  disabled={residencias.length === 0 || isSubmitting}
+                  className={`font-semibold text-xs px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-red-600/10 cursor-pointer flex items-center gap-2 ${
+                    residencias.length === 0 || isSubmitting
+                      ? 'bg-slate-700/50 text-slate-400 cursor-not-allowed shadow-none'
                       : 'bg-red-650 hover:bg-red-550 text-white'
                   }`}
                 >
-                  Guardar Residente
+                  {isSubmitting ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Guardando...
+                    </>
+                  ) : (
+                    'Guardar Residente'
+                  )}
                 </button>
               </div>
             </form>

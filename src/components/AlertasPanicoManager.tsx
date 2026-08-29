@@ -31,16 +31,22 @@ export const AlertasPanicoManager: React.FC<AlertasPanicoManagerProps> = ({ curr
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [filterEstado, setFilterEstado] = useState<'TODAS' | 'ACTIVA' | 'ATENDIDA' | 'CANCELADA'>('TODAS');
+  const [residencias, setResidencias] = useState<any[]>([]);
+  const [selectedFraccionamiento, setSelectedFraccionamiento] = useState<string>('all');
   const [processingId, setProcessingId] = useState<string | null>(null);
 
   const fetchAlertas = async (silent = false) => {
     if (!silent) setLoading(true);
     else setRefreshing(true);
     try {
-      const data = await dbService.getAlertasPanico();
+      const [data, resList] = await Promise.all([
+        dbService.getAlertasPanico(),
+        dbService.getResidencias().catch(() => [])
+      ]);
       // Sort newest first
       data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setAlertas(data);
+      setResidencias(resList || []);
     } catch (err) {
       console.error('Error al cargar registro de alertas de pánico:', err);
     } finally {
@@ -104,8 +110,36 @@ export const AlertasPanicoManager: React.FC<AlertasPanicoManagerProps> = ({ curr
     }
   };
 
+  const isGlobalAdmin = !currentUser?.residenciaId && (currentUser?.role === 'admin' || currentUser?.role === SystemUserRole.ADMIN || !currentUser);
+  const userResidenciaId = currentUser?.residenciaId;
+  const userResidenciaNombre = currentUser?.residenciaNombre;
+
   const filteredAlertas = alertas.filter(a => {
+    // 1. Multitenant isolation filter
+    if (!isGlobalAdmin) {
+      const matchId = userResidenciaId && a.residenciaId && a.residenciaId === userResidenciaId;
+      const matchName = userResidenciaNombre && a.residenciaNombre && (
+        a.residenciaNombre.toLowerCase().trim() === userResidenciaNombre.toLowerCase().trim() ||
+        (a.direccion && a.direccion.toLowerCase().includes(userResidenciaNombre.toLowerCase().trim()))
+      );
+
+      // Non-global user can only see alerts matching their residence
+      if (!matchId && !matchName) {
+        return false;
+      }
+    } else if (selectedFraccionamiento !== 'all') {
+      const matchSelectedId = a.residenciaId === selectedFraccionamiento;
+      const foundRes = residencias.find(r => r.id === selectedFraccionamiento);
+      const matchSelectedName = foundRes && a.residenciaNombre && a.residenciaNombre.toLowerCase().trim() === foundRes.nombre.toLowerCase().trim();
+      if (!matchSelectedId && !matchSelectedName) {
+        return false;
+      }
+    }
+
+    // 2. Status filter
     if (filterEstado !== 'TODAS' && a.estado !== filterEstado) return false;
+
+    // 3. Search filter
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
       const matchName = (a.usuarioNombre || '').toLowerCase().includes(term);
@@ -118,9 +152,9 @@ export const AlertasPanicoManager: React.FC<AlertasPanicoManagerProps> = ({ curr
     return true;
   });
 
-  const activeCount = alertas.filter(a => a.estado === 'ACTIVA').length;
-  const atendidaCount = alertas.filter(a => a.estado === 'ATENDIDA').length;
-  const canceladaCount = alertas.filter(a => a.estado === 'CANCELADA').length;
+  const activeCount = filteredAlertas.filter(a => a.estado === 'ACTIVA').length;
+  const atendidaCount = filteredAlertas.filter(a => a.estado === 'ATENDIDA').length;
+  const canceladaCount = filteredAlertas.filter(a => a.estado === 'CANCELADA').length;
 
   return (
     <div id="alertas-panico-module-root" className="space-y-6">
@@ -181,7 +215,7 @@ export const AlertasPanicoManager: React.FC<AlertasPanicoManagerProps> = ({ curr
       </div>
 
       {/* Controls & Filter Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-[#0f172a] border border-[#1e293b] rounded-2xl p-4">
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-[#0f172a] border border-[#1e293b] rounded-2xl p-4">
         {/* Search Input */}
         <div className="relative flex-1">
           <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -194,6 +228,23 @@ export const AlertasPanicoManager: React.FC<AlertasPanicoManagerProps> = ({ curr
             className="w-full bg-[#1A1A1E] border border-slate-800 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-red-500"
           />
         </div>
+
+        {/* Global Admin Subdivision Filter */}
+        {isGlobalAdmin && residencias.length > 0 && (
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-bold text-slate-400 shrink-0">Fraccionamiento:</span>
+            <select
+              value={selectedFraccionamiento}
+              onChange={(e) => setSelectedFraccionamiento(e.target.value)}
+              className="bg-[#1A1A1E] border border-slate-800 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 focus:outline-none focus:border-red-500 cursor-pointer"
+            >
+              <option value="all">🏢 Todos los Desarrollos</option>
+              {residencias.map(r => (
+                <option key={r.id} value={r.id}>{r.nombre}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Status Filter Tabs */}
         <div className="flex items-center gap-1.5 bg-[#1A1A1E] border border-slate-800 p-1 rounded-xl">
