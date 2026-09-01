@@ -140,8 +140,9 @@ export default function ResidentDashboard({ currentResidentUser, onRefresh }: Re
 
       const convertedMarbetes: AuthorizedUser[] = residentMarbetes.map(m => {
         const isExpired = new Date(m.validUntil) < new Date();
+        const marbeteDoc = 'MARBETE-' + m.consecutivo;
         const hasEntered = allLogs.some(log => 
-          log.documentId === 'MARBETE-' + m.consecutivo && 
+          (log.documentId === marbeteDoc || (m.vehiculoPlacas && log.documentId === m.vehiculoPlacas) || (log.userName && log.userName.includes(`Marbete #${m.consecutivo}`))) && 
           log.type === 'check-in' &&
           log.status === 'success'
         );
@@ -155,7 +156,7 @@ export default function ResidentDashboard({ currentResidentUser, onRefresh }: Re
         return {
           id: 'mar_dash_' + m.id,
           name: `${m.residenteNombre} (Marbete #${m.consecutivo})`,
-          documentId: 'MARBETE-' + m.consecutivo,
+          documentId: marbeteDoc,
           phone: displayPhone,
           status: isExpired ? UserStatus.EXPIRED : (hasEntered ? UserStatus.ACTIVE : UserStatus.ACTIVE),
           qrcodeToken: m.qrcodeToken,

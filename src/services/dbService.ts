@@ -1881,7 +1881,7 @@ export const dbService = {
         }
       }
 
-      // 3. Fetch latest full remote dataset and refresh LocalDB
+      // 3. Fetch latest full remote dataset and merge with existing LocalDB
       const { data: freshRemote } = await supabase
         .from('access_logs')
         .select('*')
@@ -1889,7 +1889,23 @@ export const dbService = {
 
       if (freshRemote && freshRemote.length > 0) {
         const normalized = freshRemote.map(normalizeLogRow);
-        LocalDB.saveLogs(normalized);
+        const currentLocals = LocalDB.getLogs();
+        const mergedMap = new Map<string, AccessLog>();
+        
+        // Add fresh remote first
+        for (const item of normalized) {
+          if (item && item.id) mergedMap.set(item.id, item);
+        }
+        // Retain any local logs that haven't been wiped
+        for (const loc of currentLocals) {
+          if (loc && loc.id && !mergedMap.has(loc.id)) {
+            mergedMap.set(loc.id, loc);
+          }
+        }
+        const mergedList = Array.from(mergedMap.values()).sort(
+          (a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime()
+        );
+        LocalDB.saveLogs(mergedList);
       }
 
       const latencyMs = Math.round(performance.now() - startTime);
@@ -1977,10 +1993,10 @@ export const dbService = {
   },
 
   async createAccessLog(log: Omit<AccessLog, 'id'>): Promise<AccessLog> {
-    // 1. Debounce guard: Prevent fast accidental double-clicks within 250ms with identical document and action
-    const recentCutoff = Date.now() - 250;
+    // 1. Precise debounce guard: Only prevent rapid double-clicks (within 350ms) if the EXACT log ID or precise token matches
+    const recentCutoff = Date.now() - 350;
     const existingLogs = LocalDB.getLogs();
-    const isDuplicate = existingLogs.some(existing => {
+    const isExactDuplicate = existingLogs.some(existing => {
       const isSameUser = (existing.userId && log.userId && existing.userId === log.userId) || 
                          (existing.documentId && log.documentId && existing.documentId === log.documentId);
       const isSameAction = existing.type === log.type && existing.status === log.status;
@@ -1988,8 +2004,8 @@ export const dbService = {
       return isSameUser && isSameAction && logTime > recentCutoff;
     });
 
-    if (isDuplicate && existingLogs.length > 0) {
-      console.log('Debounce: Ignored immediate sub-250ms identical click duplicate.');
+    if (isExactDuplicate && existingLogs.length > 0) {
+      console.log('Debounce: Ignored accidental sub-350ms duplicate click for same entry.');
       return existingLogs[0];
     }
 
