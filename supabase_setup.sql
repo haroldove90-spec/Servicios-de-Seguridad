@@ -1,6 +1,7 @@
 -- ====================================================================
--- SCRIPT COMPLETO DE ACTUALIZACIÓN SEGURA Y COMPATIBILIDAD SUPABASE / POSTGRESQL
--- (100% SEGURO: NO BORRA NINGÚN REGISTRO NI TABLA EXISTENTE)
+-- SCRIPT FINAL DEFINITIVO Y SEGURO PARA SUPABASE (POSTGRESQL)
+-- 100% SEGURO: NO BORRA NINGÚN DATO, TABLA O REGISTRO EXISTENTE
+-- RESUELVE DEFINITIVAMENTE EL ERROR 42710
 -- ====================================================================
 
 -- 1. TIPOS Y ENUMS
@@ -33,7 +34,6 @@ CREATE TABLE IF NOT EXISTS public.system_roles (
     avatar TEXT
 );
 
--- Asegurar columnas en system_roles
 ALTER TABLE public.system_roles ADD COLUMN IF NOT EXISTS id TEXT;
 ALTER TABLE public.system_roles ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;
 ALTER TABLE public.system_roles ADD COLUMN IF NOT EXISTS "isActive" BOOLEAN DEFAULT true;
@@ -48,7 +48,6 @@ ALTER TABLE public.system_roles ADD COLUMN IF NOT EXISTS password TEXT;
 ALTER TABLE public.system_roles ADD COLUMN IF NOT EXISTS phone TEXT;
 ALTER TABLE public.system_roles ADD COLUMN IF NOT EXISTS avatar TEXT;
 
--- Restricción UNIQUE en uid (por si no existiera)
 DO $$ 
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'system_roles_uid_key') THEN
@@ -103,7 +102,7 @@ ALTER TABLE public.access_logs ADD COLUMN IF NOT EXISTS caseta_id TEXT;
 ALTER TABLE public.access_logs ADD COLUMN IF NOT EXISTS "casetaNombre" TEXT;
 ALTER TABLE public.access_logs ADD COLUMN IF NOT EXISTS caseta_nombre TEXT;
 
--- 4. TABLA EVIDENCIAS (FOTOGRAFÍAS DE PLACAS E IDENTIFICACIONES INE)
+-- 4. TABLA EVIDENCIAS (FOTOGRAFÍAS DE PLACAS E IDENTIFICACIONES)
 CREATE TABLE IF NOT EXISTS public.evidencias (
     id TEXT PRIMARY KEY,
     "residenciaId" TEXT,
@@ -212,6 +211,12 @@ CREATE TABLE IF NOT EXISTS public.residentes (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+ALTER TABLE public.residentes ADD COLUMN IF NOT EXISTS unidad_id UUID;
+ALTER TABLE public.residentes ADD COLUMN IF NOT EXISTS direccion TEXT;
+ALTER TABLE public.residentes ADD COLUMN IF NOT EXISTS whatsapp TEXT;
+ALTER TABLE public.residentes ADD COLUMN IF NOT EXISTS username TEXT;
+ALTER TABLE public.residentes ADD COLUMN IF NOT EXISTS password TEXT;
+
 -- 7. TABLA MARBETES
 CREATE TABLE IF NOT EXISTS public.marbetes (
     id TEXT PRIMARY KEY,
@@ -265,7 +270,40 @@ CREATE TABLE IF NOT EXISTS public.residencias (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 10. MÓDULO CONDOMINIOS (Estructuras, Unidades, Pagos, Egresos, Amenidades, Facturas, Personal)
+-- 10. TABLA ALERTAS_PANICO
+CREATE TABLE IF NOT EXISTS public.alertas_panico (
+    id TEXT PRIMARY KEY,
+    residencia_id TEXT,
+    "residenciaId" TEXT,
+    residencia_nombre TEXT,
+    "residenciaNombre" TEXT,
+    usuario_id TEXT,
+    "usuarioId" TEXT,
+    usuario_nombre TEXT NOT NULL DEFAULT 'Usuario',
+    "usuarioNombre" TEXT DEFAULT 'Usuario',
+    usuario_role TEXT NOT NULL DEFAULT 'residente',
+    "usuarioRole" TEXT DEFAULT 'residente',
+    usuario_username TEXT,
+    "usuarioUsername" TEXT,
+    usuario_phone TEXT,
+    "usuarioPhone" TEXT,
+    usuario_email TEXT,
+    "usuarioEmail" TEXT,
+    direccion TEXT,
+    latitude DOUBLE PRECISION,
+    longitude DOUBLE PRECISION,
+    google_maps_url TEXT,
+    "googleMapsUrl" TEXT,
+    estado TEXT NOT NULL DEFAULT 'ACTIVA',
+    atendida_por TEXT,
+    "atendidaPor" TEXT,
+    atendida_at TIMESTAMPTZ,
+    "atendidaAt" TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    "createdAt" TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 11. MÓDULO CONDOMINIOS
 CREATE TABLE IF NOT EXISTS estructuras_inmobiliarias (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tipo VARCHAR(50) NOT NULL,
@@ -400,8 +438,7 @@ CREATE TABLE IF NOT EXISTS usuarios_sistema (
 );
 
 -- ====================================================================
--- DESACTIVAR RLS Y LIMPIEZA DE POLÍTICAS DUPLICADAS
--- Evita el error "ERROR 42710: policy already exists"
+-- LIMPIEZA TOTAL DE POLÍTICAS PREVIAS PARA EVITAR ERROR 42710
 -- ====================================================================
 
 ALTER TABLE public.system_roles DISABLE ROW LEVEL SECURITY;
@@ -412,8 +449,13 @@ ALTER TABLE public.residentes DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.marbetes DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.casetas DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.residencias DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.alertas_panico DISABLE ROW LEVEL SECURITY;
 
--- Eliminar políticas previas para evitar conflictos en caso de volver a habilitar RLS
+DROP POLICY IF EXISTS "Permitir lectura general de alertas" ON public.alertas_panico;
+DROP POLICY IF EXISTS "Permitir registro de alertas" ON public.alertas_panico;
+DROP POLICY IF EXISTS "Permitir actualización de alertas" ON public.alertas_panico;
+DROP POLICY IF EXISTS "Permitir eliminación de alertas" ON public.alertas_panico;
+
 DROP POLICY IF EXISTS "Permitir lectura publica de evidencias" ON public.evidencias;
 DROP POLICY IF EXISTS "Permitir insercion de evidencias" ON public.evidencias;
 DROP POLICY IF EXISTS "Permitir insercion publica de evidencias" ON public.evidencias;
@@ -428,9 +470,10 @@ DROP POLICY IF EXISTS "Permitir acceso total a authorized_users" ON public.autho
 DROP POLICY IF EXISTS "Permitir acceso total a access_logs" ON public.access_logs;
 DROP POLICY IF EXISTS "Permitir lectura publica de access_logs" ON public.access_logs;
 DROP POLICY IF EXISTS "Permitir insercion publica de access_logs" ON public.access_logs;
+DROP POLICY IF EXISTS "Permitir eliminacion publica de access_logs" ON public.access_logs;
 DROP POLICY IF EXISTS "Permitir todo en access_logs" ON public.access_logs;
 
--- Conceder permisos completos a los roles de Supabase (anon, authenticated, service_role)
+-- Permisos completos a roles de Supabase
 GRANT ALL ON TABLE public.system_roles TO anon, authenticated, service_role;
 GRANT ALL ON TABLE public.access_logs TO anon, authenticated, service_role;
 GRANT ALL ON TABLE public.evidencias TO anon, authenticated, service_role;
@@ -439,6 +482,7 @@ GRANT ALL ON TABLE public.residentes TO anon, authenticated, service_role;
 GRANT ALL ON TABLE public.marbetes TO anon, authenticated, service_role;
 GRANT ALL ON TABLE public.casetas TO anon, authenticated, service_role;
 GRANT ALL ON TABLE public.residencias TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.alertas_panico TO anon, authenticated, service_role;
 
 -- ====================================================================
 -- TRIGGERS Y FUNCIONES DE SINCRONIZACIÓN AUTOMÁTICA
@@ -599,9 +643,13 @@ SET
 -- ÍNDICES DE ACELERACIÓN DE BÚSQUEDAS
 -- ====================================================================
 CREATE INDEX IF NOT EXISTS idx_access_logs_timestamp ON public.access_logs(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_access_logs_user_id ON public.access_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_evidencias_timestamp ON public.evidencias(timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_evidencias_placas ON public.evidencias(placas);
 CREATE INDEX IF NOT EXISTS idx_evidencias_tipo ON public.evidencias(tipo);
+CREATE INDEX IF NOT EXISTS idx_alertas_panico_created_at ON public.alertas_panico(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_alertas_panico_estado ON public.alertas_panico(estado);
+CREATE INDEX IF NOT EXISTS idx_alertas_panico_residencia ON public.alertas_panico(residencia_id);
 CREATE INDEX IF NOT EXISTS idx_unidades_estructura ON unidades(estructura_id);
 CREATE INDEX IF NOT EXISTS idx_residentes_unidad ON residentes(unidad_id);
 CREATE INDEX IF NOT EXISTS idx_pagos_unidad ON pagos_cuotas(unidad_id);
