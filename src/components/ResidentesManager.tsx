@@ -8,7 +8,7 @@ import { createPortal } from 'react-dom';
 import { 
   Plus, Search, Edit2, Trash2, QrCode, Download, Copy, Check, X, 
   MapPin, User, Home, Shield, Smartphone, ExternalLink, Sparkles, RefreshCw,
-  MessageSquare, Share2, Eye, EyeOff, Lock, UserCheck, Key, UserX, Power
+  MessageSquare, Share2, Eye, EyeOff, Lock, UserCheck, Key, UserX, Power, AlertTriangle
 } from 'lucide-react';
 import { dbService } from '../services/dbService';
 import { Residente, Residencia, AuthorizedUser, UserStatus, SystemRole, SystemUserRole } from '../types';
@@ -870,6 +870,32 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
                     Defina el límite administrativo de ingreso. Una vez alcanzada esta fecha, la credencial QR del residente denegará el paso automáticamente.
                   </p>
                 </div>
+              )}
+
+              {/* Real-time duplicate check indicator */}
+              {!editingId && formNombre.trim() && formResidenciaId && (
+                (() => {
+                  const checkName = formNombre.replace(/\s*\(Visita\)/g, '').replace(/\s*\(Residente\)/g, '').trim().toLowerCase();
+                  const checkDir = formDireccion.trim().toLowerCase();
+                  const matched = residencias.find(res => res.id === formResidenciaId);
+                  const isDup = residentes.some(r => {
+                    const sameComplex = r.residenciaId === formResidenciaId || 
+                                        (matched && r.residenciaNombre && matched.nombre.toLowerCase().trim() === r.residenciaNombre.toLowerCase().trim());
+                    const sameName = r.nombre.replace(/\s*\(Visita\)/g, '').replace(/\s*\(Residente\)/g, '').trim().toLowerCase() === checkName;
+                    const sameDir = (r.direccion || '').toLowerCase().trim() === checkDir;
+                    return sameComplex && sameName && (sameDir || !checkDir);
+                  });
+
+                  if (isDup) {
+                    return (
+                      <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center gap-2.5 text-amber-400 text-xs font-semibold animate-pulse">
+                        <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400" />
+                        <span>⚠️ Ya existe un residente registrado con este nombre en este fraccionamiento. Edite el registro existente para evitar duplicados.</span>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()
               )}
 
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#2e2e38]">

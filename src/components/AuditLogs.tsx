@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Download, Search, RefreshCw, Filter, ShieldCheck, Check, X, Clock, HelpCircle, Activity, Building2, Database, AlertTriangle } from 'lucide-react';
-import { AccessLog, LogType, LogStatus, Residencia } from '../types';
+import { AccessLog, LogType, LogStatus, Residencia, SystemUserRole } from '../types';
 import { dbService } from '../services/dbService';
 import { SupabaseSyncModal } from './SupabaseSyncModal';
 
@@ -53,17 +53,27 @@ export default function AuditLogs({ logs: rawLogs, onRefresh, currentUser }: Aud
     fetchResidencias();
   }, []);
 
+  const isSuperOrAdmin = !currentUser || 
+    currentUser.role === 'admin' || 
+    currentUser.role === SystemUserRole.ADMIN || 
+    currentUser.role === 'superadmin';
+
   // Filter rawLogs based on fraccionamiento boundary strictly
-  const effectiveFraccionamiento = currentUser?.residenciaId || selectedFraccionamiento;
+  const effectiveFraccionamiento = (!isSuperOrAdmin && currentUser?.residenciaId)
+    ? currentUser.residenciaId
+    : selectedFraccionamiento;
 
   const logs = rawLogs.filter(l => {
     if (effectiveFraccionamiento === 'all') return true;
-    const matchId = l.residenciaId && (l.residenciaId === effectiveFraccionamiento || l.residenciaId === currentUser?.residenciaId);
-    const matchName = l.residenciaNombre && (
-      l.residenciaNombre.toLowerCase() === effectiveFraccionamiento.toLowerCase() ||
-      (currentUser?.residenciaNombre && l.residenciaNombre.toLowerCase() === currentUser.residenciaNombre.toLowerCase())
-    );
-    return matchId || matchName;
+
+    const targetRes = residencias.find(r => r.id === effectiveFraccionamiento);
+    const targetName = (targetRes?.nombre || (currentUser?.residenciaId === effectiveFraccionamiento ? currentUser?.residenciaNombre : '') || '').toLowerCase().trim();
+
+    const matchId = l.residenciaId && (l.residenciaId === effectiveFraccionamiento);
+    const matchName = targetName && l.residenciaNombre && l.residenciaNombre.toLowerCase().trim() === targetName;
+    const matchGuard = currentUser?.uid && l.guardId === currentUser.uid;
+
+    return matchId || matchName || matchGuard;
   });
 
   // Multi-criteria filtering logic
@@ -225,11 +235,7 @@ export default function AuditLogs({ logs: rawLogs, onRefresh, currentUser }: Aud
             {/* Fraccionamiento Selector */}
             <div className="flex items-center gap-1.5 bg-[#1A1A1E] px-2.5 py-1.5 rounded-lg border border-[#3e3e42]">
               <Building2 className="w-3.5 h-3.5 text-red-400" />
-              {currentUser?.residenciaId ? (
-                <span className="text-[11px] font-bold text-red-400">
-                  {currentUser.residenciaNombre || 'Mi Fraccionamiento'}
-                </span>
-              ) : (
+              {(isSuperOrAdmin || !currentUser?.residenciaId) ? (
                 <select
                   id="select-filter-fraccionamiento"
                   value={selectedFraccionamiento}
@@ -243,6 +249,10 @@ export default function AuditLogs({ logs: rawLogs, onRefresh, currentUser }: Aud
                     </option>
                   ))}
                 </select>
+              ) : (
+                <span className="text-[11px] font-bold text-red-400">
+                  {currentUser.residenciaNombre || 'Mi Fraccionamiento'}
+                </span>
               )}
             </div>
 

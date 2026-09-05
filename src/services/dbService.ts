@@ -243,8 +243,125 @@ export function normalizeAlertaPanicoRow(raw: any): AlertaPanico {
 }
 
 // ----------------------------------------------------
-// MULTI-CASING DATABASE INTELLIGENCE HELPERS
+// MULTI-CASING DATABASE INTELLIGENCE & TOKEN EXTRACTION HELPERS
 // ----------------------------------------------------
+
+/**
+ * Universal token candidate extractor:
+ * Given raw scanner / QR / OCR / URL input, generates all plausible clean tokens.
+ * Handles full URLs, search params (?pass=..., ?token=..., ?id=..., ?code=...),
+ * URL hash anchors, URL-decoding, JSON payloads, numeric consecutive numbers
+ * (e.g. 'codigo 9' -> '9', 'marbete 9', '#9'), plate numbers, and prefixes.
+ */
+export function extractTokenCandidates(input: string): string[] {
+  if (!input || typeof input !== 'string') return [];
+  const candidates = new Set<string>();
+  let clean = input.trim().replace(/^["']|["']$/g, '');
+  if (!clean) return [];
+
+  // 1. Raw string itself
+  candidates.add(clean);
+
+  // 2. Decode URL encoding if present
+  try {
+    if (clean.includes('%')) {
+      const decoded = decodeURIComponent(clean);
+      if (decoded) {
+        candidates.add(decoded);
+        clean = decoded;
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  // 3. If JSON payload
+  try {
+    if ((clean.startsWith('{') && clean.endsWith('}')) || (clean.startsWith('{"') && clean.includes('}'))) {
+      const parsed = JSON.parse(clean);
+      const keys = ['pass', 'token', 'qrcodeToken', 'qr_token', 'qrcode_token', 'code', 'qr', 'id', 'documentId', 'consecutivo', 'folio', 'placas'];
+      for (const k of keys) {
+        if (parsed[k] !== undefined && parsed[k] !== null) {
+          const val = String(parsed[k]).trim();
+          if (val) candidates.add(val);
+        }
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  // 4. Extract standard parameters: pass, token, id, qr, code, folio, marbete
+  const paramKeys = ['pass', 'token', 'id', 'qr', 'code', 'data', 'folio', 'marbete'];
+  for (const key of paramKeys) {
+    const patterns = [`${key}=`, `${key}:`];
+    for (const pat of patterns) {
+      if (clean.toLowerCase().includes(pat)) {
+        const idx = clean.toLowerCase().indexOf(pat);
+        const sub = clean.substring(idx + pat.length);
+        const extracted = sub.split(/[&#\s"';)\]]/)[0].trim().replace(/^[/]+|[/]+$/g, '');
+        if (extracted) {
+          candidates.add(extracted);
+          try {
+            const dec = decodeURIComponent(extracted);
+            if (dec) candidates.add(dec);
+          } catch (e) {}
+        }
+      }
+    }
+  }
+
+  // 5. URL object parser for absolute or relative URLs
+  if (clean.startsWith('http://') || clean.startsWith('https://') || clean.includes('?') || clean.includes('#')) {
+    try {
+      let urlStr = clean;
+      if (!urlStr.startsWith('http://') && !urlStr.startsWith('https://')) {
+        urlStr = 'https://gate.local/' + (urlStr.startsWith('/') ? urlStr.slice(1) : urlStr);
+      }
+      const url = new URL(urlStr);
+      for (const k of paramKeys) {
+        const val = url.searchParams.get(k);
+        if (val) candidates.add(val.trim());
+      }
+      if (url.hash) {
+        const h = url.hash.replace(/^#/, '');
+        for (const k of paramKeys) {
+          if (h.includes(`${k}=`)) {
+            const hVal = h.split(`${k}=`)[1]?.split(/[&#\s"';]/)[0]?.trim();
+            if (hVal) candidates.add(hVal);
+          }
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  // 6. Handle phrases like "codigo 9", "marbete 9", "marbete #9", "folio 9", "pase 9", "#9"
+  const numberMatch = clean.match(/(?:codigo|marbete|folio|pase|qr)?\s*(?:#|no\.?)?\s*(\d+)/i);
+  if (numberMatch && numberMatch[1]) {
+    const num = numberMatch[1].trim();
+    candidates.add(num);
+    candidates.add('marbete-' + num);
+    candidates.add('marbete ' + num);
+    candidates.add('MARBETE-' + num);
+    candidates.add('codigo ' + num);
+    candidates.add('#' + num);
+  }
+
+  // 7. Normalize all candidates, remove trailing symbols and generate both raw and lowercase
+  const result: string[] = [];
+  candidates.forEach(c => {
+    if (!c) return;
+    const trimmed = c.trim().replace(/^["']|["']$/g, '').replace(/[/?#.]+$/, '');
+    if (trimmed) {
+      result.push(trimmed);
+      result.push(trimmed.toLowerCase());
+    }
+  });
+
+  return Array.from(new Set(result));
+}
 
 // Helper to transform any JS object keys from CamelCase to Lowercase
 export function toLowercaseKeys(obj: any): any {
@@ -1477,86 +1594,95 @@ export const dbService = {
 
   async getAuthorizedUserByToken(token: string): Promise<AuthorizedUser | null> {
     if (!token) return null;
-    let tokenClean = token.trim().replace(/^["']|["']$/g, '');
+    const candidates = extractTokenCandidates(token);
 
-    // Extract token if a full URL or query string is provided
-    if (tokenClean.includes('pass=')) {
-      tokenClean = tokenClean.split('pass=')[1].split('&')[0].split(' ')[0].trim();
-    } else if (tokenClean.includes('token=')) {
-      tokenClean = tokenClean.split('token=')[1].split('&')[0].split(' ')[0].trim();
-    }
-    
-    // 1. Direct query from Supabase using possible column names or lowercases
+    // 1. Search in unified authorized users (Supabase + LocalDB)
     try {
-      const data = await robustSupabaseSelectAll('authorized_users');
-      if (data && data.length > 0) {
-        const mapped = data.map(normalizeUserRow);
-        const found = mapped.find(u => 
-          u.qrcodeToken?.trim() === tokenClean || 
-          u.qrcodeToken?.trim().toLowerCase() === tokenClean.toLowerCase() ||
-          u.documentId?.trim().toLowerCase() === tokenClean.toLowerCase() ||
-          u.id?.trim().toLowerCase() === tokenClean.toLowerCase()
-        );
+      const allUsers = await this.getAuthorizedUsers();
+      for (const cand of candidates) {
+        const candLower = cand.toLowerCase().trim();
+        const candDigits = candLower.replace(/\D/g, '');
+        const found = allUsers.find(u => {
+          const qr = (u.qrcodeToken || '').toLowerCase().trim();
+          const id = (u.id || '').toLowerCase().trim();
+          const docId = (u.documentId || '').toLowerCase().trim();
+          const email = (u.email || '').toLowerCase().trim();
+          const phoneDigits = (u.phone || '').replace(/\D/g, '');
+
+          return (
+            qr === candLower ||
+            id === candLower ||
+            docId === candLower ||
+            email === candLower ||
+            (candDigits.length >= 7 && phoneDigits.endsWith(candDigits))
+          );
+        });
         if (found) {
-          console.log('Found authorized user by token directly in Supabase using scan find:', found.name);
+          console.log('Found authorized user by token candidate:', found.name, 'matched:', cand);
           return found;
         }
       }
     } catch (err) {
-      console.warn('getAuthorizedUserByToken direct Supabase exception:', err);
+      console.warn('getAuthorizedUserByToken search all users exception:', err);
     }
 
     // 2. Query mirror marbetes from Supabase
     try {
-      const { data: mData } = await supabase
-        .from('marbetes')
-        .select('*')
-        .or(`qrcodeToken.eq.${tokenClean},qrcodeToken.ilike.${tokenClean}`);
-      
-      if (mData && mData.length > 0) {
-        const mar = mData[0];
-        let vName = mar.residenteNombre || 'Visita Autorizada';
-        let vOneTime = true;
-        let vUsed = false;
-        let vPhone = '';
-        let vEmail = '';
-        let vResidentName = mar.residenteNombre || '';
+      const data = await robustSupabaseSelectAll('marbetes');
+      if (data && data.length > 0) {
+        const mapped = data.map(normalizeMarbeteRow);
+        for (const cand of candidates) {
+          const candLower = cand.toLowerCase().trim();
+          const mar = mapped.find(m => 
+            (m.qrcodeToken || '').toLowerCase().trim() === candLower || 
+            (m.id || '').toLowerCase().trim() === candLower
+          );
+          if (mar) {
+            let vName = mar.residenteNombre || 'Visita Autorizada';
+            let vOneTime = true;
+            let vUsed = false;
+            let vPhone = '';
+            let vEmail = '';
+            let vResidentName = mar.residenteNombre || '';
 
-        if (mar.vehiculoInfo && mar.vehiculoInfo.startsWith('VISIT_SYNC|')) {
-          const parts = mar.vehiculoInfo.split('|');
-          vName = parts[1] || vName;
-          vOneTime = parts[2] === '1';
-          vUsed = parts[3] === '1';
-          vPhone = parts[4] || '';
-          vEmail = parts[5] || '';
-          const resMatch = mar.vehiculoInfo.match(/\[RESIDENT:([^\]]+)\]/);
-          if (resMatch) vResidentName = resMatch[1];
+            if (mar.vehiculoInfo && mar.vehiculoInfo.startsWith('VISIT_SYNC|')) {
+              const parts = mar.vehiculoInfo.split('|');
+              vName = parts[1] || vName;
+              vOneTime = parts[2] === '1';
+              vUsed = parts[3] === '1';
+              vPhone = parts[4] || '';
+              vEmail = parts[5] || '';
+              const resMatch = mar.vehiculoInfo.match(/\[RESIDENT:([^\]]+)\]/);
+              if (resMatch) vResidentName = resMatch[1];
+            }
+
+            const mappedUser: AuthorizedUser = {
+              id: mar.id.replace('mar_sync_', ''),
+              name: vName,
+              documentId: mar.vehiculoPlacas || 'VISITA',
+              email: vEmail || 'visita-resident@local.casa',
+              phone: vPhone || '',
+              status: ((mar.status as unknown as string) === 'activo' || mar.status === UserStatus.ACTIVE) ? UserStatus.ACTIVE : UserStatus.EXPIRED,
+              qrcodeToken: mar.qrcodeToken || cand,
+              oneTime: vOneTime,
+              used: vUsed,
+              validFrom: mar.validFrom || new Date().toISOString(),
+              validUntil: mar.validUntil || new Date(Date.now() + 86400000).toISOString(),
+              days: [],
+              startTime: '00:00',
+              endTime: '23:59',
+              createdAt: mar.createdAt || new Date().toISOString(),
+              updatedAt: mar.updatedAt || new Date().toISOString(),
+              createdBy: 'resident-sync',
+              residenciaId: mar.residenciaId,
+              residenciaNombre: mar.residenciaNombre || '',
+              isResidentCreated: true,
+              residentName: vResidentName || ''
+            };
+            console.log('Found authorized user via mirror marbete:', mappedUser.name);
+            return mappedUser;
+          }
         }
-
-        const mappedUser: AuthorizedUser = {
-          id: mar.id.replace('mar_sync_', ''),
-          name: vName,
-          documentId: mar.vehiculoPlacas || 'VISITA',
-          email: vEmail || 'visita-resident@local.casa',
-          phone: vPhone || '',
-          status: ((mar.status as string) === 'activo' || mar.status === UserStatus.ACTIVE) ? UserStatus.ACTIVE : UserStatus.EXPIRED,
-          qrcodeToken: mar.qrcodeToken || tokenClean,
-          oneTime: vOneTime,
-          used: vUsed,
-          validFrom: mar.validFrom || new Date().toISOString(),
-          validUntil: mar.validUntil || new Date(Date.now() + 86400000).toISOString(),
-          days: [],
-          startTime: '00:00',
-          endTime: '23:59',
-          createdAt: mar.createdAt || new Date().toISOString(),
-          updatedAt: mar.updatedAt || new Date().toISOString(),
-          createdBy: 'resident-sync',
-          residenciaNombre: mar.residenciaNombre || '',
-          isResidentCreated: true,
-          residentName: vResidentName || ''
-        };
-        console.log('Found authorized user via mirror marbete in Supabase:', mappedUser.name);
-        return mappedUser;
       }
     } catch (mErr) {
       console.warn('Mirror marbete search by token failed:', mErr);
@@ -1564,27 +1690,109 @@ export const dbService = {
 
     // 3. Direct lookup from local storage
     const localUsers = LocalDB.getUsers();
-    const foundLocal = localUsers.find(u => 
-      u.qrcodeToken?.trim() === tokenClean || 
-      u.qrcodeToken?.trim().toLowerCase() === tokenClean.toLowerCase() ||
-      u.documentId?.trim().toLowerCase() === tokenClean.toLowerCase() ||
-      u.id?.trim().toLowerCase() === tokenClean.toLowerCase()
-    );
-    if (foundLocal) {
-      return foundLocal;
+    for (const cand of candidates) {
+      const candLower = cand.toLowerCase().trim();
+      const foundLocal = localUsers.find(u => 
+        (u.qrcodeToken || '').toLowerCase().trim() === candLower || 
+        (u.documentId || '').toLowerCase().trim() === candLower ||
+        (u.id || '').toLowerCase().trim() === candLower
+      );
+      if (foundLocal) {
+        return foundLocal;
+      }
     }
 
-    // 4. Fallback to Firebase
-    if (!IS_FIREBASE_DUMMY) {
-      try {
-        const colRef = collection(db, 'authorized_users');
-        const q = query(colRef, where('qrcodeToken', '==', tokenClean));
-        const snap = await getDocs(q);
-        if (!snap.empty) {
-          return snap.docs[0].data() as AuthorizedUser;
-        }
-      } catch (err) {
-        console.warn('getAuthorizedUserByToken direct Firestore exception:', err);
+    // 4. Fallback: Search in Residentes
+    try {
+      const matchedRes = await this.getResidenteByToken(token);
+      if (matchedRes) {
+        const resUser: AuthorizedUser = {
+          id: matchedRes.accessUserId || ('usr_resd_' + matchedRes.id),
+          name: matchedRes.nombre + ' (Residente)',
+          documentId: matchedRes.residenciaNombre || matchedRes.direccion || 'RESID-RESIDENTE',
+          email: matchedRes.whatsapp ? `${matchedRes.id}@residente.local` : 'residente@local.casa',
+          phone: matchedRes.whatsapp || '',
+          status: matchedRes.isActive !== false ? UserStatus.ACTIVE : UserStatus.SUSPENDED,
+          qrcodeToken: matchedRes.qrcodeToken || candidates[0] || 'resd_qr_token',
+          oneTime: false,
+          used: false,
+          validFrom: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString(),
+          validUntil: matchedRes.validUntil || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+          days: [],
+          startTime: '00:00',
+          endTime: '23:59',
+          createdAt: matchedRes.createdAt || new Date().toISOString(),
+          updatedAt: matchedRes.updatedAt || new Date().toISOString(),
+          createdBy: 'residente-auto-recovery',
+          residenciaId: matchedRes.residenciaId,
+          residenciaNombre: matchedRes.residenciaNombre
+        };
+        console.log('Found authorized user via Residente lookup:', resUser.name);
+        return resUser;
+      }
+    } catch (resErr) {
+      console.warn('Fallback Residente search error:', resErr);
+    }
+
+    // 5. Fallback: Search in Marbetes (Vehicular or numeric consecutivo)
+    try {
+      const matchedMar = await this.getMarbeteByToken(token);
+      if (matchedMar) {
+        const consecStr = String(matchedMar.consecutivo || '');
+        const marUser: AuthorizedUser = {
+          id: 'usr_mar_' + matchedMar.id,
+          name: `${matchedMar.residenteNombre} (Marbete #${consecStr})`,
+          documentId: 'MARBETE-' + (consecStr || matchedMar.vehiculoPlacas || 'AUTO'),
+          email: 'marbete@local.casa',
+          phone: '',
+          status: (matchedMar.status === UserStatus.ACTIVE || (matchedMar.status as unknown as string) === 'activo') ? UserStatus.ACTIVE : UserStatus.SUSPENDED,
+          qrcodeToken: matchedMar.qrcodeToken || candidates[0] || 'mar_token',
+          oneTime: false,
+          used: false,
+          validFrom: matchedMar.validFrom || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+          validUntil: matchedMar.validUntil || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+          days: [],
+          startTime: '00:00',
+          endTime: '23:59',
+          createdAt: matchedMar.createdAt || new Date().toISOString(),
+          updatedAt: matchedMar.updatedAt || new Date().toISOString(),
+          createdBy: 'marbete-auto-link',
+          residenciaId: matchedMar.residenciaId,
+          residenciaNombre: matchedMar.residenciaNombre
+        };
+        console.log('Found authorized user via Marbete lookup:', marUser.name);
+        return marUser;
+      }
+    } catch (marErr) {
+      console.warn('Fallback Marbete search error:', marErr);
+    }
+
+    // 6. Check for Condominio invitation format (PASSPORT-CNLS-INVITE-...)
+    for (const cand of candidates) {
+      if (cand.includes('PASSPORT-CNLS-INVITE-')) {
+        const parts = cand.split('PASSPORT-CNLS-INVITE-')[1]?.split('-');
+        const condoName = parts ? parts[0] : 'Condominio';
+        const inviteUser: AuthorizedUser = {
+          id: 'usr_invite_' + Math.random().toString(36).substring(2, 9),
+          name: `Invitado (${condoName})`,
+          documentId: `INVITE-${condoName.toUpperCase()}`,
+          email: 'invitado@condominio.local',
+          phone: '',
+          status: UserStatus.ACTIVE,
+          qrcodeToken: cand,
+          oneTime: true,
+          used: false,
+          validFrom: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+          validUntil: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+          days: [],
+          startTime: '00:00',
+          endTime: '23:59',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          createdBy: 'condominio-invite',
+          residenciaNombre: condoName
+        };
+        return inviteUser;
       }
     }
 
@@ -2315,6 +2523,23 @@ export const dbService = {
   // Residentes Management CRUD
   // --------------------------------------------------
   async getResidentes(): Promise<Residente[]> {
+    const unifiedMap = new Map<string, Residente>();
+
+    // 1. Load from LocalDB cache
+    try {
+      const local = LocalDB.getResidentes();
+      if (Array.isArray(local)) {
+        local.forEach(r => {
+          if (r && r.id) {
+            unifiedMap.set(r.id, normalizeResidentRow(r));
+          }
+        });
+      }
+    } catch (e) {
+      console.warn('LocalDB getResidentes error:', e);
+    }
+
+    // 2. Load from Supabase if available
     if (!supabaseRecursionBlocked) {
       try {
         const { data, error } = await supabase
@@ -2322,103 +2547,107 @@ export const dbService = {
           .select('*')
           .order('createdAt', { ascending: false });
 
-        if (!error && data) {
-          if (data.length === 0) {
-            const defaultResidente = {
-              id: 'resd-demo-1',
-              nombre: 'Mariana Sosa',
-              residenciaId: 'res-demo-1',
-              residenciaNombre: 'Lomas de Chapultepec',
-              direccion: 'Calle Roble #14',
-              qrcodeToken: 'residente_mariana_token',
-              whatsapp: '+525512345678',
-              accessUserId: 'usr-resd-demo-1',
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString()
-            };
-            await supabase.from('residentes').insert(defaultResidente);
-            return [defaultResidente];
-          }
-          return (data as any[]).map(normalizeResidentRow);
-        }
-        if (error) {
+        if (!error && data && Array.isArray(data)) {
+          data.forEach(r => {
+            const norm = normalizeResidentRow(r);
+            if (norm && norm.id) {
+              unifiedMap.set(norm.id, norm);
+            }
+          });
+        } else if (error) {
           if (!checkAndMarkRecursion(error)) {
-            console.warn('Supabase getResidentes returned query error. Code:', error.code, 'Msg:', error.message);
+            console.warn('Supabase getResidentes returned query error:', error.message);
           }
         }
       } catch (err) {
         if (!checkAndMarkRecursion(err)) {
-          console.warn('Supabase getResidentes exception, using fallback:', err);
+          console.warn('Supabase getResidentes exception:', err);
         }
       }
     }
 
-    if (IS_FIREBASE_DUMMY) {
-      return LocalDB.getResidentes();
+    // 3. Fallback to Firebase if active
+    if (!IS_FIREBASE_DUMMY && unifiedMap.size === 0) {
+      try {
+        const colRef = collection(db, 'residentes');
+        const q = query(colRef, orderBy('createdAt', 'desc'));
+        const snap = await getDocs(q);
+        snap.forEach(d => {
+          const item = normalizeResidentRow(d.data());
+          if (item && item.id) unifiedMap.set(item.id, item);
+        });
+      } catch (err) {
+        handleFirestoreError(err, OperationType.LIST, 'residentes');
+      }
     }
 
-    try {
-      const colRef = collection(db, 'residentes');
-      const q = query(colRef, orderBy('createdAt', 'desc'));
-      const snap = await getDocs(q);
-      const results: Residente[] = [];
-      snap.forEach(d => {
-        results.push(d.data() as Residente);
-      });
-      return results;
-    } catch (err) {
-      handleFirestoreError(err, OperationType.LIST, 'residentes');
-      return [];
+    // 4. Strict Deduplication Layer:
+    // Filter out duplicates by qrcodeToken and by (complex + address + name)
+    const all = Array.from(unifiedMap.values());
+    const deduped: Residente[] = [];
+    const seenSignatures = new Set<string>();
+    const seenQRs = new Set<string>();
+
+    for (const res of all) {
+      const cleanName = (res.nombre || '').toLowerCase().replace(/\s*\(visita\)/g, '').replace(/\s*\(residente\)/g, '').trim();
+      const cleanAddress = (res.direccion || '').toLowerCase().trim();
+      const complexKey = (res.residenciaId || res.residenciaNombre || '').toLowerCase().trim();
+      const qr = (res.qrcodeToken || '').trim();
+
+      const compositeKey = `${complexKey}::${cleanAddress}::${cleanName}`;
+      if (cleanName && cleanAddress && seenSignatures.has(compositeKey)) {
+        continue;
+      }
+      if (qr && seenQRs.has(qr)) {
+        continue;
+      }
+
+      if (cleanName && cleanAddress) seenSignatures.add(compositeKey);
+      if (qr) seenQRs.add(qr);
+      deduped.push(res);
     }
+
+    // Sync back deduplicated clean state to LocalDB
+    try {
+      LocalDB.saveResidentes(deduped);
+    } catch (e) {}
+
+    return deduped.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
   },
 
   async getResidenteByToken(token: string): Promise<Residente | null> {
     if (!token) return null;
-    const tokenClean = token.trim();
+    const candidates = extractTokenCandidates(token);
 
-    // 1. Direct query from Supabase with possible uppercase/lowercase normalization
     try {
-      const { data, error } = await supabase
-        .from('residentes')
-        .select('*');
+      const allResidentes = await this.getResidentes();
+      for (const cand of candidates) {
+        const candLower = cand.toLowerCase().trim();
+        const candDigits = candLower.replace(/\D/g, '');
+        const found = allResidentes.find(r => {
+          const qr = (r.qrcodeToken || '').toLowerCase().trim();
+          const id = (r.id || '').toLowerCase().trim();
+          const accessId = (r.accessUserId || '').toLowerCase().trim();
+          const phoneDigits = (r.whatsapp || '').replace(/\D/g, '');
+          const username = (r.username || '').toLowerCase().trim();
+          const cleanName = (r.nombre || '').toLowerCase().trim();
 
-      if (!error && data) {
-        const mapped = (data as any[]).map(normalizeResidentRow);
-        const found = mapped.find(r => 
-          r.qrcodeToken?.trim() === tokenClean || 
-          r.qrcodeToken?.trim().toLowerCase() === tokenClean.toLowerCase()
-        );
+          return (
+            qr === candLower ||
+            id === candLower ||
+            accessId === candLower ||
+            username === candLower ||
+            (candDigits.length >= 7 && phoneDigits.endsWith(candDigits)) ||
+            (candLower.length > 5 && cleanName === candLower)
+          );
+        });
         if (found) {
-          console.log('Found resident by token directly in Supabase using scan find:', found.nombre);
+          console.log('Found resident by token candidate:', found.nombre, 'matched:', cand);
           return found;
         }
       }
     } catch (err) {
-      console.warn('getResidenteByToken direct Supabase exception:', err);
-    }
-
-    // 2. Direct lookup from local storage
-    const localResidents = LocalDB.getResidentes();
-    const foundLocal = localResidents.find(r => 
-      r.qrcodeToken?.trim() === tokenClean || 
-      r.qrcodeToken?.trim().toLowerCase() === tokenClean.toLowerCase()
-    );
-    if (foundLocal) {
-      return foundLocal;
-    }
-
-    // 3. Fallback to Firebase
-    if (!IS_FIREBASE_DUMMY) {
-      try {
-        const colRef = collection(db, 'residentes');
-        const q = query(colRef, where('qrcodeToken', '==', tokenClean));
-        const snap = await getDocs(q);
-        if (!snap.empty) {
-          return snap.docs[0].data() as Residente;
-        }
-      } catch (err) {
-        console.warn('getResidenteByToken direct Firestore exception:', err);
-      }
+      console.warn('getResidenteByToken exception:', err);
     }
 
     return null;
@@ -2441,6 +2670,17 @@ export const dbService = {
 
     if (IS_FIREBASE_DUMMY) {
       const list = LocalDB.getResidentes();
+      const existingIdx = list.findIndex(r => 
+        (r.qrcodeToken && newResidente.qrcodeToken && r.qrcodeToken === newResidente.qrcodeToken) ||
+        (r.residenciaId === newResidente.residenciaId && 
+         r.nombre.toLowerCase().replace(/\s*\(visita\)/g, '').replace(/\s*\(residente\)/g, '').trim() === newResidente.nombre.toLowerCase().replace(/\s*\(visita\)/g, '').replace(/\s*\(residente\)/g, '').trim() && 
+         (r.direccion || '').toLowerCase().trim() === (newResidente.direccion || '').toLowerCase().trim())
+      );
+      if (existingIdx >= 0) {
+        list[existingIdx] = { ...list[existingIdx], ...newResidente, id: list[existingIdx].id };
+        LocalDB.saveResidentes(list);
+        return list[existingIdx];
+      }
       list.unshift(newResidente);
       LocalDB.saveResidentes(list);
       return newResidente;
@@ -2817,39 +3057,41 @@ export const dbService = {
 
   async getMarbeteByToken(token: string): Promise<Marbete | null> {
     if (!token) return null;
-    const tokenClean = token.trim();
+    const candidates = extractTokenCandidates(token);
 
     try {
-      const data = await robustSupabaseSelectAll('marbetes');
-      if (data && data.length > 0) {
-        const mapped = data.map(normalizeMarbeteRow);
-        const found = mapped.find(m => m.qrcodeToken?.trim() === tokenClean || m.qrcodeToken?.trim().toLowerCase() === tokenClean.toLowerCase());
+      const allMarbetes = await this.getMarbetes();
+      for (const cand of candidates) {
+        const candLower = cand.toLowerCase().trim();
+        const candDigits = candLower.replace(/\D/g, '');
+        const found = allMarbetes.find(m => {
+          const qr = (m.qrcodeToken || '').toLowerCase().trim();
+          const id = (m.id || '').toLowerCase().trim();
+          const consec = String(m.consecutivo || '').toLowerCase().trim();
+          const placas = (m.vehiculoPlacas || '').toLowerCase().trim();
+
+          return (
+            qr === candLower ||
+            id === candLower ||
+            (candDigits && consec === candDigits) ||
+            consec === candLower ||
+            candLower === `marbete-${consec}` ||
+            candLower === `marbete ${consec}` ||
+            candLower === `codigo ${consec}` ||
+            candLower === `#${consec}` ||
+            (candLower.length >= 4 && placas === candLower)
+          );
+        });
         if (found) {
+          console.log('Found marbete by candidate:', found.consecutivo, found.residenteNombre, 'matched:', cand);
           return found;
         }
       }
     } catch (err) {
-      console.warn('getMarbeteByToken direct Supabase exception:', err);
+      console.warn('getMarbeteByToken exception:', err);
     }
 
-    if (IS_FIREBASE_DUMMY) {
-      const list = LocalDB.getMarbetes();
-      const found = list.find(m => m.qrcodeToken?.trim() === tokenClean || m.qrcodeToken?.trim().toLowerCase() === tokenClean.toLowerCase());
-      return found ? normalizeMarbeteRow(found) : null;
-    }
-
-    try {
-      const colRef = collection(db, 'marbetes');
-      const q = query(colRef, where('qrcodeToken', '==', tokenClean));
-      const snap = await getDocs(q);
-      if (!snap.empty) {
-        return normalizeMarbeteRow(snap.docs[0].data());
-      }
-      return null;
-    } catch (err) {
-      handleFirestoreError(err, OperationType.GET, `marbetes_token/${tokenClean}`);
-      return null;
-    }
+    return null;
   },
 
   async getEvidencias(): Promise<Evidencia[]> {

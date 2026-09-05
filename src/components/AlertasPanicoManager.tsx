@@ -32,8 +32,14 @@ export const AlertasPanicoManager: React.FC<AlertasPanicoManagerProps> = ({ curr
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [filterEstado, setFilterEstado] = useState<'TODAS' | 'ACTIVA' | 'ATENDIDA' | 'CANCELADA'>('TODAS');
   const [residencias, setResidencias] = useState<any[]>([]);
-  const [selectedFraccionamiento, setSelectedFraccionamiento] = useState<string>('all');
+  const [selectedFraccionamiento, setSelectedFraccionamiento] = useState<string>(currentUser?.residenciaId || 'all');
   const [processingId, setProcessingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (currentUser?.residenciaId) {
+      setSelectedFraccionamiento(currentUser.residenciaId);
+    }
+  }, [currentUser?.residenciaId]);
 
   const fetchAlertas = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -110,30 +116,47 @@ export const AlertasPanicoManager: React.FC<AlertasPanicoManagerProps> = ({ curr
     }
   };
 
-  const isGlobalAdmin = !currentUser?.residenciaId && (currentUser?.role === 'admin' || currentUser?.role === SystemUserRole.ADMIN || !currentUser);
-  const userResidenciaId = currentUser?.residenciaId;
-  const userResidenciaNombre = currentUser?.residenciaNombre;
+  const isAdminOrSuper = !currentUser || 
+    currentUser.role === 'admin' || 
+    currentUser.role === SystemUserRole.ADMIN || 
+    currentUser.role === 'superadmin';
+
+  // The active target fraccionamiento is selectedFraccionamiento (for admins) or currentUser.residenciaId (for locked users)
+  const targetFraccionamientoId = (!isAdminOrSuper && currentUser?.residenciaId) 
+    ? currentUser.residenciaId 
+    : selectedFraccionamiento;
 
   const filteredAlertas = alertas.filter(a => {
     // 1. Multitenant isolation filter
-    if (!isGlobalAdmin) {
-      const matchId = userResidenciaId && a.residenciaId && a.residenciaId === userResidenciaId;
-      const matchName = userResidenciaNombre && a.residenciaNombre && (
-        a.residenciaNombre.toLowerCase().trim() === userResidenciaNombre.toLowerCase().trim() ||
-        (a.direccion && a.direccion.toLowerCase().includes(userResidenciaNombre.toLowerCase().trim()))
+    if (targetFraccionamientoId !== 'all') {
+      const targetRes = residencias.find(r => r.id === targetFraccionamientoId);
+      const targetName = (targetRes?.nombre || (currentUser?.residenciaId === targetFraccionamientoId ? currentUser?.residenciaNombre : '') || '').toLowerCase().trim();
+
+      const matchId = a.residenciaId && a.residenciaId === targetFraccionamientoId;
+      const matchName = targetName && a.residenciaNombre && (
+        a.residenciaNombre.toLowerCase().trim() === targetName ||
+        (a.direccion && a.direccion.toLowerCase().includes(targetName))
       );
 
-      // Non-global user can only see alerts matching their residence
+      // Must match either ID or Name of the target fraccionamiento
       if (!matchId && !matchName) {
         return false;
       }
-    } else if (selectedFraccionamiento !== 'all') {
-      const matchSelectedId = a.residenciaId === selectedFraccionamiento;
-      const foundRes = residencias.find(r => r.id === selectedFraccionamiento);
-      const matchSelectedName = foundRes && a.residenciaNombre && a.residenciaNombre.toLowerCase().trim() === foundRes.nombre.toLowerCase().trim();
-      if (!matchSelectedId && !matchSelectedName) {
-        return false;
+
+      // Strict Anti-Leak: If viewing a development that is not Lomas, never allow alerts that belong to Lomas
+      if (targetName && !targetName.includes('lomas')) {
+        const aRes = (a.residenciaNombre || '').toLowerCase();
+        const aDir = (a.direccion || '').toLowerCase();
+        if (aRes.includes('lomas') || aDir.includes('lomas')) {
+          return false;
+        }
       }
+    } else if (!isAdminOrSuper && currentUser?.residenciaId) {
+      // Non-admin without global permission should never see foreign alerts
+      const userResName = (currentUser.residenciaNombre || '').toLowerCase().trim();
+      const matchId = a.residenciaId === currentUser.residenciaId;
+      const matchName = userResName && a.residenciaNombre && a.residenciaNombre.toLowerCase().trim() === userResName;
+      if (!matchId && !matchName) return false;
     }
 
     // 2. Status filter
@@ -229,11 +252,12 @@ export const AlertasPanicoManager: React.FC<AlertasPanicoManagerProps> = ({ curr
           />
         </div>
 
-        {/* Global Admin Subdivision Filter */}
-        {isGlobalAdmin && residencias.length > 0 && (
+        {/* Subdivision Filter for Administrators */}
+        {(isAdminOrSuper || residencias.length > 1) && residencias.length > 0 && (
           <div className="flex items-center gap-2">
             <span className="text-[11px] font-bold text-slate-400 shrink-0">Fraccionamiento:</span>
             <select
+              id="select-alertas-fraccionamiento"
               value={selectedFraccionamiento}
               onChange={(e) => setSelectedFraccionamiento(e.target.value)}
               className="bg-[#1A1A1E] border border-slate-800 rounded-xl px-3 py-2 text-xs font-semibold text-slate-200 focus:outline-none focus:border-red-500 cursor-pointer"

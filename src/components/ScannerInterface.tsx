@@ -1156,8 +1156,8 @@ export default function ScannerInterface({ currentGuard, onScanLogged }: Scanner
       status: status,
       guardId: activeGuard?.uid || 'anonymous-guard',
       guardName: activeGuard?.name || 'Guardia de Seguridad',
-      residenciaId: user.residenciaId || activeGuard?.residenciaId || undefined,
-      residenciaNombre: user.residenciaNombre || activeGuard?.residenciaNombre || undefined,
+      residenciaId: activeGuard?.residenciaId || user.residenciaId || undefined,
+      residenciaNombre: activeGuard?.residenciaNombre || user.residenciaNombre || undefined,
       casetaId: activeGuard?.casetaId || undefined,
       casetaNombre: activeGuard?.casetaNombre || undefined
     };
