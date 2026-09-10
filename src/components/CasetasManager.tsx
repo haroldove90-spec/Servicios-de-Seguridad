@@ -8,7 +8,7 @@ import {
   Plus, Search, Edit2, Trash2, CheckCircle, XCircle, Info, Check, X, Shield, RefreshCw
 } from 'lucide-react';
 import { dbService } from '../services/dbService';
-import { Caseta, Residencia } from '../types';
+import { Caseta, Residencia, SystemUserRole } from '../types';
 
 interface CasetasManagerProps {
   onRefresh?: () => void;
@@ -27,6 +27,10 @@ export default function CasetasManager({ onRefresh, currentUser }: CasetasManage
   const [formNombre, setFormNombre] = useState<string>('');
   const [formResidenciaId, setFormResidenciaId] = useState<string>('');
   const [formIsActive, setFormIsActive] = useState<boolean>(true);
+  const [selectedCasetaIds, setSelectedCasetaIds] = useState<string[]>([]);
+  const [isBatchDeletingCasetas, setIsBatchDeletingCasetas] = useState<boolean>(false);
+
+  const isAdmin = !currentUser || currentUser.role === 'admin' || currentUser.role === SystemUserRole.ADMIN || currentUser.role === 'superadmin';
 
   const loadData = async () => {
     setIsLoading(true);
@@ -104,13 +108,41 @@ export default function CasetasManager({ onRefresh, currentUser }: CasetasManage
   };
 
   const handleDelete = async (id: string) => {
+    if (!isAdmin) {
+      alert('Operación Denegada: Solo el Administrador tiene permisos para eliminar casetas.');
+      return;
+    }
     if (window.confirm('¿Está seguro de que desea eliminar permanentemente esta caseta de seguridad?')) {
       try {
         await dbService.deleteCaseta(id);
+        setSelectedCasetaIds(prev => prev.filter(x => x !== id));
         loadData();
         if (onRefresh) onRefresh();
       } catch (error) {
         console.error('Error deleting caseta:', error);
+      }
+    }
+  };
+
+  const handleBatchDeleteCasetas = async () => {
+    if (!isAdmin) {
+      alert('Operación Denegada: Solo el Administrador tiene permisos para eliminar casetas.');
+      return;
+    }
+    if (selectedCasetaIds.length === 0) return;
+    if (window.confirm(`¿Está seguro de eliminar permanentemente las ${selectedCasetaIds.length} casetas de seguridad seleccionadas?`)) {
+      setIsBatchDeletingCasetas(true);
+      try {
+        for (const id of selectedCasetaIds) {
+          await dbService.deleteCaseta(id);
+        }
+        setSelectedCasetaIds([]);
+        loadData();
+        if (onRefresh) onRefresh();
+      } catch (error) {
+        console.error('Error batch deleting casetas:', error);
+      } finally {
+        setIsBatchDeletingCasetas(false);
       }
     }
   };
@@ -179,11 +211,23 @@ export default function CasetasManager({ onRefresh, currentUser }: CasetasManage
             />
           </div>
           
-          <div className="text-xs text-slate-400 flex items-center gap-1">
-            <span>Total casetas:</span>
-            <strong className="text-white bg-slate-900 border border-slate-800 px-2 py-0.5 rounded font-mono">
-              {filteredCasetas.length}
-            </strong>
+          <div className="flex items-center gap-3">
+            {isAdmin && selectedCasetaIds.length > 0 && (
+              <button
+                onClick={handleBatchDeleteCasetas}
+                disabled={isBatchDeletingCasetas}
+                className="inline-flex items-center gap-1.5 px-3 py-1 bg-red-600/20 border border-red-500/40 hover:bg-red-600 hover:text-white text-red-400 text-xs font-bold rounded-xl transition cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isBatchDeletingCasetas ? 'Eliminando...' : `Eliminar (${selectedCasetaIds.length})`}</span>
+              </button>
+            )}
+            <div className="text-xs text-slate-400 flex items-center gap-1">
+              <span>Total casetas:</span>
+              <strong className="text-white bg-slate-900 border border-slate-800 px-2 py-0.5 rounded font-mono">
+                {filteredCasetas.length}
+              </strong>
+            </div>
           </div>
         </div>
 
@@ -198,6 +242,22 @@ export default function CasetasManager({ onRefresh, currentUser }: CasetasManage
             <table className="w-full text-left text-xs text-slate-300">
               <thead className="bg-[#020617] text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-900">
                 <tr>
+                  {isAdmin && (
+                    <th className="py-3 px-4 w-10">
+                      <input
+                        type="checkbox"
+                        checked={filteredCasetas.length > 0 && selectedCasetaIds.length === filteredCasetas.length}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedCasetaIds(filteredCasetas.map(x => x.id));
+                          } else {
+                            setSelectedCasetaIds([]);
+                          }
+                        }}
+                        className="rounded bg-slate-950 border-slate-700 text-red-600 focus:ring-0 cursor-pointer"
+                      />
+                    </th>
+                  )}
                   <th className="py-3 px-4">Nombre de Caseta</th>
                   <th className="py-3 px-4">Residencia Asignada</th>
                   <th className="py-3 px-4">Estado de Operación</th>
@@ -207,8 +267,26 @@ export default function CasetasManager({ onRefresh, currentUser }: CasetasManage
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-900/60 font-sans">
-                {filteredCasetas.map((cas) => (
-                  <tr key={cas.id} className="hover:bg-slate-900/30 transition-colors">
+                {filteredCasetas.map((cas) => {
+                  const isSelected = selectedCasetaIds.includes(cas.id);
+                  return (
+                  <tr key={cas.id} className={`hover:bg-slate-900/30 transition-colors ${isSelected ? 'bg-red-500/5' : ''}`}>
+                    {isAdmin && (
+                      <td className="py-3.5 px-4">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedCasetaIds(prev => [...prev, cas.id]);
+                            } else {
+                              setSelectedCasetaIds(prev => prev.filter(x => x !== cas.id));
+                            }
+                          }}
+                          className="rounded bg-slate-950 border-slate-700 text-red-600 focus:ring-0 cursor-pointer"
+                        />
+                      </td>
+                    )}
                     <td className="py-3.5 px-4 font-semibold text-white">
                       🛡️ {cas.nombre}
                     </td>
@@ -243,17 +321,20 @@ export default function CasetasManager({ onRefresh, currentUser }: CasetasManage
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
-                        <button
-                          onClick={() => handleDelete(cas.id)}
-                          className="p-1 text-slate-400 hover:text-rose-500 transition cursor-pointer"
-                          title="Eliminar"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {isAdmin && (
+                          <button
+                            onClick={() => handleDelete(cas.id)}
+                            className="p-1 text-slate-400 hover:text-rose-500 transition cursor-pointer"
+                            title="Eliminar (Solo Administrador)"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
-                ))}
+                );
+                })}
               </tbody>
             </table>
           </div>

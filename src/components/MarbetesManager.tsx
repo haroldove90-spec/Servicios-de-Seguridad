@@ -10,7 +10,7 @@ import {
   Printer, X, Check, Calendar, AlertCircle, RefreshCw, Car, ChevronRight, Hash, UserCheck
 } from 'lucide-react';
 import { dbService } from '../services/dbService';
-import { Marbete, Residente, UserStatus } from '../types';
+import { Marbete, Residente, UserStatus, SystemUserRole } from '../types';
 import { generateQRWithLogo } from '../utils/qrWithLogo';
 import { exportMarbeteToJPG } from '../utils/marbeteExporter';
 
@@ -75,6 +75,10 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
   const [isQRModalOpen, setIsQRModalOpen] = useState<boolean>(false);
   
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [selectedMarbeteIds, setSelectedMarbeteIds] = useState<string[]>([]);
+  const [isBatchDeletingMarbetes, setIsBatchDeletingMarbetes] = useState<boolean>(false);
+
+  const isAdmin = !currentUser || currentUser.role === 'admin' || currentUser.role === SystemUserRole.ADMIN || currentUser.role === 'superadmin';
 
   useEffect(() => {
     loadData();
@@ -275,13 +279,41 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
   };
 
   const handleDeleteMarbete = async (id: string) => {
+    if (!isAdmin) {
+      alert('Operación Denegada: Solo el Administrador tiene permisos para eliminar marbetes.');
+      return;
+    }
     try {
       await dbService.deleteMarbete(id);
+      setSelectedMarbeteIds(prev => prev.filter(x => x !== id));
       setDeleteConfirmId(null);
       loadData();
       if (onRefresh) onRefresh();
     } catch (err) {
       console.error('Failed to delete marbete:', err);
+    }
+  };
+
+  const handleBatchDeleteMarbetes = async () => {
+    if (!isAdmin) {
+      alert('Operación Denegada: Solo el Administrador tiene permisos para eliminar marbetes.');
+      return;
+    }
+    if (selectedMarbeteIds.length === 0) return;
+    if (window.confirm(`¿Está seguro de eliminar permanentemente los ${selectedMarbeteIds.length} marbetes seleccionados?`)) {
+      setIsBatchDeletingMarbetes(true);
+      try {
+        for (const id of selectedMarbeteIds) {
+          await dbService.deleteMarbete(id);
+        }
+        setSelectedMarbeteIds([]);
+        loadData();
+        if (onRefresh) onRefresh();
+      } catch (err) {
+        console.error('Error batch deleting marbetes:', err);
+      } finally {
+        setIsBatchDeletingMarbetes(false);
+      }
     }
   };
 
@@ -420,7 +452,7 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
       </div>
 
       {/* Search Bar */}
-      <div className="mb-6 flex gap-3">
+      <div className="mb-6 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
           <input
@@ -431,6 +463,16 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
             className="w-full pl-10.5 pr-4 py-2.5 bg-[#1B1B1F] border border-zinc-800 rounded-xl text-slate-250 placeholder-slate-500 text-xs focus:outline-none focus:border-red-550 focus:ring-1 focus:ring-red-550/30 transition shadow-inner font-sans"
           />
         </div>
+        {isAdmin && selectedMarbeteIds.length > 0 && (
+          <button
+            onClick={handleBatchDeleteMarbetes}
+            disabled={isBatchDeletingMarbetes}
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-red-600/20 border border-red-500/40 hover:bg-red-600 hover:text-white text-red-400 text-xs font-bold rounded-xl transition cursor-pointer shrink-0"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>{isBatchDeletingMarbetes ? 'Eliminando...' : `Eliminar (${selectedMarbeteIds.length})`}</span>
+          </button>
+        )}
       </div>
 
       {/* Grid or Table list */}
@@ -452,6 +494,22 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-zinc-800 text-[10px] uppercase font-bold text-slate-450 tracking-wider">
+                {isAdmin && (
+                  <th className="py-3 px-4 w-10">
+                    <input
+                      type="checkbox"
+                      checked={filteredMarbetes.length > 0 && selectedMarbeteIds.length === filteredMarbetes.length}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedMarbeteIds(filteredMarbetes.map(x => x.id));
+                        } else {
+                          setSelectedMarbeteIds([]);
+                        }
+                      }}
+                      className="rounded bg-[#1B1B1F] border-zinc-800 text-red-600 focus:ring-0 cursor-pointer"
+                    />
+                  </th>
+                )}
                 <th className="py-3 px-4">Consecutivo</th>
                 <th className="py-3 px-4">Residente</th>
                 <th className="py-3 px-4">Residencia</th>
@@ -465,8 +523,25 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
             <tbody className="divide-y divide-zinc-900/50 text-xs">
               {filteredMarbetes.map((m) => {
                 const isExpired = new Date(m.validUntil) < new Date();
+                const isSelected = selectedMarbeteIds.includes(m.id);
                 return (
-                  <tr key={m.id} className="hover:bg-zinc-800/10 transition group text-slate-300">
+                  <tr key={m.id} className={`hover:bg-zinc-800/10 transition group text-slate-300 ${isSelected ? 'bg-red-500/5' : ''}`}>
+                    {isAdmin && (
+                      <td className="py-2.5 px-4">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedMarbeteIds(prev => [...prev, m.id]);
+                            } else {
+                              setSelectedMarbeteIds(prev => prev.filter(x => x !== m.id));
+                            }
+                          }}
+                          className="rounded bg-[#1B1B1F] border-zinc-800 text-red-600 focus:ring-0 cursor-pointer"
+                        />
+                      </td>
+                    )}
                     <td className="py-2.5 px-4 font-mono font-bold text-red-400">
                       #{m.consecutivo}
                     </td>
@@ -555,29 +630,31 @@ export default function MarbetesManager({ onRefresh, currentUser }: MarbetesMana
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
 
-                        {deleteConfirmId === m.id ? (
-                          <div className="flex items-center gap-1 bg-red-950/40 p-1 rounded-lg border border-red-500/30">
+                        {isAdmin && (
+                          deleteConfirmId === m.id ? (
+                            <div className="flex items-center gap-1 bg-red-950/40 p-1 rounded-lg border border-red-500/30">
+                              <button
+                                onClick={() => handleDeleteMarbete(m.id)}
+                                className="px-2 py-0.5 bg-red-650 hover:bg-red-600 text-white rounded text-[10px] font-bold transition cursor-pointer"
+                              >
+                                Sí
+                              </button>
+                              <button
+                                onClick={() => setDeleteConfirmId(null)}
+                                className="px-2 py-0.5 bg-zinc-700 hover:bg-zinc-600 text-slate-200 rounded text-[10px] font-medium transition cursor-pointer"
+                              >
+                                No
+                              </button>
+                            </div>
+                          ) : (
                             <button
-                              onClick={() => handleDeleteMarbete(m.id)}
-                              className="px-2 py-0.5 bg-red-650 hover:bg-red-600 text-white rounded text-[10px] font-bold transition"
+                              onClick={() => setDeleteConfirmId(m.id)}
+                              className="p-10.5 text-rose-500 hover:text-rose-450 bg-rose-500/10 hover:bg-rose-500/20 rounded-lg cursor-pointer transition"
+                              title="Eliminar Marbete (Solo Administrador)"
                             >
-                              Sí
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
-                            <button
-                              onClick={() => setDeleteConfirmId(null)}
-                              className="px-2 py-0.5 bg-zinc-700 hover:bg-zinc-600 text-slate-200 rounded text-[10px] font-medium transition"
-                            >
-                              No
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => setDeleteConfirmId(m.id)}
-                            className="p-10.5 text-rose-500 hover:text-rose-450 bg-rose-500/10 hover:bg-rose-500/20 rounded-lg cursor-pointer transition"
-                            title="Eliminar Marbete"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          )
                         )}
                       </div>
                     </td>

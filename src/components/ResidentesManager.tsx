@@ -34,6 +34,11 @@ interface CreatedResidentCreds {
 }
 
 export default function ResidentesManager({ onRefresh, currentUser }: ResidentesManagerProps) {
+  const isAdmin = !currentUser || currentUser.role === 'admin' || currentUser.role === SystemUserRole.ADMIN || currentUser.role === 'superadmin';
+  const [selectedResidentIds, setSelectedResidentIds] = useState<string[]>([]);
+  const [isBatchDeleting, setIsBatchDeleting] = useState<boolean>(false);
+  const [isCleaningOrphans, setIsCleaningOrphans] = useState<boolean>(false);
+
   const [residentes, setResidentes] = useState<Residente[]>([]);
   const [residencias, setResidencias] = useState<Residencia[]>([]);
   const [authorizedUsers, setAuthorizedUsers] = useState<AuthorizedUser[]>([]);
@@ -412,11 +417,16 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
   };
 
   const handleDelete = (item: Residente) => {
+    if (!isAdmin) {
+      alert('Operación Denegada: Solo el Administrador del sistema tiene permisos para eliminar residentes.');
+      return;
+    }
     setDeleteConfirmId(item.id);
     setDeleteConfirmNombre(item.nombre);
   };
 
   const handleConfirmDeleteResidente = async () => {
+    if (!isAdmin) return;
     if (deleteConfirmId) {
       const item = residentes.find(r => r.id === deleteConfirmId);
       if (item) {
@@ -426,7 +436,8 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
             await dbService.deleteSystemRole(item.accessUserId);
           }
           await dbService.deleteResidente(item.id);
-          loadData();
+          setSelectedResidentIds(prev => prev.filter(x => x !== item.id));
+          await loadData();
           if (onRefresh) onRefresh();
         } catch (error) {
           console.error('Error deleting resident:', error);
@@ -434,6 +445,53 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
       }
       setDeleteConfirmId(null);
       setDeleteConfirmNombre('');
+    }
+  };
+
+  const handleBatchDeleteResidentes = async () => {
+    if (!isAdmin) {
+      alert('Operación Denegada: Solo el Administrador tiene permisos para eliminar residentes.');
+      return;
+    }
+    if (selectedResidentIds.length === 0) return;
+
+    const confirmMsg = `¿Está seguro de eliminar a los ${selectedResidentIds.length} residentes seleccionados?\n\nEsta acción revocará de inmediato sus credenciales de acceso al sistema, eliminará sus códigos QR y pases de visita asociados de forma irreversible.`;
+    if (window.confirm(confirmMsg)) {
+      setIsBatchDeleting(true);
+      try {
+        for (const resId of selectedResidentIds) {
+          const item = residentes.find(r => r.id === resId);
+          if (item?.accessUserId) {
+            await dbService.deleteAuthorizedUser(item.accessUserId);
+            await dbService.deleteSystemRole(item.accessUserId);
+          }
+          await dbService.deleteResidente(resId);
+        }
+        setSelectedResidentIds([]);
+        await loadData();
+        if (onRefresh) onRefresh();
+      } catch (err) {
+        console.error('Error in batch deleting residentes:', err);
+      } finally {
+        setIsBatchDeleting(false);
+      }
+    }
+  };
+
+  const handleCleanOrphans = async () => {
+    if (!isAdmin) return;
+    if (window.confirm('¿Desea escanear y eliminar automáticamente todos los residentes huérfanos (cuyas residencias ya fueron eliminadas del sistema)?')) {
+      setIsCleaningOrphans(true);
+      try {
+        const count = await dbService.cleanOrphanedResidentes();
+        alert(`Limpieza concluida: Se eliminaron ${count} residentes huérfanos y se actualizaron las credenciales.`);
+        await loadData();
+        if (onRefresh) onRefresh();
+      } catch (err) {
+        console.error('Error cleaning orphaned residents:', err);
+      } finally {
+        setIsCleaningOrphans(false);
+      }
     }
   };
 
@@ -508,7 +566,28 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
             className="w-full bg-[#1e1e24] border border-[#2e2e38] rounded-xl pl-10 pr-4 py-2.5 text-xs text-white focus:outline-none focus:border-red-500 font-medium placeholder-slate-500 transition-all"
           />
         </div>
-        <div className="flex items-center gap-3 text-xs text-slate-400">
+        <div className="flex items-center gap-3 text-xs text-slate-400 flex-wrap">
+          {isAdmin && (
+            <button
+              onClick={handleCleanOrphans}
+              disabled={isCleaningOrphans}
+              className="inline-flex items-center gap-2 bg-amber-500/15 border border-amber-500/30 text-amber-400 hover:bg-amber-500/25 px-3 py-1.5 rounded-xl font-semibold transition cursor-pointer"
+              title="Detecta y elimina residentes que quedaron huérfanos de residencias ya borradas"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isCleaningOrphans ? 'animate-spin' : ''}`} />
+              <span>{isCleaningOrphans ? 'Limpiando...' : 'Limpiar huérfanos'}</span>
+            </button>
+          )}
+          {isAdmin && selectedResidentIds.length > 0 && (
+            <button
+              onClick={handleBatchDeleteResidentes}
+              disabled={isBatchDeleting}
+              className="inline-flex items-center gap-2 bg-red-600/20 border border-red-500/40 text-red-400 hover:bg-red-600 hover:text-white px-3 py-1.5 rounded-xl font-bold transition shadow-sm cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>{isBatchDeleting ? 'Eliminando...' : `Eliminar residentes (${selectedResidentIds.length})`}</span>
+            </button>
+          )}
           <span className="bg-[#1e1e24] border border-[#2e2e38] px-3 py-1.5 rounded-lg">
             Residentes: <strong className="text-white">{residentes.length}</strong>
           </span>
@@ -524,7 +603,23 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-[#1e1e24]/60 border-b border-[#2e2e38] text-[10.5px] font-bold text-slate-400 uppercase tracking-widest font-sans">
-                <th className="py-4 px-6">Residente</th>
+                {isAdmin && (
+                  <th className="py-4 pl-6 pr-2 w-10">
+                    <input
+                      type="checkbox"
+                      checked={filteredItems.length > 0 && selectedResidentIds.length === filteredItems.length}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedResidentIds(filteredItems.map(x => x.id));
+                        } else {
+                          setSelectedResidentIds([]);
+                        }
+                      }}
+                      className="rounded bg-[#111115] border-[#2e2e38] text-red-600 focus:ring-0 cursor-pointer"
+                    />
+                  </th>
+                )}
+                <th className={`py-4 ${isAdmin ? 'px-3' : 'px-6'}`}>Residente</th>
                 <th className="py-4 px-6">Ubicación / Fraccionamiento</th>
                 <th className="py-4 px-6">Dirección / Casa</th>
                 <th className="py-4 px-6 text-center">Estado</th>
@@ -536,14 +631,32 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
             <tbody className="divide-y divide-[#2e2e38] text-xs font-sans">
               {filteredItems.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-500 font-medium">
+                  <td colSpan={isAdmin ? 8 : 7} className="py-12 text-center text-slate-500 font-medium">
                     {searchTerm ? 'No se encontraron resultados para la búsqueda.' : 'No hay residentes registrados en este momento.'}
                   </td>
                 </tr>
               ) : (
-                filteredItems.map((item) => (
-                  <tr key={item.id} className="hover:bg-[#1e1e24]/30 transition-all">
-                    <td className="py-4 px-6 font-semibold text-white">
+                filteredItems.map((item) => {
+                  const isSelected = selectedResidentIds.includes(item.id);
+                  return (
+                  <tr key={item.id} className={`hover:bg-[#1e1e24]/30 transition-all ${isSelected ? 'bg-red-500/5' : ''}`}>
+                    {isAdmin && (
+                      <td className="py-4 pl-6 pr-2">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedResidentIds(prev => [...prev, item.id]);
+                            } else {
+                              setSelectedResidentIds(prev => prev.filter(x => x !== item.id));
+                            }
+                          }}
+                          className="rounded bg-[#111115] border-[#2e2e38] text-red-600 focus:ring-0 cursor-pointer"
+                        />
+                      </td>
+                    )}
+                    <td className={`py-4 ${isAdmin ? 'px-3' : 'px-6'} font-semibold text-white`}>
                       <div className="flex items-center gap-2.5">
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${item.isActive !== false ? 'bg-red-500/10 text-red-500' : 'bg-slate-800 text-slate-500'}`}>
                           <User className="w-4 h-4" />
@@ -648,18 +761,20 @@ export default function ResidentesManager({ onRefresh, currentUser }: Residentes
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
-                        <button
-                          onClick={() => handleDelete(item)}
-                          className="p-2 text-slate-400 hover:text-red-450 hover:bg-red-500/10 rounded-lg transition-all"
-                          title="Eliminar"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {isAdmin && (
+                          <button
+                            onClick={() => handleDelete(item)}
+                            className="p-2 text-slate-400 hover:text-red-450 hover:bg-red-500/10 rounded-lg transition-all cursor-pointer"
+                            title="Eliminar Residente (Solo Admin)"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
-                ))
-              )}
+                );
+              }))}
             </tbody>
           </table>
         </div>

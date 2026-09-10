@@ -666,8 +666,22 @@ export default function App() {
 
       // Check if user is active
       if (matched.isActive === false) {
-        setLoginError('Acceso Denegado: Su cuenta está desactivada o aún se encuentra pendiente de autorización por el Administrador.');
+        setLoginError('Acceso Denegado: Su cuenta está desactivada o ha sido dada de baja del sistema por el Administrador.');
         return;
+      }
+
+      // Check if user's residencia was deleted
+      if (matched.residenciaId && matched.role !== SystemUserRole.ADMIN) {
+        try {
+          const residenciasList = await dbService.getResidencias();
+          const resExists = residenciasList.some(r => r.id === matched.residenciaId);
+          if (!resExists) {
+            setLoginError('Acceso Denegado: La residencia asignada a esta cuenta ha sido eliminada del sistema.');
+            return;
+          }
+        } catch (resErr) {
+          console.warn('Error validating residencia existence during login:', resErr);
+        }
       }
 
       // Save user state and persist in localStorage immediately!
@@ -1167,16 +1181,38 @@ export default function App() {
           }
 
           if (matched) {
-            // Found matched registered custom employee/resident! Load full db row
-            setUserRole(matched);
-            setDemoRole(matched.role);
-            setDemoName(matched.name);
+            // Found matched registered custom employee/resident! Check if deactivated
+            if (matched.isActive === false) {
+              localStorage.removeItem('cnls_user_role');
+              localStorage.setItem('cnls_has_selected_role', 'false');
+              localStorage.removeItem('cnls_visiting_residencia');
+              setUserRole(null);
+              setLoginError('Su cuenta ha sido desactivada del sistema por el Administrador. Acceso revocado.');
+            } else {
+              setUserRole(matched);
+              setDemoRole(matched.role);
+              setDemoName(matched.name);
+            }
           } else if (currentActiveRole && currentActiveRole.role) {
-            // Preserve custom active user role stored in localStorage
-            setUserRole(currentActiveRole);
-            setDemoRole(currentActiveRole.role);
-            setDemoName(currentActiveRole.name || 'Usuario');
+            // If the user in localStorage is NOT the root Master Admin and no longer exists in DB, their account was DELETED!
+            const isMasterAdmin = currentActiveRole.uid === 'admin-demo-uid' || 
+                                  currentActiveRole.uid === 'admin-main-uid' || 
+                                  currentActiveRole.uid === 'admin-harold-uid' ||
+                                  (currentActiveRole.role === SystemUserRole.ADMIN && (!currentActiveRole.residenciaId || currentActiveRole.residenciaId === '') && (currentActiveRole.username === 'canalesjonathan7777' || currentActiveRole.username === 'admin'));
 
+            if (!isMasterAdmin) {
+              // User or resident was deleted from the system! Revoke session immediately
+              localStorage.removeItem('cnls_user_role');
+              localStorage.setItem('cnls_has_selected_role', 'false');
+              localStorage.removeItem('cnls_visiting_residencia');
+              setUserRole(null);
+              setLoginError('Su cuenta de usuario o residencia ha sido eliminada del sistema. Acceso revocado.');
+            } else {
+              // Preserve custom active user role stored in localStorage for master admin
+              setUserRole(currentActiveRole);
+              setDemoRole(currentActiveRole.role);
+              setDemoName(currentActiveRole.name || 'Usuario');
+            }
           } else {
             // Fallback: Seed basic/sandbox role simulated details if not logged in with custom credentials
             const mockRoleRecord: SystemRole = {
@@ -2685,6 +2721,7 @@ export default function App() {
 
                   {activeTab === 'residencias' && canManageResidences && (
                     <ResidenciasManager 
+                      currentUser={computedAdminUser}
                       onRefresh={loadVisitorsForPhoneList}
                       onVisitResidencia={(res) => {
                         setVisitingResidencia({ id: res.id, nombre: res.nombre });

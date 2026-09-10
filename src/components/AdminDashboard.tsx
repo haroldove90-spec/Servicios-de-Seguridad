@@ -10,7 +10,7 @@ import {
   Clock, Shield, User, Smartphone, Eye, Mail, Info, RefreshCcw, UserPlus
 } from 'lucide-react';
 import { dbService } from '../services/dbService';
-import { AuthorizedUser, UserStatus } from '../types';
+import { AuthorizedUser, UserStatus, SystemUserRole } from '../types';
 import { generateQRWithLogo } from '../utils/qrWithLogo';
 
 interface AdminDashboardProps {
@@ -46,6 +46,10 @@ export default function AdminDashboard({ onUsersUpdated, currentUser }: AdminDas
   const [copiedToken, setCopiedToken] = useState<boolean>(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deleteConfirmName, setDeleteConfirmName] = useState<string>('');
+  const [selectedVisitorIds, setSelectedVisitorIds] = useState<string[]>([]);
+  const [isBatchDeletingVisitors, setIsBatchDeletingVisitors] = useState<boolean>(false);
+
+  const isAdmin = !currentUser || currentUser.role === 'admin' || currentUser.role === SystemUserRole.ADMIN || currentUser.role === 'superadmin';
 
   // Load visitors list
   const loadVisitors = () => {
@@ -192,17 +196,72 @@ export default function AdminDashboard({ onUsersUpdated, currentUser }: AdminDas
   };
 
   const handleDeleteVisitor = (id: string, name: string) => {
+    if (!isAdmin) {
+      alert('Operación Denegada: Solo el Administrador tiene permisos para eliminar registros de accesos.');
+      return;
+    }
     setDeleteConfirmId(id);
     setDeleteConfirmName(name);
   };
 
   const handleConfirmDelete = async () => {
+    if (!isAdmin) return;
     if (deleteConfirmId) {
       await dbService.deleteAuthorizedUser(deleteConfirmId);
+      setSelectedVisitorIds(prev => prev.filter(x => x !== deleteConfirmId));
       loadVisitors();
       onUsersUpdated();
       setDeleteConfirmId(null);
       setDeleteConfirmName('');
+    }
+  };
+
+  const handleBatchDeleteVisitors = async () => {
+    if (!isAdmin) {
+      alert('Operación Denegada: Solo el Administrador tiene permisos para eliminar registros.');
+      return;
+    }
+    if (selectedVisitorIds.length === 0) return;
+
+    if (window.confirm(`¿Está seguro de eliminar permanentemente los ${selectedVisitorIds.length} pases de acceso seleccionados?`)) {
+      setIsBatchDeletingVisitors(true);
+      try {
+        for (const id of selectedVisitorIds) {
+          await dbService.deleteAuthorizedUser(id);
+        }
+        setSelectedVisitorIds([]);
+        loadVisitors();
+        onUsersUpdated();
+      } catch (e) {
+        console.error('Error batch deleting visitors:', e);
+      } finally {
+        setIsBatchDeletingVisitors(false);
+      }
+    }
+  };
+
+  const handleDeleteExpiredVisitors = async () => {
+    if (!isAdmin) return;
+    const now = new Date();
+    const expiredList = rawVisitors.filter(v => new Date(v.validUntil) < now);
+    if (expiredList.length === 0) {
+      alert('No se encontraron pases expirados para eliminar.');
+      return;
+    }
+    if (window.confirm(`Se encontraron ${expiredList.length} pases de visita expirados. ¿Desea eliminarlos permanentemente?`)) {
+      setIsBatchDeletingVisitors(true);
+      try {
+        for (const v of expiredList) {
+          await dbService.deleteAuthorizedUser(v.id);
+        }
+        await loadVisitors();
+        onUsersUpdated();
+        alert(`Se eliminaron ${expiredList.length} pases expirados con éxito.`);
+      } catch (e) {
+        console.error('Error deleting expired visitors:', e);
+      } finally {
+        setIsBatchDeletingVisitors(false);
+      }
     }
   };
 
@@ -245,13 +304,35 @@ export default function AdminDashboard({ onUsersUpdated, currentUser }: AdminDas
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {isAdmin && (
+            <button
+              onClick={handleDeleteExpiredVisitors}
+              disabled={isBatchDeletingVisitors}
+              className="inline-flex items-center gap-1.5 justify-center px-3 py-2 bg-amber-950/60 hover:bg-amber-900/80 text-amber-300 border border-amber-500/40 font-semibold text-xs rounded-xl transition cursor-pointer shadow-xs"
+              title="Eliminar pases de visitas expirados"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-amber-400" /> Eliminar Expirados
+            </button>
+          )}
+
+          {isAdmin && selectedVisitorIds.length > 0 && (
+            <button
+              onClick={handleBatchDeleteVisitors}
+              disabled={isBatchDeletingVisitors}
+              className="inline-flex items-center gap-1.5 justify-center px-3 py-2 bg-red-600/20 hover:bg-red-600 hover:text-white text-red-400 border border-red-500/40 font-bold text-xs rounded-xl transition cursor-pointer shadow-xs"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>{isBatchDeletingVisitors ? 'Eliminando...' : `Eliminar (${selectedVisitorIds.length})`}</span>
+            </button>
+          )}
+
           <button
             id="btn-clear-system-cache-admin"
             onClick={handleClearCache}
-            className="inline-flex items-center gap-1.5 justify-center px-3.5 py-2 bg-amber-950/60 hover:bg-amber-900/80 text-amber-300 border border-amber-500/40 font-semibold text-xs rounded-xl transition cursor-pointer shadow-xs"
+            className="inline-flex items-center gap-1.5 justify-center px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 font-semibold text-xs rounded-xl transition cursor-pointer shadow-xs"
             title="Borrar memoria caché local del navegador y re-sincronizar datos"
           >
-            <RefreshCcw className="w-4 h-4 text-amber-400" /> Borrar Caché
+            <RefreshCcw className="w-4 h-4 text-slate-400" /> Borrar Caché
           </button>
 
           <button
@@ -266,24 +347,44 @@ export default function AdminDashboard({ onUsersUpdated, currentUser }: AdminDas
 
       {/* Directory database representation */}
       <div id="visitors-grid" className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {filteredVisitors.map((user) => (
+        {filteredVisitors.map((user) => {
+          const isSelected = selectedVisitorIds.includes(user.id);
+          return (
           <div 
             key={user.id} 
             id={`visitor-card-${user.id}`}
-            className="bg-[#2A2A2E] rounded-2xl border border-[#3e3e42] p-5 shadow-2xl relative flex flex-col justify-between hover:border-slate-650 transition-all animate-fade-in-up"
+            className={`bg-[#2A2A2E] rounded-2xl border p-5 shadow-2xl relative flex flex-col justify-between transition-all animate-fade-in-up ${
+              isSelected ? 'border-red-500/50 bg-red-500/5' : 'border-[#3e3e42] hover:border-slate-650'
+            }`}
           >
             <div>
               {/* Badge row */}
               <div className="flex items-center justify-between mb-3">
-                <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold border uppercase tracking-wider ${
-                  user.status === UserStatus.ACTIVE 
-                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                    : user.status === UserStatus.SUSPENDED
-                    ? 'bg-red-500/10 text-red-400 border-red-500/20'
-                    : 'bg-slate-800 text-slate-400 border-slate-700'
-                }`}>
-                  {user.status === UserStatus.ACTIVE ? '✓ Activo' : user.status === UserStatus.SUSPENDED ? '⚠ Suspendido' : '✗ Expirado'}
-                </span>
+                <div className="flex items-center gap-2">
+                  {isAdmin && (
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedVisitorIds(prev => [...prev, user.id]);
+                        } else {
+                          setSelectedVisitorIds(prev => prev.filter(x => x !== user.id));
+                        }
+                      }}
+                      className="rounded bg-slate-950 border-slate-700 text-red-600 focus:ring-0 cursor-pointer"
+                    />
+                  )}
+                  <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold border uppercase tracking-wider ${
+                    user.status === UserStatus.ACTIVE 
+                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                      : user.status === UserStatus.SUSPENDED
+                      ? 'bg-red-500/10 text-red-400 border-red-500/20'
+                      : 'bg-slate-800 text-slate-400 border-slate-700'
+                  }`}>
+                    {user.status === UserStatus.ACTIVE ? '✓ Activo' : user.status === UserStatus.SUSPENDED ? '⚠ Suspendido' : '✗ Expirado'}
+                  </span>
+                </div>
 
                 <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border uppercase ${
                   user.oneTime 
@@ -345,18 +446,21 @@ export default function AdminDashboard({ onUsersUpdated, currentUser }: AdminDas
                   <Edit2 className="w-3.5 h-3.5" />
                 </button>
 
-                <button
-                  id={`btn-delete-visitor-${user.id}`}
-                  onClick={() => handleDeleteVisitor(user.id, user.name)}
-                  className="p-1.5 text-slate-400 hover:text-rose-450 hover:bg-rose-500/10 rounded-lg border border-transparent hover:border-rose-500/20 transition"
-                  title="Eliminar Acceso"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
+                {isAdmin && (
+                  <button
+                    id={`btn-delete-visitor-${user.id}`}
+                    onClick={() => handleDeleteVisitor(user.id, user.name)}
+                    className="p-1.5 text-slate-400 hover:text-rose-450 hover:bg-rose-500/10 rounded-lg border border-transparent hover:border-rose-500/20 transition cursor-pointer"
+                    title="Eliminar Acceso (Solo Administrador)"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             </div>
           </div>
-        ))}
+        );
+        })}
 
         {filteredVisitors.length === 0 && (
           <div id="no-visitors-registered-panel" className="col-span-full text-center py-12 bg-slate-950 rounded-2xl border border-dashed border-slate-800">

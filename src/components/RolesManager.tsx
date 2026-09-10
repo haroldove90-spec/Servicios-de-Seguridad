@@ -37,6 +37,10 @@ export default function RolesManager({
   activeSimulatedRole,
   currentUser
 }: RolesManagerProps) {
+  const isAdmin = !currentUser || currentUser.role === 'admin' || currentUser.role === SystemUserRole.ADMIN || currentUser.role === 'superadmin';
+  const [selectedRoleUids, setSelectedRoleUids] = useState<string[]>([]);
+  const [isBatchDeletingRoles, setIsBatchDeletingRoles] = useState<boolean>(false);
+
   const [roles, setRoles] = useState<SystemRole[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
   
@@ -278,7 +282,11 @@ export default function RolesManager({
   };
 
   const handleDeleteRole = (uid: string, name: string) => {
-    if (uid === 'admin-demo-uid') {
+    if (!isAdmin) {
+      alert('Operación Denegada: Solo el Administrador tiene permisos para eliminar personal.');
+      return;
+    }
+    if (uid === 'admin-demo-uid' || uid === 'admin-main-uid' || uid === 'admin-harold-uid') {
       alert('Operación Bloqueada: No se puede eliminar al Administrador Principal del Sistema.');
       return;
     }
@@ -287,14 +295,49 @@ export default function RolesManager({
   };
 
   const handleConfirmDelete = async () => {
+    if (!isAdmin) return;
     if (deleteConfirmUid) {
       await dbService.deleteSystemRole(deleteConfirmUid);
+      setSelectedRoleUids(prev => prev.filter(x => x !== deleteConfirmUid));
       loadRoles();
       onRolesUpdated();
-      setSuccessMsg(`Se revocaron los permisos para "${deleteConfirmName}".`);
+      setSuccessMsg(`Se revocaron los permisos y se eliminó la cuenta de "${deleteConfirmName}".`);
       setTimeout(() => setSuccessMsg(''), 5000);
       setDeleteConfirmUid(null);
       setDeleteConfirmName('');
+    }
+  };
+
+  const handleBatchDeleteRoles = async () => {
+    if (!isAdmin) {
+      alert('Operación Denegada: Solo el Administrador puede eliminar personal.');
+      return;
+    }
+    const protectedIds = ['admin-demo-uid', 'admin-main-uid', 'admin-harold-uid'];
+    const validUids = selectedRoleUids.filter(uid => !protectedIds.includes(uid));
+
+    if (validUids.length === 0) {
+      alert('No hay personal válido seleccionado para eliminar (las cuentas de Administrador Principal están protegidas).');
+      return;
+    }
+
+    const confirmMsg = `¿Está seguro de eliminar a los ${validUids.length} operadores seleccionados?\n\nEsta acción revocará inmediatamente sus credenciales y accesos al sistema de manera irreversible.`;
+    if (window.confirm(confirmMsg)) {
+      setIsBatchDeletingRoles(true);
+      try {
+        for (const uid of validUids) {
+          await dbService.deleteSystemRole(uid);
+        }
+        setSelectedRoleUids([]);
+        loadRoles();
+        onRolesUpdated();
+        setSuccessMsg(`Se eliminaron y revocaron los permisos de ${validUids.length} operadores seleccionados.`);
+        setTimeout(() => setSuccessMsg(''), 5000);
+      } catch (err) {
+        console.error('Error batch deleting roles:', err);
+      } finally {
+        setIsBatchDeletingRoles(false);
+      }
     }
   };
 
@@ -512,9 +555,21 @@ export default function RolesManager({
         {/* Left pane: Active personnel roster */}
         <div id="roles-left-list-col" className="lg:col-span-7 bg-[#2A2A2E] border border-[#3e3e42] rounded-2xl p-5 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <h3 className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center gap-2">
-              <Users className="w-4 h-4 text-slate-400" /> Nómina de Personal Autorizado
-            </h3>
+            <div className="flex items-center gap-3">
+              <h3 className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center gap-2">
+                <Users className="w-4 h-4 text-slate-400" /> Nómina de Personal Autorizado
+              </h3>
+              {isAdmin && selectedRoleUids.length > 0 && (
+                <button
+                  onClick={handleBatchDeleteRoles}
+                  disabled={isBatchDeletingRoles}
+                  className="inline-flex items-center gap-1.5 bg-red-600/20 border border-red-500/40 text-red-400 hover:bg-red-600 hover:text-white px-2.5 py-1 rounded-lg text-[11px] font-bold transition cursor-pointer"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  <span>{isBatchDeletingRoles ? 'Eliminando...' : `Eliminar (${selectedRoleUids.length})`}</span>
+                </button>
+              )}
+            </div>
             
             {/* Search */}
             <div className="relative max-w-xs w-full sm:w-60">
@@ -536,7 +591,8 @@ export default function RolesManager({
             {filteredRoles.map(r => {
               const isSimulatingThis = false;
               const isDeactivated = r.isActive === false;
-              const isMainAdmin = r.uid === 'admin-demo-uid';
+              const isMainAdmin = r.uid === 'admin-demo-uid' || r.uid === 'admin-main-uid' || r.uid === 'admin-harold-uid';
+              const isSelected = selectedRoleUids.includes(r.uid);
               const showPass = !!showPasswordMap[r.uid];
               const toggleShowPass = () => setShowPasswordMap(prev => ({ ...prev, [r.uid]: !prev[r.uid] }));
 
@@ -545,12 +601,28 @@ export default function RolesManager({
                   key={r.uid} 
                   id={`operator-card-${r.uid}`}
                   className={`p-3.5 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                    isSelected ? 'bg-red-500/5 border-red-500/30' :
                     isDeactivated
                       ? 'bg-[#151518] border-red-900/20 opacity-70'
                       : 'bg-[#1A1A1E] border-[#3e3e42] hover:border-slate-650'
                   }`}
                 >
-                  <div className="space-y-1.5 flex-1 min-w-0">
+                  <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                    {isAdmin && !isMainAdmin && (
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedRoleUids(prev => [...prev, r.uid]);
+                          } else {
+                            setSelectedRoleUids(prev => prev.filter(x => x !== r.uid));
+                          }
+                        }}
+                        className="rounded bg-[#111115] border-[#3e3e42] text-red-600 focus:ring-0 cursor-pointer"
+                      />
+                    )}
+                    <div className="space-y-1.5 flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-bold text-slate-100 truncate">{r.name}</span>
                       <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border uppercase tracking-wider ${getRoleBadgeStyle(r.role)}`}>
@@ -619,6 +691,7 @@ export default function RolesManager({
 
                     <p className="text-[9px] text-slate-500 font-mono">Alta: {new Date(r.createdAt).toLocaleDateString()}</p>
                   </div>
+                  </div>
 
                   <div className="flex items-center gap-1.5 justify-end shrink-0">
                     {/* Edit button */}
@@ -648,20 +721,17 @@ export default function RolesManager({
                       {isDeactivated ? <UserCheck className="w-3.5 h-3.5" /> : <UserX className="w-3.5 h-3.5" />}
                     </button>
 
-                    {/* Delete button */}
-                    <button
-                      id={`btn-delete-role-${r.uid}`}
-                      onClick={() => handleDeleteRole(r.uid, r.name)}
-                      disabled={isMainAdmin}
-                      className={`p-1.5 transition rounded-lg border border-transparent cursor-pointer ${
-                        isMainAdmin 
-                          ? 'text-slate-700 cursor-not-allowed' 
-                          : 'text-slate-400 hover:text-rose-450 hover:bg-rose-500/10'
-                      }`}
-                      title={isMainAdmin ? 'Administrador Maestro' : 'Eliminar Operador'}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    {/* Delete button (Admin Only) */}
+                    {isAdmin && !isMainAdmin && (
+                      <button
+                        id={`btn-delete-role-${r.uid}`}
+                        onClick={() => handleDeleteRole(r.uid, r.name)}
+                        className="p-1.5 transition rounded-lg border border-transparent cursor-pointer text-slate-400 hover:text-rose-450 hover:bg-rose-500/10"
+                        title="Eliminar Personal / Revocar Acceso"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               );

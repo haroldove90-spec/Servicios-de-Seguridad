@@ -16,11 +16,15 @@ import { Residencia, Residente, AuthorizedUser, UserStatus, SystemUserRole } fro
 import { generateQRWithLogo } from '../utils/qrWithLogo';
 
 interface ResidenciasManagerProps {
+  currentUser?: any;
   onRefresh?: () => void;
   onVisitResidencia?: (residencia: Residencia) => void;
 }
 
-export default function ResidenciasManager({ onRefresh, onVisitResidencia }: ResidenciasManagerProps) {
+export default function ResidenciasManager({ currentUser, onRefresh, onVisitResidencia }: ResidenciasManagerProps) {
+  const isAdmin = !currentUser || currentUser.role === 'admin' || currentUser.role === SystemUserRole.ADMIN || currentUser.role === 'superadmin';
+  const [selectedResidenciaIds, setSelectedResidenciaIds] = useState<string[]>([]);
+  const [isBatchDeleting, setIsBatchDeleting] = useState<boolean>(false);
   const [residencias, setResidencias] = useState<Residencia[]>([]);
   const [residentes, setResidentes] = useState<Residente[]>([]);
   const [visitantes, setVisitantes] = useState<AuthorizedUser[]>([]);
@@ -286,14 +290,46 @@ export default function ResidenciasManager({ onRefresh, onVisitResidencia }: Res
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (window.confirm('¿Está seguro de que desea eliminar permanentemente este registro de residencia?')) {
+  const handleDelete = async (id: string, nombre?: string) => {
+    if (!isAdmin) {
+      alert('Operación Denegada: Solo el Administrador tiene permisos para eliminar residencias y sus registros asociados.');
+      return;
+    }
+    const targetName = nombre ? `"${nombre}"` : 'esta residencia';
+    const confirmMsg = `¿Está seguro de eliminar permanentemente ${targetName}?\n\nADVERTENCIA CRÍTICA: Esta acción eliminará en cascada TODOS los registros asociados a esta residencia: residentes, personal administrativo, visitas, marbetes, casetas y registros de bitácora.`;
+    if (window.confirm(confirmMsg)) {
       try {
         await dbService.deleteResidencia(id);
-        loadData();
+        setSelectedResidenciaIds(prev => prev.filter(x => x !== id));
+        await loadData();
         if (onRefresh) onRefresh();
       } catch (error) {
         console.error('Error deleting residencia:', error);
+      }
+    }
+  };
+
+  const handleBatchDeleteResidencias = async () => {
+    if (!isAdmin) {
+      alert('Operación Denegada: Solo el Administrador tiene permisos para eliminar residencias.');
+      return;
+    }
+    if (selectedResidenciaIds.length === 0) return;
+
+    const confirmMsg = `¿Está seguro de eliminar permanentemente las ${selectedResidenciaIds.length} residencias seleccionadas?\n\nADVERTENCIA CRÍTICA: Se eliminarán en cascada TODOS los residentes, personal y registros asociados a cada una de estas residencias de manera irreversible.`;
+    if (window.confirm(confirmMsg)) {
+      setIsBatchDeleting(true);
+      try {
+        for (const resId of selectedResidenciaIds) {
+          await dbService.deleteResidencia(resId);
+        }
+        setSelectedResidenciaIds([]);
+        await loadData();
+        if (onRefresh) onRefresh();
+      } catch (error) {
+        console.error('Error in batch deleting residencias:', error);
+      } finally {
+        setIsBatchDeleting(false);
       }
     }
   };
@@ -459,7 +495,17 @@ export default function ResidenciasManager({ onRefresh, onVisitResidencia }: Res
             className="w-full bg-[#1e1e24] border border-[#2e2e38] rounded-xl pl-10 pr-4 py-2.5 text-xs text-white focus:outline-none focus:border-red-500 font-medium placeholder-slate-500 transition-all"
           />
         </div>
-        <div className="flex items-center gap-3 text-xs text-slate-400">
+        <div className="flex items-center gap-3 text-xs text-slate-400 flex-wrap">
+          {isAdmin && selectedResidenciaIds.length > 0 && (
+            <button
+              onClick={handleBatchDeleteResidencias}
+              disabled={isBatchDeleting}
+              className="inline-flex items-center gap-2 bg-red-600/20 border border-red-500/40 text-red-400 hover:bg-red-600 hover:text-white px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>{isBatchDeleting ? 'Eliminando...' : `Eliminar residencias (${selectedResidenciaIds.length})`}</span>
+            </button>
+          )}
           <span className="bg-[#1e1e24] border border-[#2e2e38] px-3 py-1.5 rounded-lg">
             Fraccionamientos: <strong className="text-white">{residencias.length}</strong>
           </span>
@@ -475,7 +521,23 @@ export default function ResidenciasManager({ onRefresh, onVisitResidencia }: Res
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-[#1e1e24]/60 border-b border-[#2e2e38] text-[10.5px] font-bold text-slate-400 uppercase tracking-widest">
-                <th className="py-4 px-6">Residencia / Fraccionamiento</th>
+                {isAdmin && (
+                  <th className="py-4 pl-6 pr-2 w-10">
+                    <input
+                      type="checkbox"
+                      checked={filteredItems.length > 0 && selectedResidenciaIds.length === filteredItems.length}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedResidenciaIds(filteredItems.map(x => x.id));
+                        } else {
+                          setSelectedResidenciaIds([]);
+                        }
+                      }}
+                      className="rounded bg-[#111115] border-[#2e2e38] text-red-600 focus:ring-0 cursor-pointer"
+                    />
+                  </th>
+                )}
+                <th className={`py-4 ${isAdmin ? 'px-3' : 'px-6'}`}>Residencia / Fraccionamiento</th>
                 <th className="py-4 px-6">Administrador</th>
                 <th className="py-4 px-4 text-center">Nº Residencias</th>
                 <th className="py-4 px-4 text-center">Estado</th>
@@ -486,18 +548,35 @@ export default function ResidenciasManager({ onRefresh, onVisitResidencia }: Res
             <tbody className="divide-y divide-[#2e2e38] text-xs">
               {filteredItems.length === 0 ? (
                 <tr>
-                   <td colSpan={6} className="py-12 text-center text-slate-500 font-medium">
+                   <td colSpan={isAdmin ? 7 : 6} className="py-12 text-center text-slate-500 font-medium">
                     {searchTerm ? 'No se encontraron resultados para la búsqueda.' : 'No hay residencias registradas en este momento.'}
                   </td>
                 </tr>
               ) : (
                 filteredItems.map((item) => {
                   const isExpanded = expandedResidenciaId === item.id;
+                  const isSelected = selectedResidenciaIds.includes(item.id);
 
                   return (
                     <React.Fragment key={item.id}>
-                      <tr className={`hover:bg-[#1e1e24]/30 transition-all ${isExpanded ? 'bg-[#1e1e24]/40' : ''}`}>
-                        <td className="py-4 px-6 font-semibold text-white">
+                      <tr className={`hover:bg-[#1e1e24]/30 transition-all ${isExpanded ? 'bg-[#1e1e24]/40' : ''} ${isSelected ? 'bg-red-500/5' : ''}`}>
+                        {isAdmin && (
+                          <td className="py-4 pl-6 pr-2">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedResidenciaIds(prev => [...prev, item.id]);
+                                } else {
+                                  setSelectedResidenciaIds(prev => prev.filter(x => x !== item.id));
+                                }
+                              }}
+                              className="rounded bg-[#111115] border-[#2e2e38] text-red-600 focus:ring-0 cursor-pointer"
+                            />
+                          </td>
+                        )}
+                        <td className={`py-4 ${isAdmin ? 'px-3' : 'px-6'} font-semibold text-white`}>
                           <div className="flex items-center gap-2.5">
                             <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center text-red-500">
                               <Home className="w-4 h-4" />
@@ -577,18 +656,20 @@ export default function ResidenciasManager({ onRefresh, onVisitResidencia }: Res
                             </button>
                             <button
                               onClick={() => handleOpenEditForm(item)}
-                              className="p-2 text-slate-400 hover:text-white hover:bg-[#1e1e24] rounded-lg transition-all"
+                              className="p-2 text-slate-400 hover:text-white hover:bg-[#1e1e24] rounded-lg transition-all cursor-pointer"
                               title="Editar"
                             >
                               <Edit2 className="w-3.5 h-3.5" />
                             </button>
-                            <button
-                              onClick={() => handleDelete(item.id)}
-                              className="p-2 text-slate-400 hover:text-red-450 hover:bg-red-500/10 rounded-lg transition-all"
-                              title="Eliminar"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            {isAdmin && (
+                              <button
+                                onClick={() => handleDelete(item.id, item.nombre)}
+                                className="p-2 text-slate-400 hover:text-red-450 hover:bg-red-500/10 rounded-lg transition-all cursor-pointer"
+                                title="Eliminar Residencia (Cascada Completa)"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>

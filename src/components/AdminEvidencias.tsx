@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { Camera, Search, RefreshCw, Trash2, Calendar, MapPin, User, ShieldAlert, CheckCircle, FileText } from 'lucide-react';
 import { dbService } from '../services/dbService';
-import { Evidencia } from '../types';
+import { Evidencia, SystemUserRole } from '../types';
 
 interface AdminEvidenciasProps {
   currentUser: {
@@ -24,6 +24,10 @@ export default function AdminEvidencias({ currentUser }: AdminEvidenciasProps) {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<'all' | 'placa' | 'credencial'>('all');
+  const [selectedEvidenciaIds, setSelectedEvidenciaIds] = useState<string[]>([]);
+  const [isBatchDeletingEvidencias, setIsBatchDeletingEvidencias] = useState<boolean>(false);
+
+  const isAdmin = !currentUser || currentUser.role === 'admin' || currentUser.role === SystemUserRole.ADMIN || currentUser.role === 'superadmin';
 
   const loadEvidencias = async () => {
     setLoading(true);
@@ -69,13 +73,41 @@ export default function AdminEvidencias({ currentUser }: AdminEvidenciasProps) {
     });
 
   const handleDelete = async (id: string) => {
+    if (!isAdmin) {
+      alert('Operación Denegada: Solo el Administrador tiene permisos para eliminar evidencias del sistema.');
+      return;
+    }
     if (window.confirm('¿Estás seguro de que deseas eliminar permanentemente esta evidencia?')) {
       try {
         await dbService.deleteEvidencia(id);
+        setSelectedEvidenciaIds(prev => prev.filter(x => x !== id));
         setEvidenciasList(prev => prev.filter(item => item.id !== id));
       } catch (err) {
         console.error('Error deleting evidence record:', err);
         alert('Ocurrió un error al intentar eliminar la evidencia.');
+      }
+    }
+  };
+
+  const handleBatchDeleteEvidencias = async () => {
+    if (!isAdmin) {
+      alert('Operación Denegada: Solo el Administrador tiene permisos para eliminar evidencias del sistema.');
+      return;
+    }
+    if (selectedEvidenciaIds.length === 0) return;
+    if (window.confirm(`¿Está seguro de eliminar permanentemente las ${selectedEvidenciaIds.length} evidencias seleccionadas?`)) {
+      setIsBatchDeletingEvidencias(true);
+      try {
+        for (const id of selectedEvidenciaIds) {
+          await dbService.deleteEvidencia(id);
+        }
+        setEvidenciasList(prev => prev.filter(item => !selectedEvidenciaIds.includes(item.id)));
+        setSelectedEvidenciaIds([]);
+      } catch (err) {
+        console.error('Error batch deleting evidences:', err);
+        alert('Ocurrió un error al eliminar el lote de evidencias.');
+      } finally {
+        setIsBatchDeletingEvidencias(false);
       }
     }
   };

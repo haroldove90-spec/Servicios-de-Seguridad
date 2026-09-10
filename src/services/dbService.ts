@@ -1480,7 +1480,7 @@ export const dbService = {
       const { error } = await supabase
         .from('system_roles')
         .delete()
-        .eq('uid', uid);
+        .or(`uid.eq.${uid},id.eq.${uid}`);
 
       if (error) {
         console.warn('Supabase deleteSystemRole returned query error. Code:', error.code, 'Msg:', error.message);
@@ -1489,18 +1489,42 @@ export const dbService = {
       console.warn('Supabase deleteSystemRole critical exception, using fallback:', err);
     }
 
+    try {
+      await supabase.from('authorized_users').delete().eq('id', uid);
+    } catch {}
+
     if (!IS_FIREBASE_DUMMY) {
       try {
         const docRef = doc(db, 'system_roles', uid);
         await deleteDoc(docRef);
+        try { await deleteDoc(doc(db, 'authorized_users', uid)); } catch {}
       } catch (err) {
         console.warn('Firestore delete failed, relying on Supabase/Local state:', err);
       }
     }
 
-    const roles = LocalDB.getRoles();
-    const filtered = roles.filter(r => r.uid !== uid);
-    LocalDB.saveRoles(filtered);
+    try {
+      const roles = LocalDB.getRoles();
+      const filtered = roles.filter(r => r.uid !== uid && (r as any).id !== uid);
+      LocalDB.saveRoles(filtered);
+
+      const users = LocalDB.getUsers();
+      LocalDB.saveUsers(users.filter(u => u.id !== uid));
+    } catch (locErr) {
+      console.warn('LocalDB deleteSystemRole error:', locErr);
+    }
+
+    // Instantly revoke browser session if currently active user was this system user
+    try {
+      const activeUserRoleJson = localStorage.getItem('cnls_user_role');
+      if (activeUserRoleJson) {
+        const activeUser = JSON.parse(activeUserRoleJson);
+        if (activeUser.uid === uid || (activeUser as any).id === uid) {
+          localStorage.removeItem('cnls_user_role');
+          localStorage.setItem('cnls_has_selected_role', 'false');
+        }
+      }
+    } catch {}
   },
 
   // --------------------------------------------------
@@ -2490,32 +2514,241 @@ export const dbService = {
   },
 
   async deleteResidencia(id: string): Promise<void> {
+    // 1. Identify target residencia to retrieve both ID and human-readable Name
+    let targetNombre = '';
+    try {
+      const allRes = await this.getResidencias();
+      const match = allRes.find(r => r.id === id);
+      if (match && match.nombre) {
+        targetNombre = match.nombre.trim();
+      }
+    } catch {}
+
+    // 2. Identify all resident records associated with this residencia
+    let residentsToDelete: Residente[] = [];
+    try {
+      const allResidents = await this.getResidentes();
+      residentsToDelete = allResidents.filter(r => 
+        r.residenciaId === id || 
+        (r as any).residencia_id === id || 
+        (targetNombre && r.residenciaNombre && r.residenciaNombre.trim().toLowerCase() === targetNombre.toLowerCase())
+      );
+    } catch {}
+
+    // 3. Extract credentials and passes for cascading deletion
+    const residentAccessIds = residentsToDelete.map(r => r.accessUserId).filter(Boolean) as string[];
+    const residentUsernames = residentsToDelete.map(r => r.username).filter(Boolean) as string[];
+    const residentTokens = residentsToDelete.map(r => r.qrcodeToken).filter(Boolean) as string[];
+    const residentIds = residentsToDelete.map(r => r.id).filter(Boolean);
+
+    // 4. CASCADE DELETE FROM SUPABASE
+    // A. Delete Residentes
+    try {
+      await supabase.from('residentes').delete().or(`residenciaId.eq.${id},residencia_id.eq.${id}`);
+      if (targetNombre) {
+        await supabase.from('residentes').delete().or(`residenciaNombre.eq.${targetNombre},residencia_nombre.eq.${targetNombre}`);
+      }
+      for (const rId of residentIds) {
+        await supabase.from('residentes').delete().eq('id', rId);
+      }
+    } catch (err) {
+      console.warn('Supabase cascade delete residentes error:', err);
+    }
+
+    // B. Delete Staff/Personal (system_roles), strictly protecting root/master administrators
+    try {
+      await supabase.from('system_roles')
+        .delete()
+        .or(`residenciaId.eq.${id},residencia_id.eq.${id}`)
+        .neq('role', 'admin')
+        .neq('username', 'admin');
+
+      if (targetNombre) {
+        await supabase.from('system_roles')
+          .delete()
+          .or(`residenciaNombre.eq.${targetNombre},residencia_nombre.eq.${targetNombre}`)
+          .neq('role', 'admin')
+          .neq('username', 'admin');
+      }
+
+      // Also delete any system_roles matching resident accounts
+      for (const uid of residentAccessIds) {
+        await supabase.from('system_roles').delete().or(`uid.eq.${uid},id.eq.${uid}`);
+      }
+      for (const uname of residentUsernames) {
+        await supabase.from('system_roles').delete().eq('username', uname);
+      }
+    } catch (err) {
+      console.warn('Supabase cascade delete system_roles error:', err);
+    }
+
+    // C. Delete Visitors / Passes (authorized_users)
+    try {
+      await supabase.from('authorized_users').delete().or(`residenciaId.eq.${id},residencia_id.eq.${id}`);
+      if (targetNombre) {
+        await supabase.from('authorized_users').delete().or(`residenciaNombre.eq.${targetNombre},residencia_nombre.eq.${targetNombre}`);
+      }
+      for (const uid of residentAccessIds) {
+        await supabase.from('authorized_users').delete().eq('id', uid);
+      }
+      for (const tok of residentTokens) {
+        await supabase.from('authorized_users').delete().eq('qrcodeToken', tok);
+      }
+    } catch (err) {
+      console.warn('Supabase cascade delete authorized_users error:', err);
+    }
+
+    // D. Delete Casetas
+    try {
+      await supabase.from('casetas').delete().or(`residenciaId.eq.${id},residencia_id.eq.${id}`);
+      if (targetNombre) {
+        await supabase.from('casetas').delete().or(`residenciaNombre.eq.${targetNombre},residencia_nombre.eq.${targetNombre}`);
+      }
+    } catch (err) {
+      console.warn('Supabase cascade delete casetas error:', err);
+    }
+
+    // E. Delete Marbetes
+    try {
+      await supabase.from('marbetes').delete().or(`residenciaId.eq.${id},residencia_id.eq.${id}`);
+      if (targetNombre) {
+        await supabase.from('marbetes').delete().or(`residenciaNombre.eq.${targetNombre},residencia_nombre.eq.${targetNombre}`);
+      }
+    } catch (err) {
+      console.warn('Supabase cascade delete marbetes error:', err);
+    }
+
+    // F. Delete Alertas de Pánico
+    try {
+      await supabase.from('alertas_panico').delete().or(`residencia_id.eq.${id},residenciaId.eq.${id}`);
+      if (targetNombre) {
+        await supabase.from('alertas_panico').delete().or(`residencia_nombre.eq.${targetNombre},residenciaNombre.eq.${targetNombre}`);
+      }
+    } catch (err) {
+      console.warn('Supabase cascade delete alertas_panico error:', err);
+    }
+
+    // G. Delete Evidencias
+    try {
+      await supabase.from('evidencias').delete().or(`residenciaId.eq.${id},residencia_id.eq.${id},residenciaid.eq.${id}`);
+      if (targetNombre) {
+        await supabase.from('evidencias').delete().or(`residenciaNombre.eq.${targetNombre},residencia_nombre.eq.${targetNombre}`);
+      }
+    } catch (err) {
+      console.warn('Supabase cascade delete evidencias error:', err);
+    }
+
+    // H. Delete Access Logs
+    try {
+      await supabase.from('access_logs').delete().or(`residenciaId.eq.${id},residencia_id.eq.${id}`);
+      if (targetNombre) {
+        await supabase.from('access_logs').delete().or(`residenciaNombre.eq.${targetNombre},residencia_nombre.eq.${targetNombre}`);
+      }
+    } catch (err) {
+      console.warn('Supabase cascade delete access_logs error:', err);
+    }
+
+    // I. Delete the Residencia itself from Supabase
     try {
       const { error } = await supabase
         .from('residencias')
         .delete()
         .eq('id', id);
-
-      if (!error) {
-        return;
+      if (error) {
+        console.warn('Supabase deleteResidencia query error:', error);
       }
-      console.warn('Supabase deleteResidencia returned query error. Code:', error.code, 'Msg:', error.message);
     } catch (err) {
-      console.warn('Supabase deleteResidencia exception, using fallback:', err);
+      console.warn('Supabase deleteResidencia exception:', err);
     }
 
-    if (IS_FIREBASE_DUMMY) {
-      const list = LocalDB.getResidencias();
-      const filtered = list.filter(item => item.id !== id);
-      LocalDB.saveResidencias(filtered);
-      return;
-    }
-
+    // 5. CASCADE DELETION IN LOCALDB (Always update local cache!)
     try {
-      const docRef = doc(db, 'residencias', id);
-      await deleteDoc(docRef);
-    } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, `residencias/${id}`);
+      // Residencias
+      const residencias = LocalDB.getResidencias();
+      LocalDB.saveResidencias(residencias.filter(r => r.id !== id));
+
+      // Residentes
+      const residentes = LocalDB.getResidentes();
+      LocalDB.saveResidentes(residentes.filter(r => 
+        r.residenciaId !== id && 
+        (r as any).residencia_id !== id && 
+        (!targetNombre || !r.residenciaNombre || r.residenciaNombre.trim().toLowerCase() !== targetNombre.toLowerCase()) &&
+        !residentIds.includes(r.id)
+      ));
+
+      // System Roles (personal/staff, strictly preserving Master Admin)
+      const roles = LocalDB.getRoles();
+      LocalDB.saveRoles(roles.filter(r => {
+        if (r.role === SystemUserRole.ADMIN && (!r.residenciaId || r.uid === 'admin-demo-uid' || r.uid === 'admin-main-uid' || r.uid === 'admin-harold-uid')) return true;
+        if (r.residenciaId === id || (r as any).residencia_id === id) return false;
+        if (targetNombre && r.residenciaNombre && r.residenciaNombre.trim().toLowerCase() === targetNombre.toLowerCase()) return false;
+        if (residentAccessIds.includes(r.uid) || (r.username && residentUsernames.includes(r.username))) return false;
+        return true;
+      }));
+
+      // Users / Passes
+      const users = LocalDB.getUsers();
+      LocalDB.saveUsers(users.filter(u => 
+        u.residenciaId !== id && 
+        (u as any).residencia_id !== id && 
+        (!targetNombre || !u.residenciaNombre || u.residenciaNombre.trim().toLowerCase() !== targetNombre.toLowerCase()) &&
+        !residentAccessIds.includes(u.id) &&
+        !residentTokens.includes(u.qrcodeToken)
+      ));
+
+      // Casetas
+      const casetas = LocalDB.getCasetas();
+      LocalDB.saveCasetas(casetas.filter(c => c.residenciaId !== id && (!targetNombre || !c.residenciaNombre || c.residenciaNombre.trim().toLowerCase() !== targetNombre.toLowerCase())));
+
+      // Marbetes
+      const marbetes = LocalDB.getMarbetes();
+      LocalDB.saveMarbetes(marbetes.filter(m => m.residenciaId !== id && (!targetNombre || !m.residenciaNombre || m.residenciaNombre.trim().toLowerCase() !== targetNombre.toLowerCase())));
+
+      // Alertas
+      const alertas = LocalDB.getAlertasPanico();
+      LocalDB.saveAlertasPanico(alertas.filter(a => a.residenciaId !== id && (a as any).residencia_id !== id));
+
+      // Evidencias
+      const evidencias = LocalDB.getEvidencias();
+      LocalDB.saveEvidencias(evidencias.filter(e => e.residenciaId !== id && (e as any).residencia_id !== id));
+
+      // Logs
+      const logs = LocalDB.getLogs();
+      LocalDB.saveLogs(logs.filter(l => l.residenciaId !== id && (!targetNombre || !l.residenciaNombre || l.residenciaNombre.trim().toLowerCase() !== targetNombre.toLowerCase())));
+    } catch (locErr) {
+      console.warn('LocalDB cascade delete error:', locErr);
+    }
+
+    // 6. Instantly revoke browser session if currently active user was tied to this deleted residencia
+    try {
+      const activeUserRoleJson = localStorage.getItem('cnls_user_role');
+      if (activeUserRoleJson) {
+        const activeUser = JSON.parse(activeUserRoleJson);
+        if (
+          (activeUser.residenciaId === id || (targetNombre && activeUser.residenciaNombre && activeUser.residenciaNombre.trim().toLowerCase() === targetNombre.toLowerCase())) &&
+          activeUser.role !== SystemUserRole.ADMIN
+        ) {
+          localStorage.removeItem('cnls_user_role');
+          localStorage.setItem('cnls_has_selected_role', 'false');
+        }
+      }
+    } catch {}
+
+    // 7. Firestore deletion
+    if (!IS_FIREBASE_DUMMY) {
+      try {
+        const docRef = doc(db, 'residencias', id);
+        await deleteDoc(docRef);
+        for (const rId of residentIds) {
+          try { await deleteDoc(doc(db, 'residentes', rId)); } catch {}
+        }
+        for (const uId of residentAccessIds) {
+          try { await deleteDoc(doc(db, 'authorized_users', uId)); } catch {}
+          try { await deleteDoc(doc(db, 'system_roles', uId)); } catch {}
+        }
+      } catch (err) {
+        console.warn('Firestore cascade delete error:', err);
+      }
     }
   },
 
@@ -2730,32 +2963,128 @@ export const dbService = {
   },
 
   async deleteResidente(id: string): Promise<void> {
+    // 1. First retrieve the resident record to obtain accessUserId, username, and token
+    let targetRes: Residente | null = null;
+    try {
+      const all = await this.getResidentes();
+      targetRes = all.find(r => r.id === id) || null;
+    } catch {}
+
+    const accessUserId = targetRes?.accessUserId;
+    const username = targetRes?.username;
+    const qrcodeToken = targetRes?.qrcodeToken;
+
+    // 2. Delete from Supabase 'residentes'
     try {
       const { error } = await supabase
         .from('residentes')
         .delete()
         .eq('id', id);
 
-      if (!error) {
-        return;
+      if (error) {
+        console.warn('Supabase deleteResidente returned query error:', error);
       }
-      console.warn('Supabase deleteResidente returned query error. Code:', error.code, 'Msg:', error.message);
     } catch (err) {
-      console.warn('Supabase deleteResidente exception, using fallback:', err);
+      console.warn('Supabase deleteResidente exception:', err);
     }
 
-    if (IS_FIREBASE_DUMMY) {
+    // 3. Cascade delete associated pass from 'authorized_users'
+    if (accessUserId) {
+      try {
+        await supabase.from('authorized_users').delete().eq('id', accessUserId);
+      } catch {}
+    }
+    if (qrcodeToken) {
+      try {
+        await supabase.from('authorized_users').delete().eq('qrcodeToken', qrcodeToken);
+      } catch {}
+    }
+
+    // 4. Cascade delete associated user login credentials from 'system_roles'
+    if (accessUserId) {
+      try {
+        await supabase.from('system_roles').delete().or(`uid.eq.${accessUserId},id.eq.${accessUserId}`);
+      } catch {}
+    }
+    if (username) {
+      try {
+        await supabase.from('system_roles').delete().eq('username', username);
+      } catch {}
+    }
+
+    // 5. Delete from LocalDB (ALWAYS execute - never return early!)
+    try {
       const list = LocalDB.getResidentes();
       const filtered = list.filter(item => item.id !== id);
       LocalDB.saveResidentes(filtered);
-      return;
+
+      if (accessUserId) {
+        const users = LocalDB.getUsers();
+        LocalDB.saveUsers(users.filter(u => u.id !== accessUserId));
+
+        const roles = LocalDB.getRoles();
+        LocalDB.saveRoles(roles.filter(r => r.uid !== accessUserId));
+      }
+
+      if (username) {
+        const roles = LocalDB.getRoles();
+        LocalDB.saveRoles(roles.filter(r => r.username?.toLowerCase() !== username.toLowerCase()));
+      }
+    } catch (locErr) {
+      console.warn('LocalDB deleteResidente error:', locErr);
     }
 
+    // 6. Instantly revoke browser session if currently active user was this resident
     try {
-      const docRef = doc(db, 'residentes', id);
-      await deleteDoc(docRef);
+      const activeUserRoleJson = localStorage.getItem('cnls_user_role');
+      if (activeUserRoleJson) {
+        const activeUser = JSON.parse(activeUserRoleJson);
+        if (
+          activeUser.uid === id || 
+          (accessUserId && activeUser.uid === accessUserId) ||
+          (username && activeUser.username?.toLowerCase() === username.toLowerCase())
+        ) {
+          localStorage.removeItem('cnls_user_role');
+          localStorage.setItem('cnls_has_selected_role', 'false');
+        }
+      }
+    } catch {}
+
+    // 7. Delete from Firestore if active
+    if (!IS_FIREBASE_DUMMY) {
+      try {
+        const docRef = doc(db, 'residentes', id);
+        await deleteDoc(docRef);
+        if (accessUserId) {
+          try { await deleteDoc(doc(db, 'authorized_users', accessUserId)); } catch {}
+          try { await deleteDoc(doc(db, 'system_roles', accessUserId)); } catch {}
+        }
+      } catch (err) {
+        handleFirestoreError(err, OperationType.DELETE, `residentes/${id}`);
+      }
+    }
+  },
+
+  async cleanOrphanedResidentes(): Promise<number> {
+    try {
+      const residencias = await this.getResidencias();
+      const validIds = new Set(residencias.map(r => r.id));
+      const validNames = new Set(residencias.map(r => r.nombre.trim().toLowerCase()));
+
+      const residentes = await this.getResidentes();
+      const orphaned = residentes.filter(res => {
+        const hasValidId = res.residenciaId && validIds.has(res.residenciaId);
+        const hasValidName = res.residenciaNombre && validNames.has(res.residenciaNombre.trim().toLowerCase());
+        return !hasValidId && !hasValidName;
+      });
+
+      for (const r of orphaned) {
+        await this.deleteResidente(r.id);
+      }
+      return orphaned.length;
     } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, `residentes/${id}`);
+      console.error('Error cleaning orphaned residentes:', err);
+      return 0;
     }
   },
 
@@ -2875,31 +3204,33 @@ export const dbService = {
 
   async deleteCaseta(id: string): Promise<void> {
     try {
+      const list = LocalDB.getCasetas();
+      const filtered = list.filter(item => item.id !== id);
+      LocalDB.saveCasetas(filtered);
+    } catch (locErr) {
+      console.warn('LocalDB deleteCaseta error:', locErr);
+    }
+
+    try {
       const { error } = await supabase
         .from('casetas')
         .delete()
         .eq('id', id);
 
-      if (!error) {
-        return;
+      if (error) {
+        console.warn('Supabase deleteCaseta returned query error. Code:', error.code, 'Msg:', error.message);
       }
-      console.warn('Supabase deleteCaseta returned query error. Code:', error.code, 'Msg:', error.message);
     } catch (err) {
       console.warn('Supabase deleteCaseta exception, using fallback:', err);
     }
 
-    if (IS_FIREBASE_DUMMY) {
-      const list = LocalDB.getCasetas();
-      const filtered = list.filter(item => item.id !== id);
-      LocalDB.saveCasetas(filtered);
-      return;
-    }
-
-    try {
-      const docRef = doc(db, 'casetas', id);
-      await deleteDoc(docRef);
-    } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, `casetas/${id}`);
+    if (!IS_FIREBASE_DUMMY) {
+      try {
+        const docRef = doc(db, 'casetas', id);
+        await deleteDoc(docRef);
+      } catch (err) {
+        handleFirestoreError(err, OperationType.DELETE, `casetas/${id}`);
+      }
     }
   },
 
